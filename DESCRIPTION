@@ -1,0 +1,17 @@
+Package: MuGaMix
+Type: Package
+Title: Bayesian mixture model for multi-trait phenotype data
+Version: 1.0
+Date: 2019-10-24
+Author: Tony Greenberg
+Maintainer: Tony Greenberg <info@bayesicresearch.org>
+Description: Bayesian inference of Gaussian mixture models to probabilistically assign individuals to populations. Given a number of populations and (possibly replicated) data on multiple traits, the model assigns individuals to populations. Model fit is assessed via Bayes factors that help decide on the most likely number of undelying populations.
+License: BSD_3_Clause
+Imports: Rcpp (>= 1.0.0)
+LinkingTo: Rcpp
+ByteCompile: yes
+NeedsCompilation: yes
+OS_type: unix
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 6.1.1
+RdMacros: Rdpack
