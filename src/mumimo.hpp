@@ -38,6 +38,7 @@
 #include "model.hpp"
 #include "sampler.hpp"
 #include "danuts.hpp"
+#include "matrixView.hpp"
 
 using std::vector;
 using std::string;
@@ -57,7 +58,7 @@ namespace BayesicSpace {
 	class MumiLoc : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiLoc(): Model(), vY_{nullptr}, iSig_{nullptr}, hierInd_{nullptr}, vX_{nullptr}, tau0_{0.0} {};
+		MumiLoc();
 		/** \brief Constructor
 		 *
 		 * \parameter[in] yVec pointer vectorized data matrix`
@@ -66,7 +67,7 @@ namespace BayesicSpace {
 		 * \parameter[in] xVec pointer to vectorized covariate predictor matrix
 		 * \parameter[in] tau0 fixed prior for the unmodeled ("fixed") effects
 		 */
-		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const vector<double> *xVec, const double &tau0) : Model(), vY_{yVec}, iSig_{iSigVec}, hierInd_{hierInd}, vX_{xVec}, tau0_{tau0} {};
+		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const vector<double> *xVec, const double &tau0);
 		/** \brief Log-posterior function
 		 *
 		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector.
@@ -86,22 +87,20 @@ namespace BayesicSpace {
 		virtual void gradient(const vector<double> &theta, vector<double> &grad) const;
 
 	protected:
-		/** \brief Pointer to vectorized matrix of data */
-		const vector<double> *vY_;
-		/** \brief Pointer to inverse-covariances
-		 *
-		 * The vector contains the error, the line, and the population inverse-covariance matrices.
-		 */
-		const vector<double> *iSig_;
+		/** \brief Matrix view of data */
+		MatrixView Y_;
+		/** \brief Matrix view of the error inverse-covariance */
+		MatrixView ISigE_;
+		/** \brief Matrix view of the line inverse-covariance */
+		MatrixView ISigA_;
+		/** \brief Matrix view of covariate predictors */
+		MatrixView X_;
 		/** \brief Pointer to vector of indexes connecting hierarchy levels */
-		const vector<Index> *hierInd_;
-		/** \brief Pointer to vectorized matrix covariate predictors
-		 *
-		 * This is a vectorized matrix of covariates, currently with a fixed low-precision Gaussian prior. Analogous to fixed effects in a mixed model. The first column is the intercept.
-		 */
-		const vector<double> *vX_;
-		/** \brief Fixed prior for unmodeled effects */
+		vector<Index> *hierInd_;
+		/** \brief Fixed prior precision for unmodeled effects */
 		const double tau0_;
+		/** \brief Fixed prior precision for population means */
+		const double tauP_;
 	};
 
 	/** \brief Model for inverse covariances
