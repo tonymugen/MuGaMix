@@ -29,9 +29,6 @@
  *
  */
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
 #include <vector>
 #include <string>
 #include <cstring>
@@ -46,12 +43,6 @@
 #include "random.hpp"
 #include "index.hpp"
 
-using std::endl;
-using std::flush;
-using std::ofstream;
-using std::ifstream;
-using std::stringstream;
-using std::ios;
 using std::vector;
 using std::string;
 using std::stod;
@@ -59,22 +50,13 @@ using std::fill;
 using std::memcpy;
 using std::nan;
 using std::numeric_limits;
+using std::move;
 
 using namespace BayesicSpace;
 
 
 // MatrixView methods
 
-MatrixView& MatrixView::operator=(const MatrixView &inMat){
-	if (this != &inMat) {
-		idx_  = inMat.idx_;
-		Ncol_ = inMat.Ncol_;
-		Nrow_ = inMat.Nrow_;
-		data_ = inMat.data_;
-	}
-
-	return *this;
-}
 MatrixView& MatrixView::operator=(MatrixView &&inMat){
 	if (this != &inMat) {
 		data_ = inMat.data_;
@@ -982,97 +964,6 @@ void MatrixView::gemc(const bool &trans, const double &alpha, const MatrixView &
 
 	dgemv_(&tTok, &m, &n, &alpha, data_->data() + idx_, &lda, xbeg, &incx, &beta, y.data(), &incy);
 
-}
-
-MatrixView MatrixView::operator*(const MatrixView &m) const{
-#ifndef LMRG_CHECK_OFF
-	if ((Nrow_ != m.Nrow_) || (Ncol_ != m.Ncol_)) {
-		throw string("ERROR: Incompatible dimensions between matrices in the Hadamard product");
-	}
-#endif
-	MatrixView res(*this);
-	for (size_t iElm = 0; iElm < Ncol_*Nrow_; iElm++) {
-		res.data_->data()[iElm+idx_] *= m.data_->data()[iElm+m.idx_];
-	}
-
-	return res;
-}
-
-MatrixView MatrixView::operator*(const double &scal) const{
-	MatrixView res(*this);
-	for (size_t iElm = 0; iElm < Ncol_*Nrow_; iElm++) {
-		res.data_->data()[iElm+idx_] *= scal;
-	}
-
-	return res;
-}
-
-MatrixView MatrixView::operator/(const MatrixView &m) const{
-#ifndef LMRG_CHECK_OFF
-	if ((Nrow_ != m.Nrow_) || (Ncol_ != m.Ncol_)) {
-		throw string("ERROR: Incompatible dimensions between matrices in the Hadamard product");
-	}
-#endif
-	MatrixView res(*this);
-	for (size_t iElm = 0; iElm < Ncol_*Nrow_; iElm++) {
-		res.data_->data()[iElm+idx_] /= m.data_->data()[iElm+m.idx_];
-	}
-
-	return res;
-}
-
-MatrixView MatrixView::operator/(const double &scal) const{
-	MatrixView res(*this);
-	for (size_t iElm = 0; iElm < Ncol_*Nrow_; iElm++) {
-		res.data_->data()[iElm+idx_] /= scal;
-	}
-
-	return res;
-}
-
-MatrixView MatrixView::operator+(const MatrixView &m) const{
-#ifndef LMRG_CHECK_OFF
-	if ((Nrow_ != m.Nrow_) || (Ncol_ != m.Ncol_)) {
-		throw string("ERROR: Incompatible dimensions between matrices in the Hadamard product");
-	}
-#endif
-	MatrixView res(*this);
-	for (size_t iElm = 0; iElm < Ncol_*Nrow_; iElm++) {
-		res.data_->data()[iElm+idx_] += m.data_->data()[iElm+m.idx_];
-	}
-
-	return res;
-}
-
-MatrixView MatrixView::operator+(const double &scal) const{
-	MatrixView res(*this);
-	for (size_t iElm = 0; iElm < Ncol_*Nrow_; iElm++) {
-		res.data_->data()[iElm+idx_] += scal;
-	}
-
-	return res;
-}
-MatrixView MatrixView::operator-(const MatrixView &m) const{
-#ifndef LMRG_CHECK_OFF
-	if ((Nrow_ != m.Nrow_) || (Ncol_ != m.Ncol_)) {
-		throw string("ERROR: Incompatible dimensions between matrices in the Hadamard product");
-	}
-#endif
-	MatrixView res(*this);
-	for (size_t iElm = 0; iElm < Ncol_*Nrow_; iElm++) {
-		res.data_->data()[iElm+idx_] -= m.data_->data()[iElm+m.idx_];
-	}
-
-	return res;
-}
-
-MatrixView MatrixView::operator-(const double &scal) const{
-	MatrixView res(*this);
-	for (size_t iElm = 0; iElm < Ncol_*Nrow_; iElm++) {
-		res.data_->data()[iElm+idx_] -= scal;
-	}
-
-	return res;
 }
 
 MatrixView& MatrixView::operator+=(const double &scal){

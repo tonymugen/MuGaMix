@@ -30,7 +30,6 @@
 #define lme_hpp
 
 #include <vector>
-#include <string>
 #include <cmath>
 
 #include "index.hpp"
@@ -41,7 +40,6 @@
 #include "matrixView.hpp"
 
 using std::vector;
-using std::string;
 
 namespace BayesicSpace {
 	// forward declarations
@@ -50,32 +48,51 @@ namespace BayesicSpace {
 
 	class WrapMMM;
 
-	/** \brief Mixed model for location parameters
+	/** \brief Mixture model for location parameters
 	 *
-	 * Implements log-posterior and gradient for the location parameters of the mixed model. Only contrast predictors available for now.
+	 * Implements log-posterior and gradient for the location parameters of the mixture model.
 	 *
 	 */
 	class MumiLoc : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiLoc();
+		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, tauP_{0.0} {};
 		/** \brief Constructor
 		 *
-		 * \parameter[in] yVec pointer vectorized data matrix`
-		 * \parameter[in] iSigVec pointer to vectorized inverse-covariance matrix
-		 * \parameter[in] heirInd pointer to vector of hierarchical indexes
+		 * \parameter[in] yVec pointer vectorized data matrix
+		 * \parameter[in] iSigVec pointer to vectorized inverse-covariance matrix collection
+		 * \parameter[in] d number of traits
+		 * \parameter[in] hierInd pointer to vector of hierarchical indexes
 		 * \parameter[in] xVec pointer to vectorized covariate predictor matrix
-		 * \parameter[in] tau0 fixed prior for the unmodeled ("fixed") effects
+		 * \parameter[in] tau fixed prior for the unmodeled ("fixed") effects and population means
 		 */
-		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const vector<double> *xVec, const double &tau0);
+		MumiLoc(vector<double> *yVec, vector<double> *iSigVec, const size_t &d, const vector<Index> *hierInd, vector<double> *xVec, const double &tau);
+		/** \brief Destructor */
+		~MumiLoc(){};
+
+		/** \brief Copy constructor (deleted) */
+		MumiLoc(const MumiLoc &in) = delete;
+		/** \brief Copy assignment (deleted) */
+		MumiLoc& operator=(const MumiLoc &in) = delete;
+		/** \brief Move constructor
+		 *
+		 * \param[in] in object to move
+		 */
+		MumiLoc(MumiLoc &&in) : Y_{move(in.Y_)}, ISigE_{move(in.ISigE_)}, ISigA_{move(in.ISigA_)}, X_{move(in.X_)}, hierInd_{in.hierInd_}, tau0_{in.tau0_}, tauP_{in.tauP_} {in.hierInd_ = nullptr;};
+		/** \brief Move assignment operator
+		 *
+		 * \param[in] in object to be moved
+		 * \return target object
+		 */
+		MumiLoc& operator=(MumiLoc &&in);
 		/** \brief Log-posterior function
 		 *
-		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector.
+		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector. The parameter vector has the covariates, line means, and population means in that order.
 		 *
 		 * \param[in] theta parameter vector
 		 * \return Value of the log-posterior
 		 */
-		virtual double logPost(const vector<double> &theta) const;
+		double logPost(const vector<double> &theta) const;
 		/** \brief Gradient of the log-posterior
 		 *
 		 * Calculates the patial derivative of the log-posterior for each element in the provided parameter vector.
@@ -84,7 +101,7 @@ namespace BayesicSpace {
 		 * \param[out] grad partial derivative (gradient) vector
 		 *
 		 */
-		virtual void gradient(const vector<double> &theta, vector<double> &grad) const;
+		void gradient(const vector<double> &theta, vector<double> &grad) const;
 
 	protected:
 		/** \brief Matrix view of data */
@@ -96,7 +113,7 @@ namespace BayesicSpace {
 		/** \brief Matrix view of covariate predictors */
 		MatrixView X_;
 		/** \brief Pointer to vector of indexes connecting hierarchy levels */
-		vector<Index> *hierInd_;
+		const vector<Index> *hierInd_;
 		/** \brief Fixed prior precision for unmodeled effects */
 		const double tau0_;
 		/** \brief Fixed prior precision for population means */

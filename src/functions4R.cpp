@@ -52,6 +52,7 @@ Rcpp::List matrixTest(std::vector<double> &yVec, const std::vector<int32_t> &fVe
 		BayesicSpace::MatrixView third(&res, 0, d, 2*d);
 
 		first.colExpand(ind, third);
+		third *= 2.0;
 		return Rcpp::List::create(Rcpp::Named("res", res));
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
