@@ -240,7 +240,7 @@ namespace BayesicSpace {
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void rowSum(const Index &ind, MatrixView &out) const;
+		void rowCollapse(const Index &ind, MatrixView &out) const;
 		/** \brief Sum columns in groups of the provided index
 		 *
 		 * The columns are summed within each group of the `Index`. The output matrix must have the correct dimensions.
@@ -249,7 +249,7 @@ namespace BayesicSpace {
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void colSum(const Index &ind, MatrixView &out) const;
+		void colCollapse(const Index &ind, MatrixView &out) const;
 		/** \brief Expand columns accoring to the provided index
 		 *
 		 * The output matrix must be of correct size.
@@ -621,13 +621,25 @@ namespace BayesicSpace {
 		 * \param[in] inMat object to be moved
 		 */
 		MatrixViewConst(MatrixViewConst &&inMat);
+		/** \brief Move constructor from `MatrixView`
+		 *
+		 * \param[in] inMat object to be moved
+		 */
+		MatrixViewConst(MatrixView &&inMat);
 		/** \brief Move assignment operator
 		 *
 		 * \param[in] inMat object to be moved
-		 * \return MatrixView target object
+		 * \return MatrixViewConst target object
 		 *
 		 */
-		MatrixView& operator=(MatrixView &&inMat);
+		MatrixViewConst& operator=(MatrixViewConst &&inMat);
+		/** \brief Move assignment operator from `MatrixView`
+		 *
+		 * \param[in] inMat object to be moved
+		 * \return MatrixViewConst target object
+		 *
+		 */
+		MatrixViewConst& operator=(MatrixView &&inMat);
 
 		/** \brief Access to number of rows
 		 *
@@ -646,7 +658,7 @@ namespace BayesicSpace {
 		 * \return double element value
 		 */
 		double getElem(const size_t &iRow, const size_t &jCol) const;
-		
+
 		/** \brief Copy Cholesky decomposition
 		 *
 		 * Performs the Cholesky decomposition and stores the result in the lower triangle of the provided MatrixView object. The original object is left untouched.
@@ -712,7 +724,7 @@ namespace BayesicSpace {
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void rowSum(const Index &ind, MatrixView &out) const;
+		void rowCollapse(const Index &ind, MatrixView &out) const;
 		/** \brief Sum columns in groups of the provided index
 		 *
 		 * The columns are summed within each group of the `Index`. The output matrix must have the correct dimensions.
@@ -721,7 +733,7 @@ namespace BayesicSpace {
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void colSum(const Index &ind, MatrixView &out) const;
+		void colCollapse(const Index &ind, MatrixView &out) const;
 		/** \brief Expand columns accoring to the provided index
 		 *
 		 * The output matrix must be of correct size.

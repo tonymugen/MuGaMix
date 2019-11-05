@@ -56,6 +56,19 @@ using namespace BayesicSpace;
 
 
 // MatrixView methods
+MatrixView::MatrixView(MatrixView &&inMat){
+	if (this != &inMat) {
+		data_ = inMat.data_;
+		idx_  = inMat.idx_;
+		Nrow_ = inMat.Nrow_;
+		Ncol_ = inMat.Ncol_;
+
+		inMat.data_ = nullptr;
+		inMat.idx_  = 0;
+		inMat.Nrow_ = 0;
+		inMat.Ncol_ = 0;
+	}
+}
 
 MatrixView& MatrixView::operator=(MatrixView &&inMat){
 	if (this != &inMat) {
@@ -146,7 +159,7 @@ void MatrixView::chol(MatrixView &out) const {
 	if ((Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_)) {
 		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky decomposition");
 	}
-	memcpy(out.data_ + out.idx_, data_->data() + idx_, (Nrow_ * Ncol_)*sizeof(double));
+	memcpy(out.data_->data() + out.idx_, data_->data() + idx_, (Nrow_ * Ncol_)*sizeof(double));
 
 	int info = 0;
 	char tri = 'L';
@@ -202,7 +215,7 @@ void MatrixView::cholInv(MatrixView &out) const {
 	if ((Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_)) {
 		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky inversion");
 	}
-	memcpy(out.data_, data_, (Nrow_ * Ncol_)*sizeof(double));
+	memcpy(out.data_->data() + out.idx_, data_->data() + idx_, (Nrow_ * Ncol_)*sizeof(double));
 
 	int info = 0;
 	char tri = 'L';
@@ -623,7 +636,7 @@ void MatrixView::rowExpand(const Index &ind, MatrixView &out) const {
 
 }
 
-void MatrixView::rowSum(const Index &ind, MatrixView &out) const {
+void MatrixView::rowCollapse(const Index &ind, MatrixView &out) const {
 #ifndef LMRG_CHECK_OFF
 	if (ind.size() != Nrow_) {
 		throw string("ERROR: Wrong total length of Index in rowSum");
@@ -632,7 +645,7 @@ void MatrixView::rowSum(const Index &ind, MatrixView &out) const {
 		throw string("ERROR: one of the dimensions is zero");
 	}
 	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: incorrect Index group number in rowSum()");
+		throw string("ERROR: incorrect Index group number in rowCollapse()");
 	}
 #endif
 
@@ -650,7 +663,7 @@ void MatrixView::rowSum(const Index &ind, MatrixView &out) const {
 
 }
 
-void MatrixView::colSum(const Index &ind, MatrixView &out) const{
+void MatrixView::colCollapse(const Index &ind, MatrixView &out) const{
 #ifndef LMRG_CHECK_OFF
 	if (ind.size() != Ncol_) {
 		throw string("ERROR: Incompatible dimensions between Z and M in postmultZ()");
@@ -659,7 +672,7 @@ void MatrixView::colSum(const Index &ind, MatrixView &out) const{
 		throw string("ERROR: one of the dimensions is zero");
 	}
 	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
-		throw string("ERROR: Index group number does not equal output column number in colSum()");
+		throw string("ERROR: Index group number does not equal output column number in colCollapse()");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
@@ -1231,4 +1244,729 @@ void MatrixView::colSub(const double &scalar, const size_t &jCol){
 	}
 }
 
+// MatrixViewConst methods
+MatrixViewConst::MatrixViewConst(MatrixViewConst &&inMat){
+	if (this != &inMat) {
+		data_ = inMat.data_;
+		idx_  = inMat.idx_;
+		Nrow_ = inMat.Nrow_;
+		Ncol_ = inMat.Ncol_;
+
+		inMat.data_ = nullptr;
+		inMat.idx_  = 0;
+		inMat.Nrow_ = 0;
+		inMat.Ncol_ = 0;
+	}
+}
+MatrixViewConst::MatrixViewConst(MatrixView &&inMat) : data_{move(inMat.data_)}, idx_{inMat.idx_}, Nrow_{inMat.Nrow_}, Ncol_{inMat.Ncol_} {
+	inMat.data_ = nullptr;
+	inMat.idx_  = 0;
+	inMat.Nrow_ = 0;
+	inMat.Ncol_ = 0;
+}
+
+MatrixViewConst& MatrixViewConst::operator=(MatrixViewConst &&inMat){
+	if (this != &inMat) {
+		data_ = inMat.data_;
+		idx_  = inMat.idx_;
+		Nrow_ = inMat.Nrow_;
+		Ncol_ = inMat.Ncol_;
+
+		inMat.data_ = nullptr;
+		inMat.idx_  = 0;
+		inMat.Nrow_ = 0;
+		inMat.Ncol_ = 0;
+	}
+
+	return *this;
+}
+MatrixViewConst& MatrixViewConst::operator=(MatrixView &&inMat){
+	data_ = inMat.data_;
+	idx_  = inMat.idx_;
+	Nrow_ = inMat.Nrow_;
+	Ncol_ = inMat.Ncol_;
+
+	inMat.data_ = nullptr;
+	inMat.idx_  = 0;
+	inMat.Nrow_ = 0;
+	inMat.Ncol_ = 0;
+
+	return *this;
+}
+
+double MatrixViewConst::getElem(const size_t& iRow, const size_t &jCol) const{
+#ifndef LMRG_CHECK_OFF
+	if ((iRow >= Nrow_) || (jCol >= Ncol_)) {
+		throw string("ERROR: element out of range in getElem()");
+	}
+#endif
+
+	return data_->data()[idx_ + Nrow_*jCol + iRow];
+}
+
+void MatrixViewConst::chol(MatrixView &out) const {
+#ifndef LMRG_CHECK_OFF
+	if (Nrow_ != Ncol_) {
+		throw string("ERROR: matrix has to be symmetric for Cholesky decomposition");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+#endif
+
+	if ((Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky decomposition");
+	}
+	memcpy(out.data_->data() + out.idx_, data_->data() + idx_, (Nrow_ * Ncol_)*sizeof(double));
+
+	int info = 0;
+	char tri = 'L';
+
+	int N = static_cast<int>(Nrow_); // conversion should be safe: Nrow_ magnitude checked during construction
+	dpotrf_(&tri, &N, out.data_->data() + idx_, &N, &info);
+	if (info < 0) {
+		throw string("ERROR: illegal matrix element in copy Cholesky decomposition");
+	} else if (info > 0) {
+		throw string("ERROR: matrix is not positive definite in copy Cholesky decomposition");
+	}
+
+}
+
+void MatrixViewConst::cholInv(MatrixView &out) const {
+#ifndef LMRG_CHECK_OFF
+	if (Nrow_ != Ncol_) {
+		throw string("ERROR: matrix has to be square for Cholesky inversion");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+#endif
+
+	if ((Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky inversion");
+	}
+	memcpy(out.data_->data()+out.idx_, data_->data()+idx_, (Nrow_ * Ncol_)*sizeof(double));
+
+	int info = 0;
+	char tri = 'L';
+
+	int N = static_cast<int>(Nrow_); // safe to convert: Nrow_ checked at construction
+	dpotri_(&tri, &N, out.data_->data() + idx_, &N, &info);
+	if (info < 0) {
+		throw string("ERROR: illegal matrix element in copy Cholesky inversion");
+	} else if (info > 0) {
+		throw string("ERROR: a diagonal element of the matrix is zero. Cannot complete copy Cholesky inversion");
+	}
+	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+		for (size_t jCol = 0; jCol < iRow; jCol++) {
+			out.data_[Nrow_*iRow + jCol] = out.data_[Nrow_*jCol + iRow];
+		}
+	}
+}
+
+void MatrixViewConst::svdSafe(MatrixView &U, vector<double> &s) const {
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((Nrow_ != U.Nrow_) || (U.Nrow_ != U.Ncol_)) {
+		throw string("ERROR: wrong dimensions of the U matrix in svdSafe()");
+	}
+#endif
+
+	double *dataCopy = new double[Nrow_ * Ncol_];
+	memcpy(dataCopy, data_->data()+idx_, (Nrow_ * Ncol_)*sizeof(double));
+
+	if (s.size() < Ncol_) {
+		s.resize(Ncol_, 0.0);
+	}
+	int Nvt = 1;
+	vector<double>vt(1, 0.0);
+	int resSVD = 0;
+	int Nw = -1;    // set this to pre-run dgesvd_ for calculation of workspace size
+	vector<double>workArr(1, 0.0);
+	char jobu  = 'A';
+	char jobvt = 'N';
+	// the folloeing casts are safe because the dimensions are checked at construction
+	int Nr = static_cast<int>(Nrow_);
+	int Nc = static_cast<int>(Ncol_);
+
+	// first calculate working space
+	dgesvd_(&jobu, &jobvt, &Nr, &Nc, dataCopy, &Nr, s.data(), U.data_->data()+U.idx_, &Nr, vt.data(), &Nvt, workArr.data(), &Nw, &resSVD);
+	Nw = workArr[0];
+	workArr.resize(Nw, 0.0);
+	dgesvd_(&jobu, &jobvt, &Nr, &Nc, dataCopy, &Nr, s.data(), U.data_->data()+U.idx_, &Nr, vt.data(), &Nvt, workArr.data(), &Nw, &resSVD);
+	workArr.resize(0);
+	if (resSVD < 0) {
+		throw string("ERROR: illegal matrix element in safe SVD");
+		exit(14);
+	} else if (resSVD > 0){
+		throw string("ERROR: DBDSQR did not converge in safe SVD");
+	}
+	delete [] dataCopy;
+}
+
+void MatrixViewConst::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam) const{
+#ifndef LMRG_CHECK_OFF
+	if (Nrow_ != Ncol_) {
+		throw string("ERROR: matrix has to be at least square in eigen()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((Ncol_ > U.Nrow_) || (Ncol_ > U.Ncol_)) {
+		throw string("ERROR: wrong U matrix dimensions in eigenSafe()");
+	}
+#endif
+
+	// test the output size and adjust if necessary
+	if (Ncol_ > lam.size()) {
+		lam.resize(Ncol_, 0.0);
+	}
+
+	char jobz  = 'V'; // computing eigenvectors
+	char range = 'A'; // doing all of them
+	char uplo;
+	if (tri == 'u') {
+		uplo = 'U';
+	} else if (tri == 'l'){
+		uplo = 'L';
+	} else {
+		throw string("ERROR: unknown triangle indicator in eigen()");
+	}
+	int N   = static_cast<int>(Nrow_);
+	int lda = static_cast<int>(Nrow_);
+	// placeholder variables. Not referenced since we are computing all eigenvectors
+	double vl = 0.0;
+	double vu = 0.0;
+	int il = 0;
+	int iu = 0;
+
+	double abstol = sqrt(numeric_limits<double>::epsilon()); // absolute tolerance. Shouldn't be too close to epsilon since I don't need very precise estimation of small eigenvalues
+
+	int M   = N;
+	int ldz = N;
+
+	vector<int> isuppz(2*M, 0);
+	vector<double> work(1, 0.0);        // workspace; size will be determined
+	int lwork = -1;          // to start; this lets us determine workspace size
+	vector<int> iwork(1, 0); // integer workspace; size to be calculated
+	int liwork = -1;         // to start; this lets us determine integer workspace size
+	int info = 0;
+
+	double *dataCopy = new double[Nrow_ * Ncol_];
+	memcpy(dataCopy, data_->data()+idx_, (Nrow_ * Ncol_)*sizeof(double));
+
+	dsyevr_(&jobz, &range, &uplo, &N, dataCopy, &lda, &vl, &vu, &il, &iu, &abstol, &M, lam.data(), U.data_->data()+U.idx_, &ldz, isuppz.data(), work.data(), &lwork, iwork.data(), &liwork, &info);
+
+	lwork  = work[0];
+	work.resize(static_cast<size_t>(lwork), 0.0);
+	liwork = iwork[0];
+	iwork.resize(static_cast<size_t>(liwork), 0);
+
+	// run the actual estimation
+	dsyevr_(&jobz, &range, &uplo, &N, dataCopy, &lda, &vl, &vu, &il, &iu, &abstol, &M, lam.data(), U.data_->data()+U.idx_, &ldz, isuppz.data(), work.data(), &lwork, iwork.data(), &liwork, &info);
+
+	delete [] dataCopy;
+
+	// set tiny eigenvalues to exactly zero
+	for (auto &l : lam) {
+		if (fabs(l) <= abstol) {
+			l = 0.0;
+		}
+	}
+}
+
+void MatrixViewConst::eigenSafe(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam) const{
+#ifndef LMRG_CHECK_OFF
+	if (Nrow_ != Ncol_) {
+		throw string("ERROR: matrix has to be at least square in eigen()");
+	}
+	if (Nrow_ < n) {
+		throw string("ERROR: the input number of eigenvalues greater than matrix dimensions");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+#endif
+
+	if (Nrow_ == n) { // if we are doing all of them, just run regular eigen()
+		MatrixViewConst::eigenSafe(tri, U, lam);
+		return;
+	}
+
+
+	char jobz  = 'V'; // computing eigenvectors
+	char range = 'I'; // doing some of them
+	char uplo;
+	if (tri == 'u') {
+		uplo = 'U';
+	} else if (tri == 'l'){
+		uplo = 'L';
+	} else {
+		throw string("ERROR: unknown triangle indicator in eigen()");
+	}
+	int N   = static_cast<int>(Nrow_);
+	int lda = static_cast<int>(Nrow_);
+	// placeholder variables. Not referenced since we are computing a certain number of eigenvectors, not based on the values of the eigenvalues
+	double vl = 0.0;
+	double vu = 0.0;
+	int il = N - static_cast<int>(n) + 1; // looks like the count base-1
+	int iu = N; // do all the remaining eigenvalues
+
+	double abstol = sqrt(numeric_limits<double>::epsilon()); // absolute tolerance. Shouldn't be too close to epsilon since I don't need very precise estimation of small eigenvalues
+
+	int M   = iu - il + 1;
+	int ldz = N;
+
+	// test the output size and adjust if necessary
+	if ((Nrow_ > U.Nrow_) || (static_cast<size_t>(M) > U.Ncol_)) {
+		throw string("ERROR: wrong output matrix dimensions in eigenSafe()");
+	}
+	if (static_cast<size_t>(M) > lam.size()) {
+		lam.resize(static_cast<size_t>(M), 0.0);
+	}
+
+	vector<int> isuppz(2*M, 0);
+	vector<double> work(1, 0.0);        // workspace; size will be determined
+	int lwork = -1;          // to start; this lets us determine workspace size
+	vector<int> iwork(1, 0); // integer workspace; size to be calculated
+	int liwork = -1;         // to start; this lets us determine integer workspace size
+	int info = 0;
+
+	double *dataCopy = new double[Nrow_ * Ncol_];
+	memcpy(dataCopy, data_->data()+idx_, (Nrow_ * Ncol_)*sizeof(double));
+
+	dsyevr_(&jobz, &range, &uplo, &N, dataCopy, &lda, &vl, &vu, &il, &iu, &abstol, &M, lam.data(), U.data_->data()+U.idx_, &ldz, isuppz.data(), work.data(), &lwork, iwork.data(), &liwork, &info);
+
+	lwork  = work[0];
+	work.resize(static_cast<size_t>(lwork), 0.0);
+	liwork = iwork[0];
+	iwork.resize(static_cast<size_t>(liwork), 0);
+
+	// run the actual estimation
+	dsyevr_(&jobz, &range, &uplo, &N, dataCopy, &lda, &vl, &vu, &il, &iu, &abstol, &M, lam.data(), U.data_->data()+U.idx_, &ldz, isuppz.data(), work.data(), &lwork, iwork.data(), &liwork, &info);
+
+	delete [] dataCopy;
+
+	// set tiny eigenvalues to exactly zero
+	for (auto &l : lam) {
+		if (fabs(l) <= abstol) {
+			l = 0.0;
+		}
+	}
+}
+
+void MatrixViewConst::rowExpand(const Index &ind, MatrixView &out) const {
+#ifndef LMRG_CHECK_OFF
+	if (ind.groupNumber() != Nrow_) {
+		throw string("ERROR: incorrect number of Index groups in rowExpand()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.size() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+		throw string("ERROR: the output matrix has wrong dimensions in rowExpand()");
+	}
+#endif
+
+	for (size_t oldRow = 0; oldRow < ind.groupNumber(); oldRow++) {
+		// going through all the rows of Z that correspond to the old row of M
+		for (auto &f : ind[oldRow]) {
+			// copying the row of M
+			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+				out.data_->data()[out.idx_ + ind.size()*jCol + f] = data_->data()[idx_ + Nrow_*jCol + oldRow];
+			}
+		}
+	}
+
+}
+
+void MatrixViewConst::rowCollapse(const Index &ind, MatrixView &out) const {
+#ifndef LMRG_CHECK_OFF
+	if (ind.size() != Nrow_) {
+		throw string("ERROR: Wrong total length of Index in rowSum");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+		throw string("ERROR: incorrect Index group number in rowCollapse()");
+	}
+#endif
+
+	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
+
+	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
+		// going through all the rows of Z that correspond to the new row of M
+		for (auto &f : ind[newRow]) {
+			// summing the rows of M within the group defined by rows of Z
+			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+				out.data_->data()[out.idx_ + ind.groupNumber()*jCol + newRow] += data_->data()[idx_ + Nrow_*jCol + f];
+			}
+		}
+	}
+
+}
+
+void MatrixViewConst::colCollapse(const Index &ind, MatrixView &out) const{
+#ifndef LMRG_CHECK_OFF
+	if (ind.size() != Ncol_) {
+		throw string("ERROR: Incompatible dimensions between Z and M in postmultZ()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
+		throw string("ERROR: Index group number does not equal output column number in colCollapse()");
+	}
+#endif
+	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
+
+	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
+		// going through all the rows of Z that correspond to the new column of M
+		for (auto &f : ind[newCol]) {
+			// summing the rows of M within the group defined by rows of Z
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				out.data_->data()[out.idx_ + ind.groupNumber()*newCol + iRow] += data_->data()[idx_ + Nrow_*f + iRow];
+			}
+		}
+	}
+}
+
+void MatrixViewConst::colExpand(const Index &ind, MatrixView &out) const{
+#ifndef LMRG_CHECK_OFF
+	if (ind.groupNumber() != Ncol_) {
+		throw string("ERROR: Number of Index groups not equal to number of columns in colExpand()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.size() != out.Ncol_) || (Nrow_ != out.Nrow_)) {
+		throw string("ERROR: Index size not equal to output number of rows in colExpand()");
+	}
+#endif
+
+	for (size_t oldCol = 0; oldCol < ind.groupNumber(); oldCol++) {
+		// going through all the rows of Z that correspond to the old column of M
+		for (auto &f : ind[oldCol]) {
+			// copying the column of M
+			memcpy(out.data_->data() + out.idx_ + f*Nrow_, data_->data() + idx_ + oldCol*Nrow_, Nrow_*sizeof(double));
+		}
+	}
+}
+
+void MatrixViewConst::syrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
+#ifndef LMRG_CHECK_OFF
+	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in syrk()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((C.getNrows() != Ncol_) || (C.getNcols() != Ncol_)) {
+		throw string("ERROR: wrong dimensions of the C matrix in syrk()");
+	}
+#endif
+
+	// integer parameters
+	const int n   = static_cast<int>(Ncol_);
+	const int k   = static_cast<int>(Nrow_);
+	const int lda = static_cast<int>(Nrow_);
+	const int ldc = static_cast<int>(Ncol_);
+
+	// transpose token
+	const char trans = 't';
+
+	dsyrk_(&tri, &trans, &n, &k, &alpha, data_->data()+idx_, &lda, &beta, C.data_->data()+C.idx_, &ldc);
+}
+
+void MatrixViewConst::tsyrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
+#ifndef LMRG_CHECK_OFF
+	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in tsyrk()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((C.getNrows() != Nrow_) || (C.getNcols() != Nrow_)) {
+		throw string("ERROR: wrong C matrix dimensions in tsyrk()");
+	}
+#endif
+
+	// integer parameters
+	const int n   = static_cast<int>(Nrow_);
+	const int k   = static_cast<int>(Ncol_);
+	const int lda = static_cast<int>(Nrow_);
+	const int ldc = static_cast<int>(Nrow_);
+
+	// transpose token
+	const char trans = 'n';
+
+	dsyrk_(&tri, &trans, &n, &k, &alpha, data_->data()+idx_, &lda, &beta, C.data_->data()+C.idx_, &ldc);
+}
+
+void MatrixViewConst::symm(const char &tri, const char &side, const double &alpha, const MatrixView &symA, const double &beta, MatrixView &C) const{
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if (symA.getNrows() != symA.getNcols()) {
+		throw string("ERROR: symmetric matrix symA has to be square in symm()");
+	}
+	if (side == 'l') {
+		if ((Nrow_ > INT_MAX) || (symA.getNcols() > INT_MAX)) {
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+		}
+	} else if (side == 'r') {
+		if ((symA.getNrows() > INT_MAX) || (Ncol_ > INT_MAX)) {
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+		}
+	}
+
+	if ((symA.getNcols() != Nrow_) && (side == 'l')) { // AB
+		throw string("ERROR: Incompatible dimensions between B and A in symm()");
+	}
+	if ((symA.getNrows() != Ncol_) && (side == 'r')) { // BA
+		throw string("ERROR: Incompatible dimensions between A and B in symm()");
+	}
+#endif
+
+	int m;
+	int n;
+	if (side == 'l') { // AB
+		m = static_cast<int>(symA.getNrows());
+		n = static_cast<int>(Ncol_);
+		if ((C.getNrows() != symA.getNrows()) || (C.getNcols() != Ncol_)) {
+			throw string("ERROR: wrong C matrix dimensions in symm()");
+		}
+	} else if (side == 'r') { // BA
+		m = static_cast<int>(Nrow_);
+		n = static_cast<int>(symA.getNcols());
+		if ((C.getNrows() != Nrow_) || (C.getNcols() != symA.getNcols())) {
+			throw string("ERROR: wrong C matrix dimensions in symm()");
+		}
+	} else {
+		throw string("ERROR: unknown side indicator in symm()");
+	}
+
+	// final integer parameters
+	const int lda = static_cast<int>(symA.getNrows());
+	const int ldb = static_cast<int>(Nrow_);
+	const int ldc = m; // for clarity
+
+	dsymm_(&side, &tri, &m, &n, &alpha, symA.data_->data()+symA.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
+}
+
+void MatrixViewConst::symc(const char &tri, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const{
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if (Ncol_ != Nrow_) {
+		throw string("ERROR: symmetric matrix (current object) has to be square in symc()");
+	}
+	if ((Ncol_ > INT_MAX) || (X.getNrows() > INT_MAX)) {
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symc()");
+	}
+	if (X.getNrows() != Ncol_) {
+		throw string("ERROR: Incompatible dimensions between A and X in symc()");
+	}
+	if (xCol >= X.getNcols()) {
+		throw string("ERROR: column index out of range for matrix X in symc()");
+	}
+#endif
+	if (y.size() < Nrow_) {
+		y.resize(Nrow_);
+	}
+
+	// BLAS routine constants
+	const int n    = static_cast<int>(Nrow_);
+	const int lda  = n;
+	const int incx = 1;
+	const int incy = 1;
+
+	const double *xbeg = X.data_->data() + X.idx_ + xCol*(X.Nrow_); // offset to the column of interest
+
+	dsymv_(&tri, &n, &alpha, data_->data()+idx_, &lda, xbeg, &incx, &beta, y.data(), &incy);
+}
+
+void MatrixViewConst::gemm(const bool &transA, const double &alpha, const MatrixView &A, const bool &transB, const double &beta, MatrixView &C) const{
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((A.getNcols() > INT_MAX) || (A.getNrows() > INT_MAX)) {
+		throw string("ERROR: at least one A matrix dimension too big to safely convert to int in gemm()");
+	}
+
+	if (transB) {
+		if (Nrow_ > INT_MAX) {
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+		}
+	} else {
+		if (Ncol_ > INT_MAX) {
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+		}
+	}
+	if (transA) {
+		if (transB && (A.getNrows() != Ncol_)) {
+			throw string("ERROR: Incompatible dimensions between A^T and B^T in gemm()");
+		} else if (!transB && (A.getNrows() != Nrow_)){
+			throw string("ERROR: Incompatible dimensions between A^T and B in gemm()");
+		}
+
+	} else {
+		if (transB && (A.getNcols() != Ncol_)) {
+			throw string("ERROR: Incompatible dimensions between A and B^T in gemm()");
+			exit(16);
+		} else if (!transB && (A.getNcols() != Nrow_)) {
+			throw string("ERROR: Incompatible dimensions between A and B in gemm()");
+		}
+	}
+#endif
+
+	char tAtok;
+	char tBtok;
+
+	int m;
+	int k;
+	int n;
+	if (transA) {
+		tAtok = 't';
+		m     = static_cast<int>(A.getNcols());
+		k     = static_cast<int>(A.getNrows());
+		if (transB) {
+			tBtok = 't';
+			n     = static_cast<int>(Nrow_);
+			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Nrow_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		} else {
+			tBtok = 'n';
+			n     = static_cast<int>(Ncol_);
+			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Ncol_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		}
+	} else {
+		tAtok = 'n';
+		m     = static_cast<int>(A.getNrows());
+		k     = static_cast<int>(A.getNcols());
+		if (transB) {
+			tBtok = 't';
+			n     = static_cast<int>(Nrow_);
+			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Nrow_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		} else {
+			tBtok = 'n';
+			n     = static_cast<int>(Ncol_);
+			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Ncol_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		}
+	}
+
+	const int lda = (transA ? k : m);
+	const int ldb = (transB ? n : k);
+	const int ldc = m;
+
+	dgemm_(&tAtok, &tBtok, &m, &n, &k, &alpha, A.data_->data()+A.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
+
+}
+void MatrixViewConst::gemc(const bool &trans, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const {
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if (trans) {
+		if ((Nrow_ > INT_MAX) || (X.getNrows() > INT_MAX)) {
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in gemc()");
+		}
+		if (Nrow_ != X.getNrows()) {
+			throw string("ERROR: Incompatible dimensions between A and X in gemc()");
+
+		}
+	} else {
+		if ((Ncol_ > INT_MAX) || (X.getNrows() > INT_MAX)) {
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in gemc()");
+		}
+		if (Ncol_ != X.getNrows()) {
+			throw string("ERROR: Incompatible dimensions between A and X in gemc()");
+
+		}
+	}
+	if (xCol >= X.getNcols()) {
+		throw string("ERROR: column index out of range for matrix X in gemc()");
+	}
+#endif
+
+	if (y.size() < Nrow_) {
+		y.resize(Nrow_);
+	}
+
+	// Establish constants for DGEMV
+	const char tTok = (trans ? 't' : 'n');
+
+	const int m    = static_cast<int>(Nrow_);
+	const int n    = static_cast<int>(Ncol_);
+	const int lda  = m;
+	const int incx = 1;
+	const int incy = 1;
+
+	const double *xbeg = X.data_->data() + X.idx_ + xCol*(X.Nrow_); // offset to the column of interest
+
+	dgemv_(&tTok, &m, &n, &alpha, data_->data() + idx_, &lda, xbeg, &incx, &beta, y.data(), &incy);
+
+}
+
+void MatrixViewConst::rowMeans(vector<double> &means) const{
+	if (means.size() < Nrow_) {
+		means.resize(Nrow_);
+	}
+	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+		means[iRow] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
+		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+			// numerically stable recursive mean calculation. GSL does it this way.
+			means[iRow] += (data_->data()[idx_ + Nrow_*jCol + iRow] - means[iRow])/static_cast<double>(jCol + 1);
+		}
+	}
+}
+void MatrixViewConst::colMeans(vector<double> &means) const{
+	if (means.size() < Ncol_) {
+		means.resize(Ncol_);
+	}
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		means[jCol] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
+		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+			// numerically stable recursive mean calculation. GSL does it this way.
+			means[jCol] += (data_->data()[idx_ + Nrow_*jCol + iRow] - means[jCol])/static_cast<double>(iRow + 1);
+		}
+	}
+}
+void MatrixViewConst::rowSums(vector<double> &sums) const{
+	if (sums.size() < Nrow_) {
+		sums.resize(Nrow_);
+	}
+	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+		sums[iRow] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
+		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+			// not necessarily mumerically stable. Revisit later
+			sums[iRow] += data_->data()[idx_ + Nrow_*jCol + iRow];
+		}
+	}
+}
+void MatrixViewConst::colSums(vector<double> &sums) const{
+	if (sums.size() < Ncol_) {
+		sums.resize(Ncol_);
+	}
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		sums[jCol] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
+		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+			// not necessarily mumerically stable. Revisit later
+			sums[jCol] += data_->data()[idx_ + Nrow_*jCol + iRow];
+		}
+	}
+}
 
