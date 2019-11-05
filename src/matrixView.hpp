@@ -175,8 +175,7 @@ namespace BayesicSpace {
 		/** \brief All eigenvalues and vectors of a symmetric matrix
 		 *
 		 * Interface to the _DSYEVR_ LAPACK routine. This routine is recommended as the fastest (especially for smaller matrices) in LAPACK benchmarks. It is assumed that the current object is symmetric. It is only checked for being square.
-		 * The data in the relevant triangle are destroyed. If the dimensions of the output matrix and vector are smaller than necessary, they are resized. If they are larger than necessary, only the first \f$N^2\f$ and \f$N\f$ elements are used, respectively.
-		 * For the matrix this means that the first \f$N\f$ columns are used if the number of rows is the same as that in the current object. Otherwise, the columns are wrapped around.
+		 * The data in the relevant triangle are destroyed.
 		 *
 		 * \param[in] tri triangle ID ('u' for upper or 'l' for lower)
 		 * \param[out] U matrix of eigenvectors
@@ -187,8 +186,7 @@ namespace BayesicSpace {
 		/** \brief Some eigenvalues and vectors of a symmetric matrix
 		 *
 		 * Computes top _n_ eigenvalues and vectors of a symmetric matrix. Interface to the _DSYEVR_ LAPACK routine. This routine is recommended as the fastest (especially for smaller matrices) in LAPACK benchmarks. It is assumed that the current object is symmetric. It is only checked for being square.
-		 * The data in the relevant triangle are destroyed. If the dimensions of the output matrix and vector are smaller than necessary, they are resized. If they are larger than necessary, only the first \f$N^2\f$ and \f$N\f$ elements are used, respectively.
-		 * For the matrix this means that the first \f$N\f$ columns are used if the number of rows is the same as that in the current object. Otherwise, the columns are wrapped around.
+		 * The data in the relevant triangle are destroyed.
 		 *
 		 * \param[in] tri triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] n number of largest eigenvalues to compute
@@ -200,8 +198,7 @@ namespace BayesicSpace {
 		/** \brief All eigenvalues and vectors of a symmetric matrix ("safe")
 		 *
 		 * Interface to the _DSYEVR_ LAPACK routine. This routine is recommended as the fastest (especially for smaller matrices) in LAPACK benchmarks. It is assumed that the current object is symmetric. It is only checked for being square.
-		 * The data are preserved, leading to some loss of efficiency compared to eigen(). If the dimensions of the output matrix and vector are smaller than necessary, they are resized. If they are larger than necessary, only the first \f$N^2\f$ and \f$N\f$ elements are used, respectively.
-		 * For the matrix this means that the first \f$N\f$ columns are used if the number of rows is the same as that in the current object. Otherwise, the columns are wrapped around.
+		 * The data are preserved, leading to some loss of efficiency compared to eigen().
 		 *
 		 * \param[in] tri triangle ID ('u' for upper or 'l' for lower)
 		 * \param[out] U matrix of eigenvectors
@@ -212,8 +209,7 @@ namespace BayesicSpace {
 		/** \brief Some eigenvalues and vectors of a symmetric matrix ("safe")
 		 *
 		 * Computes the top _n_ eigenvectors and values of a symmetric matrix. Interface to the _DSYEVR_ LAPACK routine. This routine is recommended as the fastest (especially for smaller matrices) in LAPACK benchmarks. It is assumed that the current object is symmetric. It is only checked for being square.
-		 * The data are preserved, leading to some loss of efficiency compared to eigen(). If the dimensions of the output matrix and vector are smaller than necessary, they are resized. If they are larger than necessary, only the first \f$N^2\f$ and \f$N\f$ elements are used, respectively.
-		 * For the matrix this means that the first \f$N\f$ columns are used if the number of rows is the same as that in the current object. Otherwise, the columns are wrapped around.
+		 * The data are preserved, leading to some loss of efficiency compared to eigen().
 		 *
 		 * \param[in] tri triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] n number of largest eigenvalues to compute
@@ -267,7 +263,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$C \leftarrow \alpha A^{T}A + \beta C \f$
 		 *
-		 * The _char_ parameter governs which triangle of \f$C\f$ is used to store the result ('u' is upper and 'l' is lower).  If _C_ does not have the right dimensions, it is re-sized and all elements are set to zero before the operation. Otherwize, only the specified triangle is changed.
+		 * The _char_ parameter governs which triangle of \f$C\f$ is used to store the result ('u' is upper and 'l' is lower). Only the specified triangle of _C_ is changed.
 		 *
 		 * \param[in] tri \f$C\f$ triangle ID
 		 * \param[in] alpha the \f$\alpha\f$ parameter
@@ -281,7 +277,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$C \leftarrow \alpha AA^{T} + \beta C \f$
 		 *
-		 * The _char_ parameter governs which triangle of \f$C\f$ is used to store the result ('u' is upper and 'l' is lower). If _C_ does not have the right dimensions, it is re-sized and all elements are set to zero before the operation. Otherwize, only the specified triangle is changed.
+		 * The _char_ parameter governs which triangle of \f$C\f$ is used to store the result ('u' is upper and 'l' is lower). Only the specified triangle of _C_ is changed.
 		 *
 		 * \param[in] tri \f$C\f$ triangle ID
 		 * \param[in] alpha the \f$\alpha\f$ parameter
@@ -300,7 +296,6 @@ namespace BayesicSpace {
 		 * \f$C \leftarrow \alpha BA + \beta C \f$
 		 *
 		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix.
-		 * If _C_ does not have the right dimensions, it is re-sized and all elements are set to zero before the operation. Otherwize, only the specified triangle is changed.
 		 *
 		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] side multiplication side
@@ -311,13 +306,34 @@ namespace BayesicSpace {
 		 *
 		 */
 		void symm(const char &tri, const char &side, const double &alpha, const MatrixView &symA, const double &beta, MatrixView &C) const;
+		/** \brief Multiply by symmetric `MatrixViewConst`
+		 *
+		 * Multiply the _MatrixView_ object by a symmetric matrix. The interface for the BLAS _DSYMM_ routine. Updates the input/output matrix \f$C\f$
+		 *
+		 * \f$C \leftarrow \alpha AB + \beta C \f$
+		 *
+		 * if _side_ is 'l' (left) and
+		 *
+		 * \f$C \leftarrow \alpha BA + \beta C \f$
+		 *
+		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix.
+		 *
+		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
+		 * \param[in] side multiplication side
+		 * \param[in] alpha the \f$\alpha\f$ constant
+		 * \param[in] symA symmetric matrix \f$A\f$
+		 * \param[in] beta the \f$\beta\f$ constant
+		 * \param[in,out] C the result \f$C\f$ matrix
+		 *
+		 */
+		void symm(const char &tri, const char &side, const double &alpha, const MatrixViewConst &symA, const double &beta, MatrixView &C) const;
 		/** Multiply symmetric matrix by a column of another matrix
 		 *
 		 * Multiply the _MatrixView_ object, which is symmetric, by a specified column of another matrix. An interface for the BLAS _DSYMV_ routine. Updates the input vector \f$y\f$
 		 *
 		 * \f$y \leftarrow \alpha AX_{\cdot j} + \beta y  \f$
 		 *
-		 * If the output vector is too short it is re-sized, adding zero elements as needed. If it is too long, only the first Nrow(A) elements are modified.
+		 * If the output vector is too short it is resized, adding zero elements as needed. If it is too long, only the first Nrow(A) elements are modified.
 		 *
 		 * \param[in] tri \f$A\f$ (focal object) triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] alpha the \f$\alpha\f$ constant
@@ -335,7 +351,6 @@ namespace BayesicSpace {
 		 * \f$ C \leftarrow \alpha op(A)op(B) + \beta C \f$
 		 *
 		 * where \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively, and similarly for \f$op(B)\f$. The object from which the method is called is \f$B\f$.
-		 * If _C_ does not have the right dimensions, it is re-sized and all elements are set to zero before the operation.
 		 *
 		 * \param[in] transA whether \f$A\f$ should be transposed
 		 * \param[in] alpha the \f$\alpha\f$ constant
@@ -346,6 +361,23 @@ namespace BayesicSpace {
 		 *
 		 */
 		void gemm(const bool &transA, const double &alpha, const MatrixView &A, const bool &transB, const double &beta, MatrixView &C) const;
+		/** \brief General matrix multiplication with `MatrixViewConst`
+		 *
+		 * Interface for the BLAS _DGEMM_ routine. Updates the input/output matrix \f$C\f$
+		 *
+		 * \f$ C \leftarrow \alpha op(A)op(B) + \beta C \f$
+		 *
+		 * where \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively, and similarly for \f$op(B)\f$. The object from which the method is called is \f$B\f$.
+		 *
+		 * \param[in] transA whether \f$A\f$ should be transposed
+		 * \param[in] alpha the \f$\alpha\f$ constant
+		 * \param[in] A matrix \f$A\f$
+		 * \param[in] transB whether \f$B\f$ should be transposed
+		 * \param[in] beta the \f$\beta\f$ constant
+		 * \param[in,out] C the result \f$C\f$ matrix
+		 *
+		 */
+		void gemm(const bool &transA, const double &alpha, const MatrixViewConst &A, const bool &transB, const double &beta, MatrixView &C) const;
 		/** \brief Multiply a general matrix by a column of another matrix
 		 *
 		 * Multiply the _MatrixView_ object by a specified column of another matrix. An interface for the BLAS _DGEMV_ routine. Updates the input vector \f$y\f$
@@ -356,7 +388,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$y \leftarrow \alpha A^{T}X_{\cdot j} + \beta y  \f$
 		 *
-		 * If the output vector is too short it is re-sized, adding zero elements as needed. If it is too long, only the first Nrow(A) elements are modified.
+		 * If the output vector is too short it is resized, adding zero elements as needed. If it is too long, only the first Nrow(A) elements are modified.
 		 *
 		 * \param[in] trans whether \f$A\f$ (focal object) should be transposed
 		 * \param[in] alpha the \f$\alpha\f$ constant
@@ -684,8 +716,7 @@ namespace BayesicSpace {
 		/** \brief All eigenvalues and vectors of a symmetric matrix ("safe")
 		 *
 		 * Interface to the _DSYEVR_ LAPACK routine. This routine is recommended as the fastest (especially for smaller matrices) in LAPACK benchmarks. It is assumed that the current object is symmetric. It is only checked for being square.
-		 * The data are preserved, leading to some loss of efficiency compared to eigen(). If the dimensions of the output matrix and vector are smaller than necessary, they are resized. If they are larger than necessary, only the first \f$N^2\f$ and \f$N\f$ elements are used, respectively.
-		 * For the matrix this means that the first \f$N\f$ columns are used if the number of rows is the same as that in the current object. Otherwise, the columns are wrapped around.
+		 * The data are preserved, leading to some loss of efficiency compared to eigen().
 		 *
 		 * \param[in] tri triangle ID ('u' for upper or 'l' for lower)
 		 * \param[out] U matrix of eigenvectors
@@ -696,8 +727,7 @@ namespace BayesicSpace {
 		/** \brief Some eigenvalues and vectors of a symmetric matrix ("safe")
 		 *
 		 * Computes the top _n_ eigenvectors and values of a symmetric matrix. Interface to the _DSYEVR_ LAPACK routine. This routine is recommended as the fastest (especially for smaller matrices) in LAPACK benchmarks. It is assumed that the current object is symmetric. It is only checked for being square.
-		 * The data are preserved, leading to some loss of efficiency compared to eigen(). If the dimensions of the output matrix and vector are smaller than necessary, they are resized. If they are larger than necessary, only the first \f$N^2\f$ and \f$N\f$ elements are used, respectively.
-		 * For the matrix this means that the first \f$N\f$ columns are used if the number of rows is the same as that in the current object. Otherwise, the columns are wrapped around.
+		 * The data are preserved, leading to some loss of efficiency compared to eigen().
 		 *
 		 * \param[in] tri triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] n number of largest eigenvalues to compute
@@ -784,7 +814,6 @@ namespace BayesicSpace {
 		 * \f$C \leftarrow \alpha BA + \beta C \f$
 		 *
 		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix.
-		 * If _C_ does not have the right dimensions, it is re-sized and all elements are set to zero before the operation. Otherwize, only the specified triangle is changed.
 		 *
 		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] side multiplication side
@@ -795,13 +824,34 @@ namespace BayesicSpace {
 		 *
 		 */
 		void symm(const char &tri, const char &side, const double &alpha, const MatrixView &symA, const double &beta, MatrixView &C) const;
+		/** \brief Multiply by symmetric `MatrixViewConst`
+		 *
+		 * Multiply the `MatrixViewConst` object by a symmetric matrix. The interface for the BLAS _DSYMM_ routine. Updates the input/output matrix \f$C\f$
+		 *
+		 * \f$C \leftarrow \alpha AB + \beta C \f$
+		 *
+		 * if _side_ is 'l' (left) and
+		 *
+		 * \f$C \leftarrow \alpha BA + \beta C \f$
+		 *
+		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix.
+		 *
+		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
+		 * \param[in] side multiplication side
+		 * \param[in] alpha the \f$\alpha\f$ constant
+		 * \param[in] symA symmetric matrix \f$A\f$
+		 * \param[in] beta the \f$\beta\f$ constant
+		 * \param[in,out] C the result \f$C\f$ matrix
+		 *
+		 */
+		void symm(const char &tri, const char &side, const double &alpha, const MatrixViewConst &symA, const double &beta, MatrixView &C) const;
 		/** Multiply symmetric matrix by a column of another matrix
 		 *
 		 * Multiply the `MatrixViewConst` object, which is symmetric, by a specified column of another matrix. An interface for the BLAS _DSYMV_ routine. Updates the input vector \f$y\f$
 		 *
 		 * \f$y \leftarrow \alpha AX_{\cdot j} + \beta y  \f$
 		 *
-		 * If the output vector is too short it is re-sized, adding zero elements as needed. If it is too long, only the first Nrow(A) elements are modified.
+		 * If the output vector is too short it is resized, adding zero elements as needed. If it is too long, only the first Nrow(A) elements are modified.
 		 *
 		 * \param[in] tri \f$A\f$ (focal object) triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] alpha the \f$\alpha\f$ constant
@@ -829,6 +879,23 @@ namespace BayesicSpace {
 		 *
 		 */
 		void gemm(const bool &transA, const double &alpha, const MatrixView &A, const bool &transB, const double &beta, MatrixView &C) const;
+		/** \brief General matrix multiplication with `MatrixViewConst`
+		 *
+		 * Interface for the BLAS _DGEMM_ routine. Updates the input/output matrix \f$C\f$
+		 *
+		 * \f$ C \leftarrow \alpha op(A)op(B) + \beta C \f$
+		 *
+		 * where \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively, and similarly for \f$op(B)\f$. The object from which the method is called is \f$B\f$.
+		 *
+		 * \param[in] transA whether \f$A\f$ should be transposed
+		 * \param[in] alpha the \f$\alpha\f$ constant
+		 * \param[in] A matrix \f$A\f$
+		 * \param[in] transB whether \f$B\f$ should be transposed
+		 * \param[in] beta the \f$\beta\f$ constant
+		 * \param[in,out] C the result \f$C\f$ matrix
+		 *
+		 */
+		void gemm(const bool &transA, const double &alpha, const MatrixViewConst &A, const bool &transB, const double &beta, MatrixView &C) const;
 		/** \brief Multiply a general matrix by a column of another matrix
 		 *
 		 * Multiply the `MatrixViewConst` object by a specified column of another matrix. An interface for the BLAS _DGEMV_ routine. Updates the input vector \f$y\f$
@@ -839,7 +906,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$y \leftarrow \alpha A^{T}X_{\cdot j} + \beta y  \f$
 		 *
-		 * If the output vector is too short it is re-sized, adding zero elements as needed. If it is too long, only the first Nrow(A) elements are modified.
+		 * If the output vector is too short it is resized, adding zero elements as needed. If it is too long, only the first Nrow(A) elements are modified.
 		 *
 		 * \param[in] trans whether \f$A\f$ (focal object) should be transposed
 		 * \param[in] alpha the \f$\alpha\f$ constant

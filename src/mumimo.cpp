@@ -44,17 +44,17 @@ using std::string;
 using namespace BayesicSpace;
 
 // MumiLoc methods
-MumiLoc::MumiLoc(vector<double> *yVec, vector<double> *iSigVec, const size_t &d, const vector<Index> *hierInd, vector<double> *xVec, const double &tau) : Model(), hierInd_{hierInd}, tau0_{tau}, tauP_{tau} {
+MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const size_t &d, const vector<Index> *hierInd, const vector<double> *xVec, const double &tau) : Model(), hierInd_{hierInd}, tau0_{tau}, tauP_{tau} {
 	const size_t n = yVec->size()/d;
 	if (n != (*hierInd_)[0].size()) {
 		throw string("ERROR: Number of rows implied by yVec not the same as in the first Index in MumiLoc contructor");
 	} else if (iSigVec->size() < 2*d*d) {
 		throw string("ERROR: Number of elements in iSigVec not compatible with two covariance matrices in MumiLoc constructor");
 	}
-	Y_     = MatrixView(yVec, 0, n, d);
-	X_     = MatrixView(xVec, 0, n, xVec->size()/n);
-	ISigE_ = MatrixView(iSigVec, 0, d, d);
-	ISigA_ = MatrixView(iSigVec, d*d, d, d);
+	Y_     = MatrixViewConst(yVec, 0, n, d);
+	X_     = MatrixViewConst(xVec, 0, n, xVec->size()/n);
+	ISigE_ = MatrixViewConst(iSigVec, 0, d, d);
+	ISigA_ = MatrixViewConst(iSigVec, d*d, d, d);
 }
 
 double MumiLoc::logPost(const vector<double> &theta) const{
@@ -62,14 +62,70 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	const size_t Nln  = (*hierInd_)[0].groupNumber();
 	const size_t Npop = (*hierInd_)[1].groupNumber();
 	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
-	vector<double> thetaCopy(theta);
-	MatrixView B(&thetaCopy, 0, Y_.getNrows(), Y_.getNcols());
-	MatrixView A(&thetaCopy, Y_.getNrows()*Y_.getNcols(), Nln, Y_.getNcols() );
-	MatrixView M(&thetaCopy, Ydim*Nln*Y_.getNcols(), Npop, Y_.getNcols() );
+	MatrixViewConst B(&theta, 0, X_.getNcols(), Y_.getNcols());
+	MatrixViewConst A(&theta, X_.getNrows()*Y_.getNcols(), Nln, Y_.getNcols() );
+	MatrixViewConst M(&theta, Ydim*Nln*Y_.getNcols(), Npop, Y_.getNcols() );
 
 	// Calculate the residual Y - XB - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
+	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
+	A.rowExpand((*hierInd_)[0], mResid); // ZA
+	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
+			mResid.setElem(iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
+		}
+	}
+	B.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
+	vector<double> vResIS(Ydim, 0.0);
+	MatrixView resISE(&vResIS, 0, Y_.getNrows(), Y_.getNcols());
+	// Multiply the residual by inverse-SigE and take the trace of the product of that with the residual
+	mResid.symm('u', 'r', 1.0, ISigE_, 0.0, resISE); // (Y-ZA-XB)Sig^-1[E]
+	// need only the trace of the final product, so calculating only the diagonal elements
+	double trResid = 0.0;
+	for (size_t jCol = 0; jCol < Y_.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < Y_.getNrows(); ++iRow) {
+			trResid += resISE.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
+		}
+	}
+	vResid.clear();
+	vResIS.clear();
+	// B cross-product trace
+	double trB = 0.0;
+	for (size_t jCol = 0; jCol < Y_.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < B.getNrows(); ++iRow) {
+			trB += B.getElem(iRow, jCol)*B.getElem(iRow, jCol);
+		}
+	}
+	trB *= tau0_;
+	// Now on to accession (line) mean residual (A - M[p]) and kernel trace
+	vResid.resize(A.getNrows()*A.getNcols(), 0.0); // will now be the A - M residual
+	vResIS.resize(A.getNrows()*A.getNcols(), 0.0); // will become (A-M)Sig^{-1}[A]
+	mResid = MatrixView(&vResid, 0, A.getNrows(), A.getNcols());
+	resISE = MatrixView(&vResIS, 0, A.getNrows(), A.getNcols());
+	M.rowExpand((*hierInd_)[1], mResid); // Z[p]M[p]
+	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < A.getNrows(); ++ iRow) {
+			mResid.setElem(iRow, jCol, A.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // A - Z[p]M[p]
+		}
+	}
+	mResid.symm('u', 'r', 1.0, ISigA_, 0.0, resISE); // (A-Z[p]M[p])Sig^{-1}[A]
+	double trAr = 0.0;
+	for (size_t jCol = 0; jCol < A.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
+			trAr += resISE.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
+		}
+	}
+	// M[p] crossprodict trace
+	double trM = 0.0;
+	for (size_t jCol = 0; jCol < M.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < M.getNrows(); ++iRow) {
+			trM += M.getElem(iRow, jCol)*M.getElem(iRow, jCol);
+		}
+	}
+	trM *= tauP_;
 
+	// now sum to get the log-posterior
+	lnP = -0.5*(trResid + trB + trAr + trM);
 	return lnP;
 }
 

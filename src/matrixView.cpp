@@ -813,7 +813,57 @@ void MatrixView::symm(const char &tri, const char &side, const double &alpha, co
 	const int ldc = m; // for clarity
 
 	dsymm_(&side, &tri, &m, &n, &alpha, symA.data_->data()+symA.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
+}
+void MatrixView::symm(const char &tri, const char &side, const double &alpha, const MatrixViewConst &symA, const double &beta, MatrixView &C) const{
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if (symA.getNrows() != symA.getNcols()) {
+		throw string("ERROR: symmetric matrix symA has to be square in symm()");
+	}
+	if (side == 'l') {
+		if ((Nrow_ > INT_MAX) || (symA.getNcols() > INT_MAX)) {
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+		}
+	} else if (side == 'r') {
+		if ((symA.getNrows() > INT_MAX) || (Ncol_ > INT_MAX)) {
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+		}
+	}
 
+	if ((symA.getNcols() != Nrow_) && (side == 'l')) { // AB
+		throw string("ERROR: Incompatible dimensions between B and A in symm()");
+	}
+	if ((symA.getNrows() != Ncol_) && (side == 'r')) { // BA
+		throw string("ERROR: Incompatible dimensions between A and B in symm()");
+	}
+#endif
+
+	int m;
+	int n;
+	if (side == 'l') { // AB
+		m = static_cast<int>(symA.getNrows());
+		n = static_cast<int>(Ncol_);
+		if ((C.getNrows() != symA.getNrows()) || (C.getNcols() != Ncol_)) {
+			throw string("ERROR: wrong C matrix dimensions in symm()");
+		}
+	} else if (side == 'r') { // BA
+		m = static_cast<int>(Nrow_);
+		n = static_cast<int>(symA.getNcols());
+		if ((C.getNrows() != Nrow_) || (C.getNcols() != symA.getNcols())) {
+			throw string("ERROR: wrong C matrix dimensions in symm()");
+		}
+	} else {
+		throw string("ERROR: unknown side indicator in symm()");
+	}
+
+	// final integer parameters
+	const int lda = static_cast<int>(symA.getNrows());
+	const int ldb = static_cast<int>(Nrow_);
+	const int ldc = m; // for clarity
+
+	dsymm_(&side, &tri, &m, &n, &alpha, symA.data_->data()+symA.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
 }
 
 void MatrixView::symc(const char &tri, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const{
@@ -931,7 +981,90 @@ void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixView 
 	const int ldc = m;
 
 	dgemm_(&tAtok, &tBtok, &m, &n, &k, &alpha, A.data_->data()+A.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
+}
 
+void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixViewConst &A, const bool &transB, const double &beta, MatrixView &C) const{
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((A.getNcols() > INT_MAX) || (A.getNrows() > INT_MAX)) {
+		throw string("ERROR: at least one A matrix dimension too big to safely convert to int in gemm()");
+	}
+
+	if (transB) {
+		if (Nrow_ > INT_MAX) {
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+		}
+	} else {
+		if (Ncol_ > INT_MAX) {
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+		}
+	}
+	if (transA) {
+		if (transB && (A.getNrows() != Ncol_)) {
+			throw string("ERROR: Incompatible dimensions between A^T and B^T in gemm()");
+		} else if (!transB && (A.getNrows() != Nrow_)){
+			throw string("ERROR: Incompatible dimensions between A^T and B in gemm()");
+		}
+
+	} else {
+		if (transB && (A.getNcols() != Ncol_)) {
+			throw string("ERROR: Incompatible dimensions between A and B^T in gemm()");
+			exit(16);
+		} else if (!transB && (A.getNcols() != Nrow_)) {
+			throw string("ERROR: Incompatible dimensions between A and B in gemm()");
+		}
+	}
+#endif
+
+	char tAtok;
+	char tBtok;
+
+	int m;
+	int k;
+	int n;
+	if (transA) {
+		tAtok = 't';
+		m     = static_cast<int>(A.getNcols());
+		k     = static_cast<int>(A.getNrows());
+		if (transB) {
+			tBtok = 't';
+			n     = static_cast<int>(Nrow_);
+			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Nrow_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		} else {
+			tBtok = 'n';
+			n     = static_cast<int>(Ncol_);
+			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Ncol_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		}
+	} else {
+		tAtok = 'n';
+		m     = static_cast<int>(A.getNrows());
+		k     = static_cast<int>(A.getNcols());
+		if (transB) {
+			tBtok = 't';
+			n     = static_cast<int>(Nrow_);
+			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Nrow_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		} else {
+			tBtok = 'n';
+			n     = static_cast<int>(Ncol_);
+			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Ncol_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		}
+	}
+
+	const int lda = (transA ? k : m);
+	const int ldb = (transB ? n : k);
+	const int ldc = m;
+
+	dgemm_(&tAtok, &tBtok, &m, &n, &k, &alpha, A.data_->data()+A.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
 }
 void MatrixView::gemc(const bool &trans, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const {
 #ifndef LMRG_CHECK_OFF
@@ -1757,6 +1890,57 @@ void MatrixViewConst::symm(const char &tri, const char &side, const double &alph
 
 	dsymm_(&side, &tri, &m, &n, &alpha, symA.data_->data()+symA.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
 }
+void MatrixViewConst::symm(const char &tri, const char &side, const double &alpha, const MatrixViewConst &symA, const double &beta, MatrixView &C) const{
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if (symA.getNrows() != symA.getNcols()) {
+		throw string("ERROR: symmetric matrix symA has to be square in symm()");
+	}
+	if (side == 'l') {
+		if ((Nrow_ > INT_MAX) || (symA.getNcols() > INT_MAX)) {
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+		}
+	} else if (side == 'r') {
+		if ((symA.getNrows() > INT_MAX) || (Ncol_ > INT_MAX)) {
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+		}
+	}
+
+	if ((symA.getNcols() != Nrow_) && (side == 'l')) { // AB
+		throw string("ERROR: Incompatible dimensions between B and A in symm()");
+	}
+	if ((symA.getNrows() != Ncol_) && (side == 'r')) { // BA
+		throw string("ERROR: Incompatible dimensions between A and B in symm()");
+	}
+#endif
+
+	int m;
+	int n;
+	if (side == 'l') { // AB
+		m = static_cast<int>(symA.getNrows());
+		n = static_cast<int>(Ncol_);
+		if ((C.getNrows() != symA.getNrows()) || (C.getNcols() != Ncol_)) {
+			throw string("ERROR: wrong C matrix dimensions in symm()");
+		}
+	} else if (side == 'r') { // BA
+		m = static_cast<int>(Nrow_);
+		n = static_cast<int>(symA.getNcols());
+		if ((C.getNrows() != Nrow_) || (C.getNcols() != symA.getNcols())) {
+			throw string("ERROR: wrong C matrix dimensions in symm()");
+		}
+	} else {
+		throw string("ERROR: unknown side indicator in symm()");
+	}
+
+	// final integer parameters
+	const int lda = static_cast<int>(symA.getNrows());
+	const int ldb = static_cast<int>(Nrow_);
+	const int ldc = m; // for clarity
+
+	dsymm_(&side, &tri, &m, &n, &alpha, symA.data_->data()+symA.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
+}
 
 void MatrixViewConst::symc(const char &tri, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const{
 #ifndef LMRG_CHECK_OFF
@@ -1873,7 +2057,89 @@ void MatrixViewConst::gemm(const bool &transA, const double &alpha, const Matrix
 	const int ldc = m;
 
 	dgemm_(&tAtok, &tBtok, &m, &n, &k, &alpha, A.data_->data()+A.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
+}
+void MatrixViewConst::gemm(const bool &transA, const double &alpha, const MatrixViewConst &A, const bool &transB, const double &beta, MatrixView &C) const{
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((A.getNcols() > INT_MAX) || (A.getNrows() > INT_MAX)) {
+		throw string("ERROR: at least one A matrix dimension too big to safely convert to int in gemm()");
+	}
 
+	if (transB) {
+		if (Nrow_ > INT_MAX) {
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+		}
+	} else {
+		if (Ncol_ > INT_MAX) {
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+		}
+	}
+	if (transA) {
+		if (transB && (A.getNrows() != Ncol_)) {
+			throw string("ERROR: Incompatible dimensions between A^T and B^T in gemm()");
+		} else if (!transB && (A.getNrows() != Nrow_)){
+			throw string("ERROR: Incompatible dimensions between A^T and B in gemm()");
+		}
+
+	} else {
+		if (transB && (A.getNcols() != Ncol_)) {
+			throw string("ERROR: Incompatible dimensions between A and B^T in gemm()");
+			exit(16);
+		} else if (!transB && (A.getNcols() != Nrow_)) {
+			throw string("ERROR: Incompatible dimensions between A and B in gemm()");
+		}
+	}
+#endif
+
+	char tAtok;
+	char tBtok;
+
+	int m;
+	int k;
+	int n;
+	if (transA) {
+		tAtok = 't';
+		m     = static_cast<int>(A.getNcols());
+		k     = static_cast<int>(A.getNrows());
+		if (transB) {
+			tBtok = 't';
+			n     = static_cast<int>(Nrow_);
+			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Nrow_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		} else {
+			tBtok = 'n';
+			n     = static_cast<int>(Ncol_);
+			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Ncol_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		}
+	} else {
+		tAtok = 'n';
+		m     = static_cast<int>(A.getNrows());
+		k     = static_cast<int>(A.getNcols());
+		if (transB) {
+			tBtok = 't';
+			n     = static_cast<int>(Nrow_);
+			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Nrow_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		} else {
+			tBtok = 'n';
+			n     = static_cast<int>(Ncol_);
+			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Ncol_)) {
+				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+			}
+		}
+	}
+
+	const int lda = (transA ? k : m);
+	const int ldb = (transB ? n : k);
+	const int ldc = m;
+
+	dgemm_(&tAtok, &tBtok, &m, &n, &k, &alpha, A.data_->data()+A.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
 }
 void MatrixViewConst::gemc(const bool &trans, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const {
 #ifndef LMRG_CHECK_OFF

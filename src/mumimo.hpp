@@ -66,7 +66,7 @@ namespace BayesicSpace {
 		 * \parameter[in] xVec pointer to vectorized covariate predictor matrix
 		 * \parameter[in] tau fixed prior for the unmodeled ("fixed") effects and population means
 		 */
-		MumiLoc(vector<double> *yVec, vector<double> *iSigVec, const size_t &d, const vector<Index> *hierInd, vector<double> *xVec, const double &tau);
+		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const size_t &d, const vector<Index> *hierInd, const vector<double> *xVec, const double &tau);
 		/** \brief Destructor */
 		~MumiLoc(){};
 
@@ -105,13 +105,13 @@ namespace BayesicSpace {
 
 	protected:
 		/** \brief Matrix view of data */
-		MatrixView Y_;
+		MatrixViewConst Y_;
 		/** \brief Matrix view of the error inverse-covariance */
-		MatrixView ISigE_;
+		MatrixViewConst ISigE_;
 		/** \brief Matrix view of the line inverse-covariance */
-		MatrixView ISigA_;
+		MatrixViewConst ISigA_;
 		/** \brief Matrix view of covariate predictors */
-		MatrixView X_;
+		MatrixViewConst X_;
 		/** \brief Pointer to vector of indexes connecting hierarchy levels */
 		const vector<Index> *hierInd_;
 		/** \brief Fixed prior precision for unmodeled effects */
