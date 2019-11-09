@@ -5,23 +5,25 @@
 
 using namespace Rcpp;
 
-// matrixTest
-Rcpp::List matrixTest(std::vector<double>& yVec, const std::vector<int32_t>& fVec, const int32_t& d, const int32_t& idx);
-RcppExport SEXP _MuGaMix_matrixTest(SEXP yVecSEXP, SEXP fVecSEXP, SEXP dSEXP, SEXP idxSEXP) {
+// lpTest
+double lpTest(const std::vector<double>& yVec, const std::vector<double>& iSigVec, const std::vector<int32_t>& repFac, const std::vector<int32_t>& lnFac, const std::vector<double>& paramValues, const int32_t& d);
+RcppExport SEXP _MuGaMix_lpTest(SEXP yVecSEXP, SEXP iSigVecSEXP, SEXP repFacSEXP, SEXP lnFacSEXP, SEXP paramValuesSEXP, SEXP dSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::vector<double>& >::type yVec(yVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type fVec(fVecSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type iSigVec(iSigVecSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type repFac(repFacSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type paramValues(paramValuesSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type idx(idxSEXP);
-    rcpp_result_gen = Rcpp::wrap(matrixTest(yVec, fVec, d, idx));
+    rcpp_result_gen = Rcpp::wrap(lpTest(yVec, iSigVec, repFac, lnFac, paramValues, d));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_MuGaMix_matrixTest", (DL_FUNC) &_MuGaMix_matrixTest, 4},
+    {"_MuGaMix_lpTest", (DL_FUNC) &_MuGaMix_lpTest, 6},
     {NULL, NULL, 0}
 };
 

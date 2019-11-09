@@ -18,7 +18,7 @@
  */
 
 
-///
+/// R interface functions
 /** \file
  * \author Anthony J. Greenberg
  * \copyright Copyright (c) 2019 Anthony J. Greenberg
@@ -33,31 +33,41 @@
 
 #include <Rcpp.h>
 
-#include "matrixView.hpp"
+#include "mumimo.hpp"
 #include "index.hpp"
 
 //[[Rcpp::export]]
-Rcpp::List matrixTest(std::vector<double> &yVec, const std::vector<int32_t> &fVec, const int32_t &d, const int32_t &idx){
-	try {
-		BayesicSpace::MatrixView first(&yVec, 0, d, d);
-		std::vector<size_t> fac;
-		for (auto &i : fVec) {
-			if (i < 0) {
-				Rcpp::stop("Factor elements cannot be negative");
-			}
-			fac.push_back(static_cast<size_t>(i));
+double lpTest(const std::vector<double> &yVec, const std::vector<double> &iSigVec, const std::vector<int32_t> &repFac, const std::vector<int32_t> &lnFac, const std::vector<double> &paramValues, const int32_t &d){
+	if (d <= 0) {
+		Rcpp::stop("ERROR: number of traits must be positive");
+	}
+	std::vector<size_t> l1;
+	std::vector<size_t> l2;
+	for (auto &rf : repFac) {
+		if (rf <= 0) {
+			Rcpp::stop("ERROR: all elements of the replicate factor must be positive");
 		}
-		BayesicSpace::Index ind(fac);
-		std::vector<double> res(2*d*d, 0.0);
-		BayesicSpace::MatrixView third(&res, 0, d, 2*d);
-
-		first.colExpand(ind, third);
-		third *= 2.0;
-		return Rcpp::List::create(Rcpp::Named("res", res));
+		l1.push_back( static_cast<size_t>(rf-1) );
+	}
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l2.push_back( static_cast<size_t>(lf-1) );
+	}
+	try {
+		std::vector<BayesicSpace::Index> factors;
+		factors.push_back(BayesicSpace::Index(l1));
+		factors.push_back(BayesicSpace::Index(l2));
+		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
+		BayesicSpace::MumiLoc test(&yVec, &iSigVec, d, &factors, &xVec, 1e-5);
+		//double res = test.logPost(paramValues);
+		double res = 1.0;
+		return res;
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
 	}
 
-	return Rcpp::List::create(Rcpp::Named("error", "NaN"));
+	return 0.0;
 }
 
