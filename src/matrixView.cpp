@@ -56,6 +56,16 @@ using namespace BayesicSpace;
 
 
 // MatrixView methods
+
+MatrixView::MatrixView(vector<double> *inVec, const size_t &idx, const size_t &nrow, const size_t &ncol) : data_{inVec}, idx_{idx}, Nrow_{nrow}, Ncol_{ncol} {
+#ifndef LMRG_CHECK_OFF
+	if (data_->size() < idx_ + Nrow_*Ncol_) {
+		throw string("MatrixView indexes extend past vector end");
+	}
+#endif
+};
+
+
 MatrixView::MatrixView(MatrixView &&inMat){
 	if (this != &inMat) {
 		data_ = inMat.data_;

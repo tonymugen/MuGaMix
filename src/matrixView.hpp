@@ -71,7 +71,7 @@ namespace BayesicSpace {
 		 * \param[in] nrow number of rows
 		 * \param[in] ncol number of columns
 		 */
-		MatrixView(vector<double> *inVec, const size_t &idx, const size_t &nrow, const size_t &ncol) : data_{inVec}, idx_{idx}, Nrow_{nrow}, Ncol_{ncol} {};
+		MatrixView(vector<double> *inVec, const size_t &idx, const size_t &nrow, const size_t &ncol);
 
 		/** \brief Destructor
 		 *

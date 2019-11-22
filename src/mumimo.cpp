@@ -62,9 +62,9 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	const size_t Nln  = (*hierInd_)[0].groupNumber();
 	const size_t Npop = (*hierInd_)[1].groupNumber();
 	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
-	MatrixViewConst B(&theta, 0, X_.getNcols(), Y_.getNcols());
-	MatrixViewConst A(&theta, X_.getNrows()*Y_.getNcols(), Nln, Y_.getNcols() );
-	MatrixViewConst M(&theta, Ydim*Nln*Y_.getNcols(), Npop, Y_.getNcols() );
+	MatrixViewConst A(&theta, 0, Nln, Y_.getNcols() );
+	MatrixViewConst B(&theta, Nln*Y_.getNcols(), X_.getNcols(), Y_.getNcols());
+	MatrixViewConst M(&theta, (Nln + X_.getNcols())*Y_.getNcols(), Npop, Y_.getNcols() );
 
 	// Calculate the residual Y - XB - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
@@ -72,7 +72,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	A.rowExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
-			mResid.setElem(iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
+			mResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
 		}
 	}
 	B.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
@@ -104,8 +104,8 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	resISE = MatrixView(&vResIS, 0, A.getNrows(), A.getNcols());
 	M.rowExpand((*hierInd_)[1], mResid); // Z[p]M[p]
 	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
-		for (size_t iRow = 0; iRow < A.getNrows(); ++ iRow) {
-			mResid.setElem(iRow, jCol, A.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // A - Z[p]M[p]
+		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
+			mResid.setElem( iRow, jCol, A.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // A - Z[p]M[p]
 		}
 	}
 	mResid.symm('u', 'r', 1.0, ISigA_, 0.0, resISE); // (A-Z[p]M[p])Sig^{-1}[A]
@@ -115,7 +115,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 			trAr += resISE.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
 		}
 	}
-	// M[p] crossprodict trace
+	// M[p] crossproduct trace
 	double trM = 0.0;
 	for (size_t jCol = 0; jCol < M.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < M.getNrows(); ++iRow) {
@@ -130,6 +130,75 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 }
 
 void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
+	const size_t Nln  = (*hierInd_)[0].groupNumber();
+	const size_t Npop = (*hierInd_)[1].groupNumber();
+	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
+	MatrixViewConst A(&theta, 0, Nln, Y_.getNcols() );
+	MatrixViewConst B(&theta, Nln*Y_.getNcols(), X_.getNcols(), Y_.getNcols());
+	MatrixViewConst M(&theta, (Nln + X_.getNcols())*Y_.getNcols(), Npop, Y_.getNcols() );
+	const size_t Adim = A.getNrows()*A.getNcols();
+
+	// Matrix views of the gradient
+	MatrixView gA(&grad, 0, Nln, Y_.getNcols() );
+	MatrixView gB(&grad, Nln*Y_.getNcols(), X_.getNcols(), Y_.getNcols());
+	MatrixView gM(&grad, (Nln + X_.getNcols())*Y_.getNcols(), Npop, Y_.getNcols() );
+
+	// Calculate the residual Y - XB - ZA matrix
+	vector<double> vResid(Ydim, 0.0);
+	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
+	A.rowExpand((*hierInd_)[0], mResid); // ZA
+	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
+			mResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
+		}
+	}
+	B.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
+
+	// (Y - ZA - XB)Sig[E]^-1
+	vector<double> vResISE(Ydim, 0.0);
+	MatrixView mResISE(&vResISE, 0, Y_.getNrows(), Y_.getNcols());
+	mResid.symm('u', 'r', 1.0, ISigE_, 0.0, mResISE);
+
+	// Calculate the residual A - Z[p]M[p]
+	vector<double> vAMresid(Adim, 0.0);
+	MatrixView mAMresid(&vAMresid, 0, A.getNrows(), A.getNcols());
+	M.rowExpand((*hierInd_)[1], mAMresid); // Z[p]M[p]
+	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
+			mAMresid.setElem( iRow, jCol, A.getElem(iRow, jCol) - mAMresid.getElem(iRow, jCol) ); // A - Z[p]M[p]
+		}
+	}
+	// (A-Z[p]M[p])Sig^{-1}[A]
+	vector<double> vAMresISA(Adim, 0.0);
+	MatrixView mAMresISA(&vAMresISA, 0, A.getNrows(), A.getNcols());
+	mAMresid.symm('u', 'r', 1.0, ISigA_, 0.0, mAMresISA);
+
+	// Z^T(Y - ZA - XB)Sig[E]^-1 store in gA
+	mResISE.rowCollapse((*hierInd_)[0], gA);
+	// A partial derivatives
+	for (size_t jCol = 0; jCol < A.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
+			gA.setElem( iRow, jCol, gA.getElem(iRow, jCol) - mAMresISA.getElem(iRow, jCol) ); // Z^T(Y - ZA - XB)Sig[E]^-1 - (A-Z[p]M[p])Sig^{-1}[A]
+		}
+	}
+
+	// X^T(Y - ZA - XB)Sig[E]^-1 store in gB
+	mResISE.gemm(true, 1.0, X_, false, 0.0, gB);
+	// B partial derivatives
+	for (size_t jCol = 0; jCol < B.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < B.getNrows(); ++iRow) {
+			gB.setElem( iRow, jCol, gB.getElem(iRow, jCol) - tau0_*B.getElem(iRow, jCol) ); // X^T(Y - ZA - XB)Sig[E]^-1 - tau[0]B
+		}
+	}
+
+	// Z[p]^T(A - Z[p]M[p])Sig[A]^-1
+	mAMresISA.rowCollapse((*hierInd_)[1], gM);
+	// M[p] partial derivatives
+	for (size_t jCol = 0; jCol < M.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < M.getNrows(); ++iRow) {
+			gM.setElem( iRow, jCol, gM.getElem(iRow, jCol) - tauP_*M.getElem(iRow, jCol) ); // Z[p]^T(A - Z[p]M[p])Sig[A]^-1 - tau[p]M[p]
+		}
+	}
 
 }
 

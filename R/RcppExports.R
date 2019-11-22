@@ -5,3 +5,7 @@ lpTest <- function(yVec, iSigVec, repFac, lnFac, paramValues, d) {
     .Call(`_MuGaMix_lpTest`, yVec, iSigVec, repFac, lnFac, paramValues, d)
 }
 
+gradTest <- function(yVec, iSigVec, repFac, lnFac, paramValues, d, idx) {
+    .Call(`_MuGaMix_gradTest`, yVec, iSigVec, repFac, lnFac, paramValues, d, idx)
+}
+
