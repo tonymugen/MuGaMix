@@ -173,29 +173,32 @@ namespace BayesicSpace {
 		const vector<Index> *hierInd_;
 	};
 
-	/** \brief Linear mixed model analysis
+	/** \brief Replicated mixture model analysis
 	 *
-	 * The class wraps Gibbs or daNUTS samplers to fit linear mixed models. Takes the data and factors for paramaters, sets the initial values, and performs the sampling.
+	 * Builds a daNUTS within Gibbs sampler to fit a Gaussian mixture model for replicated data on multiple traits. Takes the data and factors for paramaters, sets the initial values, and performs the sampling.
 	 */
-	class WrapLME {
+	class WrapMMM {
 	public:
 		/** \brief Default constructor */
-		WrapLME() {};
+		WrapMMM() {};
 		/** \brief Constructor for a one-level hierarchical model
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
-		 * \param[in] y data vector
-		 * \param[in] ranEffFactor vector relating "random effects" to the data
+		 *
+		 * \param[in] vY vectorized data matrix
+		 * \param[in] y2line factor connecting data to lines (accessions)
+		 * \param[in] ln2pop factor connecting lines to populations
+		 * \param[in] d number of traits
+		 * \param[in] trueISig vector of true inverse-covariances (for development)
 		 * \param[in] tau0 prior precision for the "fixed" effects
-		 * \param[in] samplerID sampler choice ("gibbs" or "nuts")
 		 */
-		WrapLME(const vector<double> &y, const vector<size_t> &ranEffFactor, const double &tau0, const string &samplerID);
+		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const size_t &d, const vector<double> &trueISig, const double &tau0);
 		/** \brief Copy constructor (deleted) */
-		WrapLME(WrapLME &in) = delete;
+		WrapMMM(WrapMMM &in) = delete;
 		/** \brief Move constructor (deleted) */
-		WrapLME(WrapLME &&in) = delete;
+		WrapMMM(WrapMMM &&in) = delete;
 		/** \brief Destructor */
-		~WrapLME();
+		~WrapMMM();
 		/** \brief Sampler
 		 *
 		 * Runs the chosen sampler with given parameters and outputs the chain.
@@ -207,25 +210,20 @@ namespace BayesicSpace {
 		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &chain);
 	private:
 		/** \brief Data vector */
-		vector<double> y_;
-		/** \brief Vector of indexes connecting data to location parameters
+		vector<double> vY_;
+		/** \brief Vector of indexes connecting hierarchy levels
 		 *
-		 * Includes an index to the intercept (and other possible "fixed effects") as the first element.
+		 * First element connects replicates (data) to line means, second connects lines to populations.
 		 *
 		 */
-		vector<Index> y2loc_;
-		/** \brief Index of location parameters to data
-		 *
-		 * Includes the unmodeled (not updated) "fixed effect" prior. Only relevant for the NUTS sampler.
-		 */
-		Index loc2prior_;
+		vector<Index> hierInd_;
 		/** \brief Location parameters */
-		vector<double> theta_;
-		/** \brief Log-precision parameters */
-		vector<double> logTau_;
+		vector<double> vTheta_;
+		/** \brief Inerese-covariances */
+		vector<double> vISig_;
 		/** \brief Models
 		 *
-		 * Only relevant for NUTS sampling. The location parameter model first, then the log-precision model.
+		 * The location parameter model first, then the inverse-covariance model.
 		 */
 		vector<Model*> models_;
 		/** \brief Vector of pointers to samplers

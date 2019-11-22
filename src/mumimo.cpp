@@ -202,3 +202,20 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 
 }
 
+// WrapMM methods
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const size_t &d, const vector<double> &trueISig, const double &tau0): vY_{vY}, vISig_{trueISig} {
+	hierInd_.push_back(Index(y2line));
+	hierInd_.push_back(Index(ln2pop));
+
+}
+
+WrapMMM::~WrapMMM(){
+	for (auto &m : models_) {
+		delete m;
+	}
+	for (auto &s : sampler_) {
+		delete s;
+	}
+}
+
+
