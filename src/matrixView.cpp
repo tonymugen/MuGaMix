@@ -621,107 +621,6 @@ void MatrixView::eigenSafe(const char &tri, const size_t &n, MatrixView &U, vect
 
 }
 
-void MatrixView::rowExpand(const Index &ind, MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
-	if (ind.groupNumber() != Nrow_) {
-		throw string("ERROR: incorrect number of Index groups in rowExpand()");
-	}
-	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
-	}
-	if ((ind.size() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: the output matrix has wrong dimensions in rowExpand()");
-	}
-#endif
-
-	for (size_t oldRow = 0; oldRow < ind.groupNumber(); oldRow++) {
-		// going through all the rows of Z that correspond to the old row of M
-		for (auto &f : ind[oldRow]) {
-			// copying the row of M
-			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-				out.data_->data()[out.idx_ + ind.size()*jCol + f] = data_->data()[idx_ + Nrow_*jCol + oldRow];
-			}
-		}
-	}
-
-}
-
-void MatrixView::rowCollapse(const Index &ind, MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
-	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in rowSum");
-	}
-	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
-	}
-	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: incorrect Index group number in rowCollapse()");
-	}
-#endif
-
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
-
-	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
-		// going through all the rows of Z that correspond to the new row of M
-		for (auto &f : ind[newRow]) {
-			// summing the rows of M within the group defined by rows of Z
-			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-				out.data_->data()[out.idx_ + ind.groupNumber()*jCol + newRow] += data_->data()[idx_ + Nrow_*jCol + f];
-			}
-		}
-	}
-
-}
-
-void MatrixView::colCollapse(const Index &ind, MatrixView &out) const{
-#ifndef LMRG_CHECK_OFF
-	if (ind.size() != Ncol_) {
-		throw string("ERROR: Incompatible dimensions between Z and M in postmultZ()");
-	}
-	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
-	}
-	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
-		throw string("ERROR: Index group number does not equal output column number in colCollapse()");
-	}
-#endif
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
-
-	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
-		// going through all the rows of Z that correspond to the new column of M
-		for (auto &f : ind[newCol]) {
-			// summing the rows of M within the group defined by rows of Z
-			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-				out.data_->data()[out.idx_ + ind.groupNumber()*newCol + iRow] += data_->data()[idx_ + Nrow_*f + iRow];
-			}
-		}
-	}
-
-}
-
-void MatrixView::colExpand(const Index &ind, MatrixView &out) const{
-#ifndef LMRG_CHECK_OFF
-	if (ind.groupNumber() != Ncol_) {
-		throw string("ERROR: Number of Index groups not equal to number of columns in colExpand()");
-	}
-	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
-	}
-	if ((ind.size() != out.Ncol_) || (Nrow_ != out.Nrow_)) {
-		throw string("ERROR: Index size not equal to output number of rows in colExpand()");
-	}
-#endif
-
-	for (size_t oldCol = 0; oldCol < ind.groupNumber(); oldCol++) {
-		// going through all the rows of Z that correspond to the old column of M
-		for (auto &f : ind[oldCol]) {
-			// copying the column of M
-			memcpy(out.data_->data() + out.idx_ + f*Nrow_, data_->data() + idx_ + oldCol*Nrow_, Nrow_*sizeof(double));
-		}
-	}
-
-}
-
 void MatrixView::syrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
 #ifndef LMRG_CHECK_OFF
 	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
@@ -1154,29 +1053,27 @@ MatrixView& MatrixView::operator/=(const double &scal){
 	return *this;
 }
 
-void MatrixView::rowMeans(vector<double> &means) const{
-	if (means.size() < Nrow_) {
-		means.resize(Nrow_);
+void MatrixView::rowExpand(const Index &ind, MatrixView &out) const{
+#ifndef LMRG_CHECK_OFF
+	if (ind.groupNumber() != Ncol_) {
+		throw string("ERROR: Number of Index groups not equal to number of columns in rowExpand()");
 	}
-	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-		means[iRow] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
-		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-			// numerically stable recursive mean calculation. GSL does it this way.
-			means[iRow] += (data_->data()[idx_ + Nrow_*jCol + iRow] - means[iRow])/static_cast<double>(jCol + 1);
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.size() != out.Ncol_) || (Nrow_ != out.Nrow_)) {
+		throw string("ERROR: Index size not equal to output number of rows in rowExpand()");
+	}
+#endif
+
+	for (size_t oldCol = 0; oldCol < ind.groupNumber(); oldCol++) {
+		// going through all the rows of Z that correspond to the old column of M
+		for (auto &f : ind[oldCol]) {
+			// copying the column of M
+			memcpy(out.data_->data() + out.idx_ + f*Nrow_, data_->data() + idx_ + oldCol*Nrow_, Nrow_*sizeof(double));
 		}
 	}
-}
-void MatrixView::colMeans(vector<double> &means) const{
-	if (means.size() < Ncol_) {
-		means.resize(Ncol_);
-	}
-	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-		means[jCol] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
-		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-			// numerically stable recursive mean calculation. GSL does it this way.
-			means[jCol] += (data_->data()[idx_ + Nrow_*jCol + iRow] - means[jCol])/static_cast<double>(iRow + 1);
-		}
-	}
+
 }
 void MatrixView::rowSums(vector<double> &sums) const{
 	if (sums.size() < Nrow_) {
@@ -1190,6 +1087,96 @@ void MatrixView::rowSums(vector<double> &sums) const{
 		}
 	}
 }
+void MatrixView::rowSums(const Index &ind, MatrixView &out) const{
+#ifndef LMRG_CHECK_OFF
+	if (ind.size() != Ncol_) {
+		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowSums()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
+		throw string("ERROR: Index group number does not equal output column number in rowSums()");
+	}
+#endif
+	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
+
+	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
+		// going through all the Index elments that correspond to the new column of out
+		for (auto &f : ind[newCol]) {
+			// summing the row elements of the current matrix with the group of colums
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				out.data_->data()[out.idx_ + ind.groupNumber()*newCol + iRow] += data_->data()[idx_ + Nrow_*f + iRow];
+			}
+		}
+	}
+
+}
+void MatrixView::rowMeans(vector<double> &means) const{
+	if (means.size() < Nrow_) {
+		means.resize(Nrow_);
+	}
+	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+		means[iRow] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
+		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+			// numerically stable recursive mean calculation. GSL does it this way.
+			means[iRow] += (data_->data()[idx_ + Nrow_*jCol + iRow] - means[iRow])/static_cast<double>(jCol + 1);
+		}
+	}
+}
+void MatrixView::rowMeans(const Index &ind, MatrixView &out) const{
+#ifndef LMRG_CHECK_OFF
+	if (ind.size() != Ncol_) {
+		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowMeans()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
+		throw string("ERROR: Index group number does not equal output column number in rowMeans()");
+	}
+#endif
+	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
+
+	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
+		// going through all the Index elments that correspond to the new column of out
+		double denom = 1.0;
+		for (auto &f : ind[newCol]) {
+			// summing the row elements of the current matrix with the group of colums
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				out.data_->data()[out.idx_ + ind.groupNumber()*newCol + iRow] +=
+						(data_->data()[idx_ + Nrow_*f + iRow] - out.data_->data()[out.idx_ + ind.groupNumber()*newCol + iRow])/denom;
+			}
+			denom += 1.0;
+		}
+	}
+
+}
+
+void MatrixView::colExpand(const Index &ind, MatrixView &out) const {
+#ifndef LMRG_CHECK_OFF
+	if (ind.groupNumber() != Nrow_) {
+		throw string("ERROR: incorrect number of Index groups in colExpand()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.size() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+		throw string("ERROR: the output matrix has wrong dimensions in colExpand()");
+	}
+#endif
+
+	for (size_t oldRow = 0; oldRow < ind.groupNumber(); oldRow++) {
+		// going through all the rows of Z that correspond to the old row of M
+		for (auto &f : ind[oldRow]) {
+			// copying the row of M
+			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+				out.data_->data()[out.idx_ + ind.size()*jCol + f] = data_->data()[idx_ + Nrow_*jCol + oldRow];
+			}
+		}
+	}
+
+}
 void MatrixView::colSums(vector<double> &sums) const{
 	if (sums.size() < Ncol_) {
 		sums.resize(Ncol_);
@@ -1202,6 +1189,72 @@ void MatrixView::colSums(vector<double> &sums) const{
 		}
 	}
 }
+void MatrixView::colSums(const Index &ind, MatrixView &out) const {
+#ifndef LMRG_CHECK_OFF
+	if (ind.size() != Nrow_) {
+		throw string("ERROR: Wrong total length of Index in colSums()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+		throw string("ERROR: incorrect Index group number in colSums()");
+	}
+#endif
+
+	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
+
+	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
+		// going through all the rows of Z that correspond to the new row of M
+		for (auto &f : ind[newRow]) {
+			// summing the rows of M within the group defined by rows of Z
+			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+				out.data_->data()[out.idx_ + ind.groupNumber()*jCol + newRow] += data_->data()[idx_ + Nrow_*jCol + f];
+			}
+		}
+	}
+
+}
+void MatrixView::colMeans(vector<double> &means) const{
+	if (means.size() < Ncol_) {
+		means.resize(Ncol_);
+	}
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		means[jCol] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
+		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+			// numerically stable recursive mean calculation. GSL does it this way.
+			means[jCol] += (data_->data()[idx_ + Nrow_*jCol + iRow] - means[jCol])/static_cast<double>(iRow + 1);
+		}
+	}
+}
+void MatrixView::colMeans(const Index &ind, MatrixView &out) const {
+#ifndef LMRG_CHECK_OFF
+	if (ind.size() != Nrow_) {
+		throw string("ERROR: Wrong total length of Index in colMeans()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+		throw string("ERROR: incorrect Index group number in colMeans()");
+	}
+#endif
+
+	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
+
+	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
+		double denom = 1.0;
+		for (auto &f : ind[newRow]) {
+			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+				out.data_->data()[out.idx_ + ind.groupNumber()*jCol + newRow] +=
+					(data_->data()[idx_ + Nrow_*jCol + f] - out.data_->data()[out.idx_ + ind.groupNumber()*jCol + newRow])/denom;
+			}
+			denom += 1.0;
+		}
+	}
+
+}
+
 void MatrixView::rowMultiply(const vector<double> &scalars){
 #ifndef LMRG_CHECK_OFF
 	if (scalars.size() != Ncol_) {
@@ -1700,105 +1753,6 @@ void MatrixViewConst::eigenSafe(const char &tri, const size_t &n, MatrixView &U,
 	}
 }
 
-void MatrixViewConst::rowExpand(const Index &ind, MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
-	if (ind.groupNumber() != Nrow_) {
-		throw string("ERROR: incorrect number of Index groups in rowExpand()");
-	}
-	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
-	}
-	if ((ind.size() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: the output matrix has wrong dimensions in rowExpand()");
-	}
-#endif
-
-	for (size_t oldRow = 0; oldRow < ind.groupNumber(); oldRow++) {
-		// going through all the rows of Z that correspond to the old row of M
-		for (auto &f : ind[oldRow]) {
-			// copying the row of M
-			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-				out.data_->data()[out.idx_ + ind.size()*jCol + f] = data_->data()[idx_ + Nrow_*jCol + oldRow];
-			}
-		}
-	}
-
-}
-
-void MatrixViewConst::rowCollapse(const Index &ind, MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
-	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in rowSum");
-	}
-	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
-	}
-	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: incorrect Index group number in rowCollapse()");
-	}
-#endif
-
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
-
-	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
-		// going through all the rows of Z that correspond to the new row of M
-		for (auto &f : ind[newRow]) {
-			// summing the rows of M within the group defined by rows of Z
-			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-				out.data_->data()[out.idx_ + ind.groupNumber()*jCol + newRow] += data_->data()[idx_ + Nrow_*jCol + f];
-			}
-		}
-	}
-
-}
-
-void MatrixViewConst::colCollapse(const Index &ind, MatrixView &out) const{
-#ifndef LMRG_CHECK_OFF
-	if (ind.size() != Ncol_) {
-		throw string("ERROR: Incompatible dimensions between Z and M in postmultZ()");
-	}
-	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
-	}
-	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
-		throw string("ERROR: Index group number does not equal output column number in colCollapse()");
-	}
-#endif
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
-
-	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
-		// going through all the rows of Z that correspond to the new column of M
-		for (auto &f : ind[newCol]) {
-			// summing the rows of M within the group defined by rows of Z
-			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-				out.data_->data()[out.idx_ + ind.groupNumber()*newCol + iRow] += data_->data()[idx_ + Nrow_*f + iRow];
-			}
-		}
-	}
-}
-
-void MatrixViewConst::colExpand(const Index &ind, MatrixView &out) const{
-#ifndef LMRG_CHECK_OFF
-	if (ind.groupNumber() != Ncol_) {
-		throw string("ERROR: Number of Index groups not equal to number of columns in colExpand()");
-	}
-	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
-	}
-	if ((ind.size() != out.Ncol_) || (Nrow_ != out.Nrow_)) {
-		throw string("ERROR: Index size not equal to output number of rows in colExpand()");
-	}
-#endif
-
-	for (size_t oldCol = 0; oldCol < ind.groupNumber(); oldCol++) {
-		// going through all the rows of Z that correspond to the old column of M
-		for (auto &f : ind[oldCol]) {
-			// copying the column of M
-			memcpy(out.data_->data() + out.idx_ + f*Nrow_, data_->data() + idx_ + oldCol*Nrow_, Nrow_*sizeof(double));
-		}
-	}
-}
-
 void MatrixViewConst::syrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
 #ifndef LMRG_CHECK_OFF
 	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
@@ -2197,29 +2151,27 @@ void MatrixViewConst::gemc(const bool &trans, const double &alpha, const MatrixV
 
 }
 
-void MatrixViewConst::rowMeans(vector<double> &means) const{
-	if (means.size() < Nrow_) {
-		means.resize(Nrow_);
+void MatrixViewConst::rowExpand(const Index &ind, MatrixView &out) const{
+#ifndef LMRG_CHECK_OFF
+	if (ind.groupNumber() != Ncol_) {
+		throw string("ERROR: Number of Index groups not equal to number of columns in rowExpand()");
 	}
-	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-		means[iRow] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
-		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-			// numerically stable recursive mean calculation. GSL does it this way.
-			means[iRow] += (data_->data()[idx_ + Nrow_*jCol + iRow] - means[iRow])/static_cast<double>(jCol + 1);
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.size() != out.Ncol_) || (Nrow_ != out.Nrow_)) {
+		throw string("ERROR: Index size not equal to output number of rows in rowExpand()");
+	}
+#endif
+
+	for (size_t oldCol = 0; oldCol < ind.groupNumber(); oldCol++) {
+		// going through all the rows of Z that correspond to the old column of M
+		for (auto &f : ind[oldCol]) {
+			// copying the column of M
+			memcpy(out.data_->data() + out.idx_ + f*Nrow_, data_->data() + idx_ + oldCol*Nrow_, Nrow_*sizeof(double));
 		}
 	}
-}
-void MatrixViewConst::colMeans(vector<double> &means) const{
-	if (means.size() < Ncol_) {
-		means.resize(Ncol_);
-	}
-	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-		means[jCol] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
-		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-			// numerically stable recursive mean calculation. GSL does it this way.
-			means[jCol] += (data_->data()[idx_ + Nrow_*jCol + iRow] - means[jCol])/static_cast<double>(iRow + 1);
-		}
-	}
+
 }
 void MatrixViewConst::rowSums(vector<double> &sums) const{
 	if (sums.size() < Nrow_) {
@@ -2233,6 +2185,96 @@ void MatrixViewConst::rowSums(vector<double> &sums) const{
 		}
 	}
 }
+void MatrixViewConst::rowSums(const Index &ind, MatrixView &out) const{
+#ifndef LMRG_CHECK_OFF
+	if (ind.size() != Ncol_) {
+		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowSums()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
+		throw string("ERROR: Index group number does not equal output column number in rowSums()");
+	}
+#endif
+	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
+
+	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
+		// going through all the Index elments that correspond to the new column of out
+		for (auto &f : ind[newCol]) {
+			// summing the row elements of the current matrix with the group of colums
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				out.data_->data()[out.idx_ + ind.groupNumber()*newCol + iRow] += data_->data()[idx_ + Nrow_*f + iRow];
+			}
+		}
+	}
+
+}
+void MatrixViewConst::rowMeans(vector<double> &means) const{
+	if (means.size() < Nrow_) {
+		means.resize(Nrow_);
+	}
+	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+		means[iRow] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
+		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+			// numerically stable recursive mean calculation. GSL does it this way.
+			means[iRow] += (data_->data()[idx_ + Nrow_*jCol + iRow] - means[iRow])/static_cast<double>(jCol + 1);
+		}
+	}
+}
+void MatrixViewConst::rowMeans(const Index &ind, MatrixView &out) const{
+#ifndef LMRG_CHECK_OFF
+	if (ind.size() != Ncol_) {
+		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowMeans()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
+		throw string("ERROR: Index group number does not equal output column number in rowMeans()");
+	}
+#endif
+	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
+
+	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
+		// going through all the Index elments that correspond to the new column of out
+		double denom = 1.0;
+		for (auto &f : ind[newCol]) {
+			// summing the row elements of the current matrix with the group of colums
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				out.data_->data()[out.idx_ + ind.groupNumber()*newCol + iRow] +=
+						(data_->data()[idx_ + Nrow_*f + iRow] - out.data_->data()[out.idx_ + ind.groupNumber()*newCol + iRow])/denom;
+			}
+			denom += 1.0;
+		}
+	}
+
+}
+
+void MatrixViewConst::colExpand(const Index &ind, MatrixView &out) const {
+#ifndef LMRG_CHECK_OFF
+	if (ind.groupNumber() != Nrow_) {
+		throw string("ERROR: incorrect number of Index groups in colExpand()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.size() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+		throw string("ERROR: the output matrix has wrong dimensions in colExpand()");
+	}
+#endif
+
+	for (size_t oldRow = 0; oldRow < ind.groupNumber(); oldRow++) {
+		// going through all the rows of Z that correspond to the old row of M
+		for (auto &f : ind[oldRow]) {
+			// copying the row of M
+			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+				out.data_->data()[out.idx_ + ind.size()*jCol + f] = data_->data()[idx_ + Nrow_*jCol + oldRow];
+			}
+		}
+	}
+
+}
 void MatrixViewConst::colSums(vector<double> &sums) const{
 	if (sums.size() < Ncol_) {
 		sums.resize(Ncol_);
@@ -2244,5 +2286,70 @@ void MatrixViewConst::colSums(vector<double> &sums) const{
 			sums[jCol] += data_->data()[idx_ + Nrow_*jCol + iRow];
 		}
 	}
+}
+void MatrixViewConst::colSums(const Index &ind, MatrixView &out) const {
+#ifndef LMRG_CHECK_OFF
+	if (ind.size() != Nrow_) {
+		throw string("ERROR: Wrong total length of Index in colSums()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+		throw string("ERROR: incorrect Index group number in colSums()");
+	}
+#endif
+
+	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
+
+	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
+		// going through all the rows of Z that correspond to the new row of M
+		for (auto &f : ind[newRow]) {
+			// summing the rows of M within the group defined by rows of Z
+			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+				out.data_->data()[out.idx_ + ind.groupNumber()*jCol + newRow] += data_->data()[idx_ + Nrow_*jCol + f];
+			}
+		}
+	}
+
+}
+void MatrixViewConst::colMeans(vector<double> &means) const{
+	if (means.size() < Ncol_) {
+		means.resize(Ncol_);
+	}
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		means[jCol] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
+		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+			// numerically stable recursive mean calculation. GSL does it this way.
+			means[jCol] += (data_->data()[idx_ + Nrow_*jCol + iRow] - means[jCol])/static_cast<double>(iRow + 1);
+		}
+	}
+}
+void MatrixViewConst::colMeans(const Index &ind, MatrixView &out) const {
+#ifndef LMRG_CHECK_OFF
+	if (ind.size() != Nrow_) {
+		throw string("ERROR: Wrong total length of Index in colMeans()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+		throw string("ERROR: incorrect Index group number in colMeans()");
+	}
+#endif
+
+	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
+
+	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
+		double denom = 1.0;
+		for (auto &f : ind[newRow]) {
+			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+				out.data_->data()[out.idx_ + ind.groupNumber()*jCol + newRow] +=
+					(data_->data()[idx_ + Nrow_*jCol + f] - out.data_->data()[out.idx_ + ind.groupNumber()*jCol + newRow])/denom;
+			}
+			denom += 1.0;
+		}
+	}
+
 }
 

@@ -184,15 +184,17 @@ namespace BayesicSpace {
 		/** \brief Constructor for a one-level hierarchical model
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
+		 * The "fixed effect" matrix includes predictors for parameters that have a set high-variance prior (unmodeled effects). This includes the intercept and any continuous predictors.
 		 *
 		 * \param[in] vY vectorized data matrix
+		 * \param[in] vX vectorized fixed effect matrix, should include the intercept as first element
 		 * \param[in] y2line factor connecting data to lines (accessions)
 		 * \param[in] ln2pop factor connecting lines to populations
 		 * \param[in] d number of traits
 		 * \param[in] trueISig vector of true inverse-covariances (for development)
 		 * \param[in] tau0 prior precision for the "fixed" effects
 		 */
-		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const size_t &d, const vector<double> &trueISig, const double &tau0);
+		WrapMMM(const vector<double> &vY, const vector<double> &vX, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const size_t &d, const vector<double> &trueISig, const double &tau0);
 		/** \brief Copy constructor (deleted) */
 		WrapMMM(WrapMMM &in) = delete;
 		/** \brief Move constructor (deleted) */
@@ -208,9 +210,19 @@ namespace BayesicSpace {
 		 * \param[out] chain MCMC chain
 		 */
 		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &chain);
+		/** \brief Get location theta (just for testing */
+		void getTheta(vector <double> &theta){theta = vTheta_;};
 	private:
-		/** \brief Data vector */
+		/** \brief Vectorized data matrix
+		 *
+		 * Vectorized matrix of responses.
+		 */
 		vector<double> vY_;
+		/** \brief Vectorized fixed effect matrix
+		 *
+		 * The first element is the intercept (must be provided by the calling function).
+		 */
+		vector<double> vX_;
 		/** \brief Vector of indexes connecting hierarchy levels
 		 *
 		 * First element connects replicates (data) to line means, second connects lines to populations.

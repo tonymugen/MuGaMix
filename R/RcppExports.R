@@ -9,3 +9,7 @@ gradTest <- function(yVec, iSigVec, repFac, lnFac, paramValues, d, idx) {
     .Call(`_MuGaMix_gradTest`, yVec, iSigVec, repFac, lnFac, paramValues, d, idx)
 }
 
+testInitTheta <- function(yVec, trueISigVec, lnFac, popFac, Npop, d) {
+    .Call(`_MuGaMix_testInitTheta`, yVec, trueISigVec, lnFac, popFac, Npop, d)
+}
+

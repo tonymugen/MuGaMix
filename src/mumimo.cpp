@@ -203,10 +203,57 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 }
 
 // WrapMM methods
-WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const size_t &d, const vector<double> &trueISig, const double &tau0): vY_{vY}, vISig_{trueISig} {
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const size_t &d, const vector<double> &trueISig, const double &tau0): vY_{vY}, vX_{vX}, vISig_{trueISig} {
 	hierInd_.push_back(Index(y2line));
 	hierInd_.push_back(Index(ln2pop));
+	if (hierInd_[0].groupNumber() != hierInd_[1].size()) {
+		throw string("WrapMMM constructor ERROR: the line and population hierarchical indexes do not match");
+	}
+	models_.push_back( new MumiLoc(&vY_, &vISig_, d, &hierInd_, &vX_, tau0) );
+	const size_t N   = vY_.size()/d;
+	if (N != vY_.size()/d) {
+		throw string("WrapMMM constructor ERROR: the line factor not same length as the data");
+	}
+	if (vX_.size()%N) {
+		throw string("WrapMMM constructor ERROR: vectorized X must contain and integer number of predictors");
+	}
+	const size_t Nln  = ln2pop.size();
+	const size_t Npop = hierInd_[1].groupNumber();
+	const size_t Nb   = vX_.size()/N;
+	const size_t Adim = Nln*d;
+	const size_t Bdim = Nb*d;
+	const size_t Mdim = Npop*d;
 
+	// Calculate starting values for theta
+	MatrixViewConst Y(&vY_, 0, N, d);
+	MatrixViewConst X(&vX_, 0, N, Nb);
+
+	vTheta_.resize(Adim + Bdim + Mdim, 0.0);
+	MatrixView A(&vTheta_, 0, Nln, d);
+	MatrixView B(&vTheta_, Adim, Nb, d);
+	MatrixView M(&vTheta_, Adim+Bdim, Npop, d);
+
+	vector<double> vXtX(Nb*Nb, 0.0);
+	MatrixView XtX(&vXtX, 0, Nb, Nb);
+
+	X.syrk('u', 1.0, 0.0, XtX);
+	XtX.chol();
+	XtX.cholInv();
+	vector<double> vXtY(Bdim, 0.0);
+	MatrixView XtY(&vXtY, 0, Nb, d);
+	Y.gemm(true, 1.0, X, false, 0.0, XtY);
+	XtY.symm('u', 'l', 1.0, XtX, 0.0, B);
+
+	vector<double> bResid(vY_);
+	MatrixView YmXb(&bResid, 0, N, d); // Y - XB
+	B.gemm(false, -1.0, X, false, 1.0, YmXb);
+	YmXb.colSums(hierInd_[0], A); // residual means to get A starting values
+	A.colSums(hierInd_[1], M);    // A means to get population mean starting values
+	//for (auto &t : vTheta_) {         // add noise
+	//	t += rng_.rnorm();
+	//}
+
+	sampler_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 }
 
 WrapMMM::~WrapMMM(){

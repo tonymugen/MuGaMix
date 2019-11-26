@@ -219,43 +219,6 @@ namespace BayesicSpace {
 		 */
 		void eigenSafe(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam) const;
 
-		/** \brief Expand rows according to the provided index
-		 *
-		 * The output matrix must be of the correct size.
-		 *
-		 * \param[in] ind `Index` with groups corresponding to existing rows
-		 * \param[out] out output `MatrixView`
-		 *
-		 */
-		void rowExpand(const Index &ind, MatrixView &out) const;
-		/** \brief Sum rows in groups of the provided index
-		 *
-		 * The rows are summed within each group of the `Index`. The output matrix must have the correct dimensions.
-		 *
-		 * \param[in] ind `Index` with elements corresponding to rows
-		 * \param[out] out output `MatrixView`
-		 *
-		 */
-		void rowCollapse(const Index &ind, MatrixView &out) const;
-		/** \brief Sum columns in groups of the provided index
-		 *
-		 * The columns are summed within each group of the `Index`. The output matrix must have the correct dimensions.
-		 *
-		 * \param[in] ind `Index` with elements corresponding to columns
-		 * \param[out] out output `MatrixView`
-		 *
-		 */
-		void colCollapse(const Index &ind, MatrixView &out) const;
-		/** \brief Expand columns accoring to the provided index
-		 *
-		 * The output matrix must be of correct size.
-		 *
-		 * \param[in] ind `Index` with groups corresponding to columns
-		 * \param[out] out output `MatrixView`
-		 *
-		 */
-		void colExpand(const Index &ind, MatrixView &out) const;
-
 		// BLAS interface
 		/** \brief Inner self crossproduct
 		 *
@@ -431,38 +394,93 @@ namespace BayesicSpace {
 		MatrixView& operator/=(const double &scal);
 
 		// column- and row-wise operations
-		/** \brief Row means
+		/** \brief Expand rows according to the provided index
 		 *
-		 * Calculates row means and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 * Each row is expanded, creating more columns. The output matrix must be of the correct size.
 		 *
-		 * \param[out] means vector of means
-		 *
-		 */
-		void rowMeans(vector<double> &means) const;
-		/** \brief Column means
-		 *
-		 * Calculates column means and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{col}\f$ elements are used.
-		 *
-		 * \param[out] means vector of means
+		 * \param[in] ind `Index` with groups corresponding to existing rows
+		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void colMeans(vector<double> &means) const;
+		void rowExpand(const Index &ind, MatrixView &out) const;
 		/** \brief Row sums
 		 *
-		 * Calculates row sums and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 * Sums row elements and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
 		 *
 		 * \param[out] sums vector of sums
 		 *
 		 */
 		void rowSums(vector<double> &sums) const;
+		/** \brief Sum rows in groups
+		 *
+		 * The row elements are summed within each group of the `Index`. The output matrix must have the correct dimensions (\f$N_{col}\f$ the new matrix equal to the number of groups).
+		 *
+		 * \param[in] ind `Index` with elements corresponding to rows
+		 * \param[out] out output `MatrixView`
+		 *
+		 */
+		void rowSums(const Index &ind, MatrixView &out) const;
+		/** \brief Row means
+		 *
+		 * Calculates means among row elements and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 *
+		 * \param[out] means vector of means
+		 *
+		 */
+		void rowMeans(vector<double> &means) const;
+		/** \brief Row means in groups
+		 *
+		 * Means among row elements are calculated within each group of the `Index`. The output matrix must have the correct dimensions (\f$N_{col}\f$ the new matrix equal to the number of groups).
+		 *
+		 * \param[in] ind `Index` with elements corresponding to rows
+		 * \param[out] out output `MatrixView`
+		 *
+		 */
+		void rowMeans(const Index &ind, MatrixView &out) const;
+
 		/** \brief Column sums
 		 *
-		 * Calculates column sums and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{col}\f$ elements are used.
+		 * Calculates sums of column elements and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{col}\f$ elements are used.
 		 *
 		 * \param[out] sums vector of sums
 		 *
 		 */
 		void colSums(vector<double> &sums) const;
+		/** \brief Sum columns in groups
+		 *
+		 * The column elements are summed within each group of the `Index`. The output matrix must have the correct dimensions.
+		 *
+		 * \param[in] ind `Index` with elements corresponding to columns
+		 * \param[out] out output `MatrixView`
+		 *
+		 */
+		void colSums(const Index &ind, MatrixView &out) const;
+		/** \brief Expand columns accoring to the provided index
+		 *
+		 * Columns are expanded to make more rows. The output matrix must be of correct size.
+		 *
+		 * \param[in] ind `Index` with groups corresponding to columns
+		 * \param[out] out output `MatrixView`
+		 *
+		 */
+		void colExpand(const Index &ind, MatrixView &out) const;
+		/** \brief Column means
+		 *
+		 * Calculates means among rows in each column and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 *
+		 * \param[out] means vector of means
+		 *
+		 */
+		void colMeans(vector<double> &means) const;
+		/** \brief Column means in groups
+		 *
+		 * Means among column elements are calculated within each group of the `Index`. The output matrix must have the correct dimensions.
+		 *
+		 * \param[in] ind `Index` with elements corresponding to columns
+		 * \param[out] out output `MatrixView`
+		 *
+		 */
+		void colMeans(const Index &ind, MatrixView &out) const;
 		/** \brief Multiply rows by a vector
 		 *
 		 * Entry-wise multiplication of each row by the provided vector. The current object is modified.
@@ -737,43 +755,6 @@ namespace BayesicSpace {
 		 */
 		void eigenSafe(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam) const;
 
-		/** \brief Expand rows according to the provided index
-		 *
-		 * The output matrix must be of the correct size.
-		 *
-		 * \param[in] ind `Index` with groups corresponding to existing rows
-		 * \param[out] out output `MatrixView`
-		 *
-		 */
-		void rowExpand(const Index &ind, MatrixView &out) const;
-		/** \brief Sum rows in groups of the provided index
-		 *
-		 * The rows are summed within each group of the `Index`. The output matrix must have the correct dimensions.
-		 *
-		 * \param[in] ind `Index` with elements corresponding to rows
-		 * \param[out] out output `MatrixView`
-		 *
-		 */
-		void rowCollapse(const Index &ind, MatrixView &out) const;
-		/** \brief Sum columns in groups of the provided index
-		 *
-		 * The columns are summed within each group of the `Index`. The output matrix must have the correct dimensions.
-		 *
-		 * \param[in] ind `Index` with elements corresponding to columns
-		 * \param[out] out output `MatrixView`
-		 *
-		 */
-		void colCollapse(const Index &ind, MatrixView &out) const;
-		/** \brief Expand columns accoring to the provided index
-		 *
-		 * The output matrix must be of correct size.
-		 *
-		 * \param[in] ind `Index` with groups corresponding to columns
-		 * \param[out] out output `MatrixView`
-		 *
-		 */
-		void colExpand(const Index &ind, MatrixView &out) const;
-
 		// BLAS interface
 		/** \brief Inner self crossproduct
 		 *
@@ -919,38 +900,93 @@ namespace BayesicSpace {
 		void gemc(const bool &trans, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const;
 
 		// column- and row-wise operations
-		/** \brief Row means
+		/** \brief Expand rows according to the provided index
 		 *
-		 * Calculates row means and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 * Each row is expanded, creating more columns. The output matrix must be of the correct size.
 		 *
-		 * \param[out] means vector of means
-		 *
-		 */
-		void rowMeans(vector<double> &means) const;
-		/** \brief Column means
-		 *
-		 * Calculates column means and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{col}\f$ elements are used.
-		 *
-		 * \param[out] means vector of means
+		 * \param[in] ind `Index` with groups corresponding to existing rows
+		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void colMeans(vector<double> &means) const;
+		void rowExpand(const Index &ind, MatrixView &out) const;
+		/** \brief Sum rows in groups
+		 *
+		 * The row elements are summed within each group of the `Index`. The output matrix must have the correct dimensions (\f$N_{col}\f$ the new matrix equal to the number of groups).
+		 *
+		 * \param[in] ind `Index` with elements corresponding to rows
+		 * \param[out] out output `MatrixView`
+		 *
+		 */
+		void rowSums(const Index &ind, MatrixView &out) const;
 		/** \brief Row sums
 		 *
-		 * Calculates row sums and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 * Sums row elements and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
 		 *
 		 * \param[out] sums vector of sums
 		 *
 		 */
 		void rowSums(vector<double> &sums) const;
+		/** \brief Row means
+		 *
+		 * Calculates means among row elements and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 *
+		 * \param[out] means vector of means
+		 *
+		 */
+		void rowMeans(vector<double> &means) const;
+		/** \brief Row means in groups
+		 *
+		 * Means among row elements are calculated within each group of the `Index`. The output matrix must have the correct dimensions.
+		 *
+		 * \param[in] ind `Index` with elements corresponding to rows
+		 * \param[out] out output `MatrixView`
+		 *
+		 */
+		void rowMeans(const Index &ind, MatrixView &out) const;
+
 		/** \brief Column sums
 		 *
-		 * Calculates column sums and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{col}\f$ elements are used.
+		 * Calculates sums of column elements and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{col}\f$ elements are used.
 		 *
 		 * \param[out] sums vector of sums
 		 *
 		 */
 		void colSums(vector<double> &sums) const;
+		/** \brief Sum columns in groups
+		 *
+		 * The column elements are summed within each group of the `Index`. The output matrix must have the correct dimensions.
+		 *
+		 * \param[in] ind `Index` with elements corresponding to columns
+		 * \param[out] out output `MatrixView`
+		 *
+		 */
+		void colSums(const Index &ind, MatrixView &out) const;
+		/** \brief Expand columns accoring to the provided index
+		 *
+		 * Columns are expanded to make more rows. The output matrix must be of correct size.
+		 *
+		 * \param[in] ind `Index` with groups corresponding to columns
+		 * \param[out] out output `MatrixView`
+		 *
+		 */
+		void colExpand(const Index &ind, MatrixView &out) const;
+		/** \brief Column means
+		 *
+		 * Calculates means among rows in each column and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{col}\f$ elements are used.
+		 *
+		 * \param[out] means vector of means
+		 *
+		 */
+		void colMeans(vector<double> &means) const;
+		/** \brief Column means in groups
+		 *
+		 * Means among column elements are calculated within each group of the `Index`. The output matrix must have the correct dimensions.
+		 *
+		 * \param[in] ind `Index` with elements corresponding to columns
+		 * \param[out] out output `MatrixView`
+		 *
+		 */
+		void colMeans(const Index &ind, MatrixView &out) const;
 	private:
 		/** \brief Pointer to a vector */
 		const vector<double> *data_;

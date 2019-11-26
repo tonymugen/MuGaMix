@@ -105,3 +105,34 @@ double gradTest(const std::vector<double> &yVec, const std::vector<double> &iSig
 
 	return 0.0;
 }
+
+//[[Rcpp::export]]
+Rcpp::List testInitTheta(const std::vector<double> &yVec, const std::vector<double> &trueISigVec, const std::vector<int32_t> &lnFac, const std::vector<int32_t> &popFac, const int32_t &Npop, const int32_t &d){
+	if (d <= 0) {
+		Rcpp::stop("ERROR: number of traits must be positive");
+	}
+	std::vector<size_t> l1;
+	std::vector<size_t> l2;
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(lf-1) );
+	}
+	for (auto &pf : popFac) {
+		if (pf <= 0) {
+			Rcpp::stop("ERROR: all elements of the population factor must be positive");
+		}
+		l2.push_back( static_cast<size_t>(pf-1) );
+	}
+	std::vector<double> X(lnFac.size(), 1.0);
+	std::vector<double> theta((popFac.size() + 1 + Npop)*d, 0.0);
+	try {
+		BayesicSpace::WrapMMM test(yVec, X, l1, l2, d, trueISigVec, 1e-5);
+		test.getTheta(theta);
+		return Rcpp::List::create(Rcpp::Named("theta", theta));
+	}catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("theta", theta));
+}
