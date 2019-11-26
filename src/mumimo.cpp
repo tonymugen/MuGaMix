@@ -247,8 +247,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 	vector<double> bResid(vY_);
 	MatrixView YmXb(&bResid, 0, N, d); // Y - XB
 	B.gemm(false, -1.0, X, false, 1.0, YmXb);
-	YmXb.colSums(hierInd_[0], A); // residual means to get A starting values
-	A.colSums(hierInd_[1], M);    // A means to get population mean starting values
+	YmXb.colMeans(hierInd_[0], A); // residual means to get A starting values
+	A.colMeans(hierInd_[1], M);    // A means to get population mean starting values
 	//for (auto &t : vTheta_) {         // add noise
 	//	t += rng_.rnorm();
 	//}
