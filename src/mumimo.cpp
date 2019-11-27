@@ -69,7 +69,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	// Calculate the residual Y - XB - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
 	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
-	A.rowExpand((*hierInd_)[0], mResid); // ZA
+	A.colExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
 			mResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
@@ -102,7 +102,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	vResIS.resize(A.getNrows()*A.getNcols(), 0.0); // will become (A-M)Sig^{-1}[A]
 	mResid = MatrixView(&vResid, 0, A.getNrows(), A.getNcols());
 	resISE = MatrixView(&vResIS, 0, A.getNrows(), A.getNcols());
-	M.rowExpand((*hierInd_)[1], mResid); // Z[p]M[p]
+	M.colExpand((*hierInd_)[1], mResid); // Z[p]M[p]
 	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
 			mResid.setElem( iRow, jCol, A.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // A - Z[p]M[p]
@@ -146,7 +146,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// Calculate the residual Y - XB - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
 	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
-	A.rowExpand((*hierInd_)[0], mResid); // ZA
+	A.colExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
 			mResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
@@ -162,7 +162,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// Calculate the residual A - Z[p]M[p]
 	vector<double> vAMresid(Adim, 0.0);
 	MatrixView mAMresid(&vAMresid, 0, A.getNrows(), A.getNcols());
-	M.rowExpand((*hierInd_)[1], mAMresid); // Z[p]M[p]
+	M.colExpand((*hierInd_)[1], mAMresid); // Z[p]M[p]
 	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
 			mAMresid.setElem( iRow, jCol, A.getElem(iRow, jCol) - mAMresid.getElem(iRow, jCol) ); // A - Z[p]M[p]
@@ -174,7 +174,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	mAMresid.symm('u', 'r', 1.0, ISigA_, 0.0, mAMresISA);
 
 	// Z^T(Y - ZA - XB)Sig[E]^-1 store in gA
-	mResISE.rowCollapse((*hierInd_)[0], gA);
+	mResISE.colSums((*hierInd_)[0], gA);
 	// A partial derivatives
 	for (size_t jCol = 0; jCol < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
@@ -192,7 +192,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	}
 
 	// Z[p]^T(A - Z[p]M[p])Sig[A]^-1
-	mAMresISA.rowCollapse((*hierInd_)[1], gM);
+	mAMresISA.colSums((*hierInd_)[1], gM);
 	// M[p] partial derivatives
 	for (size_t jCol = 0; jCol < M.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < M.getNrows(); ++iRow) {
@@ -249,9 +249,9 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 	B.gemm(false, -1.0, X, false, 1.0, YmXb);
 	YmXb.colMeans(hierInd_[0], A); // residual means to get A starting values
 	A.colMeans(hierInd_[1], M);    // A means to get population mean starting values
-	//for (auto &t : vTheta_) {         // add noise
-	//	t += rng_.rnorm();
-	//}
+	for (auto &t : vTheta_) {      // add noise
+		t += rng_.rnorm();
+	}
 
 	sampler_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 }
