@@ -265,4 +265,21 @@ WrapMMM::~WrapMMM(){
 	}
 }
 
+void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &chain){
+	for (uint32_t a = 0; a < Nadapt; a++) {
+		for (auto &s : sampler_) {
+			s->adapt();
+		}
+	}
+	chain.clear();
+	for (uint32_t b = 0; b < Nsample; b++) {
+		for (auto &s : sampler_) {
+			s->update();
+		}
+		for (auto &t : vTheta_) {
+			chain.push_back(t);
+		}
+	}
+}
+
 

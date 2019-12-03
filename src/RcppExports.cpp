@@ -54,11 +54,30 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// testLocSampler
+Rcpp::List testLocSampler(const std::vector<double>& yVec, const std::vector<double>& trueISigVec, const std::vector<int32_t>& lnFac, const std::vector<int32_t>& popFac, const int32_t& Npop, const int32_t& d, const int32_t& Nadapt, const int32_t& Nsamp);
+RcppExport SEXP _MuGaMix_testLocSampler(SEXP yVecSEXP, SEXP trueISigVecSEXP, SEXP lnFacSEXP, SEXP popFacSEXP, SEXP NpopSEXP, SEXP dSEXP, SEXP NadaptSEXP, SEXP NsampSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type trueISigVec(trueISigVecSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type popFac(popFacSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Nadapt(NadaptSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Nsamp(NsampSEXP);
+    rcpp_result_gen = Rcpp::wrap(testLocSampler(yVec, trueISigVec, lnFac, popFac, Npop, d, Nadapt, Nsamp));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_MuGaMix_lpTest", (DL_FUNC) &_MuGaMix_lpTest, 6},
     {"_MuGaMix_gradTest", (DL_FUNC) &_MuGaMix_gradTest, 7},
     {"_MuGaMix_testInitTheta", (DL_FUNC) &_MuGaMix_testInitTheta, 6},
+    {"_MuGaMix_testLocSampler", (DL_FUNC) &_MuGaMix_testLocSampler, 8},
     {NULL, NULL, 0}
 };
 

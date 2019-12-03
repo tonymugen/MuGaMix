@@ -219,7 +219,7 @@ void SamplerNUTS::findInitialEpsilon_(){
 }
 
 void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const double &epsilon){
-	vector<double> thtGrad;
+	vector<double> thtGrad(theta_->size(), 0.0);
 	model_->gradient(theta, thtGrad);
 
 	for (size_t j = 0; j < theta.size(); j++) {

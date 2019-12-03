@@ -13,3 +13,7 @@ testInitTheta <- function(yVec, trueISigVec, lnFac, popFac, Npop, d) {
     .Call(`_MuGaMix_testInitTheta`, yVec, trueISigVec, lnFac, popFac, Npop, d)
 }
 
+testLocSampler <- function(yVec, trueISigVec, lnFac, popFac, Npop, d, Nadapt, Nsamp) {
+    .Call(`_MuGaMix_testLocSampler`, yVec, trueISigVec, lnFac, popFac, Npop, d, Nadapt, Nsamp)
+}
+

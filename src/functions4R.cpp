@@ -131,8 +131,49 @@ Rcpp::List testInitTheta(const std::vector<double> &yVec, const std::vector<doub
 		BayesicSpace::WrapMMM test(yVec, X, l1, l2, d, trueISigVec, 1e-5);
 		test.getTheta(theta);
 		return Rcpp::List::create(Rcpp::Named("theta", theta));
-	}catch(std::string problem) {
+	} catch(std::string problem) {
 		Rcpp::stop(problem);
 	}
 	return Rcpp::List::create(Rcpp::Named("theta", theta));
 }
+
+//[[Rcpp::export]]
+Rcpp::List testLocSampler(const std::vector<double> &yVec, const std::vector<double> &trueISigVec, const std::vector<int32_t> &lnFac, const std::vector<int32_t> &popFac, const int32_t &Npop, const int32_t &d, const int32_t &Nadapt, const int32_t &Nsamp){
+	if (d <= 0) {
+		Rcpp::stop("ERROR: number of traits must be positive");
+	}
+	if (Nadapt < 0) {
+		Rcpp::stop("ERROR: Number of adaptation (burn-in) steps must be non-negative");
+	}
+	if (Nsamp < 0) {
+		Rcpp::stop("ERROR: Number of sampling steps must be non-negative");
+	}
+	std::vector<size_t> l1;
+	std::vector<size_t> l2;
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(lf-1) );
+	}
+	for (auto &pf : popFac) {
+		if (pf <= 0) {
+			Rcpp::stop("ERROR: all elements of the population factor must be positive");
+		}
+		l2.push_back( static_cast<size_t>(pf-1) );
+	}
+	std::vector<double> X(lnFac.size(), 1.0);
+	std::vector<double> chain;
+	const uint32_t Na = static_cast<uint32_t>(Nadapt);
+	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
+
+	try {
+		BayesicSpace::WrapMMM test(yVec, X, l1, l2, d, trueISigVec, 1e-5);
+		test.runSampler(Na, Ns, chain);
+		return Rcpp::List::create(Rcpp::Named("chain", chain));
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("chain", chain));
+}
+
