@@ -202,6 +202,40 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 
 }
 
+// MumiISig methods
+MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<double> *xVec, const vector<Index> *hierInd, const double &nu0, const double &invAsq) : Model(), vTheta_{vTheta}, hierInd_{hierInd}, nu0_{nu0}, invAsq_{invAsq} {
+	// TODO: delete the tests after code testing; they will all be done by the wrapping class
+	const size_t N = (*hierInd_)[0].size(); // first index is data to lines
+	if (yVec->size()%N) {
+		throw string("MumiISig constructor ERROR: vectorized data length not divisible by number of data points");
+	}
+	const size_t d = yVec->size()/N;
+	if (vTheta_->size()%d) {
+		throw string("MumiISig constructor ERROR: vectorized parameter set length not divisible by number of traits");
+	}
+	if (xVec->size()%N) {
+		throw string("MumiISig constructor ERROR: vectorized perdictor length not divisible by number of data points");
+	}
+	Y_ = MatrixViewConst(yVec, 0, N, d);
+	const size_t Nb = xVec->size()/N;
+	X_ = MatrixViewConst(xVec, 0, N, Nb);
+	const size_t Nln = (*hierInd_)[0].groupNumber();
+	if ((*hierInd_)[1].size() != Nln) {
+		throw string("MumiISig constructor ERROR: number of elements in the population factor not the same as the number of lines in the line factor");
+	}
+	const size_t Npop = (*hierInd_)[1].groupNumber();
+	A_ = MatrixViewConst(vTheta_, 0, Nln, d);
+	B_ = MatrixViewConst(vTheta_, Nln*d, Nb, d);
+	M_ = MatrixViewConst(vTheta_, Nln*d + Nb*d, Npop, d);
+	L_.resize(2*d*d, 0.0);
+	MatrixView Le(&L_, 0, d, d);
+	MatrixView La(&L_, d*d, d, d);
+	for (size_t k = 0; k < d; k++) {
+		Le.setElem(k, k, 1.0);
+		La.setElem(k, k, 1.0);
+	}
+};
+
 // WrapMM methods
 WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const size_t &d, const vector<double> &trueISig, const double &tau0): vY_{vY}, vX_{vX}, vISig_{trueISig} {
 	hierInd_.push_back(Index(y2line));

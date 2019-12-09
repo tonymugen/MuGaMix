@@ -635,8 +635,6 @@ namespace BayesicSpace {
 	 * The matrix is column-major to comply with LAPACK and BLAS routines.
 	 * Columns and rows are base-0. Range checking is done unless the flag -DLMRG_CHECK_OFF is set at compile time.
 	 *
-	 * TODO: transpose
-	 *
 	 */
 	class MatrixViewConst {
 		friend class MatrixView;

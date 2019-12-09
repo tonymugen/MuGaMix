@@ -128,16 +128,18 @@ namespace BayesicSpace {
 	class MumiISig : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiISig(): Model(), vY_{nullptr}, vTheta_{nullptr}, vX_{nullptr}, hierInd_{nullptr} {};
+		MumiISig(): Model(), vTheta_{nullptr}, hierInd_{nullptr}, nu0_{2.0}, invAsq_{1e10} {};
 		/** \brief Constructor
 		 *
-		 * \parameter[in] y pointer to data
-		 * \parameter[in] theta pointer to vector of location parameters
-		 * \parameter[in] y2loc pointer to vector of factors connecting data to location parameters
-		 * \parameter[in] loc2prior pointer to `Index` connecting location parameters to their priors
+		 * \parameter[in] yVec pointer to data
+		 * \parameter[in] vTheta pointer to vector of location parameters
+		 * \parameter[in] xVec pointer to vectorized covariate matrix (with intercept)
+		 * \parameter[in] hierInd pointer to a vector with hierarchical indexes
+		 * \parameter[in] nu0 prior degrees of freedom \f$\nu_0\f$
+		 * \parameter[in] invAsq prior precision \f$a^{-2}\f$
 		 *
 		 */
-		MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<double> *xVec, const vector<Index> *hierInd) : Model(), vY_{yVec}, vTheta_{vTheta}, vX_{xVec}, hierInd_{hierInd} {};
+		MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<double> *xVec, const vector<Index> *hierInd, const double &nu0, const double &invAsq);
 		/** \brief Log-posterior function
 		 *
 		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector.
@@ -157,20 +159,51 @@ namespace BayesicSpace {
 		virtual void gradient(const vector<double> &viSig, vector<double> &grad) const;
 
 	protected:
-		/** \brief Pointer to data */
-		const vector<double> *vY_;
 		/** \brief Pointer to location parameters
 		 *
 		 * The vectorized matrix contains all location parameters: intercept, covariates (parameters with fixed priors or continuous predictors), and "random" (parameters with hierarchical priors).
 		 */
 		const vector<double> *vTheta_;
-		/** \brief Pointer to vectorized matrix covariate predictors
-		 *
-		 * This is a vectorized matrix of covariates, currently with a fixed low-precision Gaussian prior. Analogous to fixed effects in a mixed model. The first column is the intercept.
-		 */
-		const vector<double> *vX_;
 		/** \brief Pointer to vector of indexes connecting hierarchy levels */
 		const vector<Index> *hierInd_;
+		/** \brief Prior degrees of freedom
+		 *
+		 * Degrees of freedom of the half-\f$t\f$ prior distribution on the covariance matrix. If \f$\nu_0 = 2\f$, the prior is half-Cauchy. Should not be large for a vague prior.
+		 */
+		const double nu0_;
+		/** \brief Prior inverse-variance
+		 *
+		 * Inverse variance of the prior. Should be set to a large value for a vague prior.
+		 */
+		const double invAsq_;
+
+		/** \brief Data view */
+		MatrixViewConst Y_;
+		/** \brief Covariate predictor view
+		 *
+		 * This is a matrix of covariates, currently with a fixed low-precision Gaussian prior. Analogous to fixed effects in a mixed model. The first column is the intercept.
+		 *
+		 */
+		MatrixViewConst X_;
+		/** \brief Line mean view */
+		MatrixViewConst A_;
+		/** \brief Covriate effect view */
+		MatrixViewConst B_;
+		/** \brief Population mean view */
+		MatrixViewConst M_;
+		/** \brief Expanded _L_ matrices
+		 *
+		 * The error and line unity triangular matrices (\f$\boldsymbol{L}_X\f$ in the model description).
+		 */
+		vector<double> L_;
+
+		/** \brief Expand the vector of factorized precision matrices
+		 *
+		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the provided vector into the internal `L_` vector.
+		 *
+		 * \parameter[in] viSig vector of factorized precision matrices
+		 */
+		void expandISvec_(const vector<double> &viSig);
 	};
 
 	/** \brief Replicated mixture model analysis
