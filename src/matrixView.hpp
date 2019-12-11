@@ -292,7 +292,7 @@ namespace BayesicSpace {
 		void symm(const char &tri, const char &side, const double &alpha, const MatrixViewConst &symA, const double &beta, MatrixView &C) const;
 		/** Multiply symmetric matrix by a column of another matrix
 		 *
-		 * Multiply the _MatrixView_ object, which is symmetric, by a specified column of another matrix. An interface for the BLAS _DSYMV_ routine. Updates the input vector \f$y\f$
+		 * Multiply the _MatrixView_ object, which is symmetric, by a specified column of a _MatrixView_. An interface for the BLAS _DSYMV_ routine. Updates the input vector \f$y\f$
 		 *
 		 * \f$y \leftarrow \alpha AX_{\cdot j} + \beta y  \f$
 		 *
@@ -307,6 +307,67 @@ namespace BayesicSpace {
 		 *
 		 */
 		void symc(const char &tri, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const;
+		/** Multiply symmetric matrix by a column of another matrix
+		 *
+		 * Multiply the _MatrixView_ object, which is symmetric, by a specified column of a _MatrixViewConst_. An interface for the BLAS _DSYMV_ routine. Updates the input vector \f$y\f$
+		 *
+		 * \f$y \leftarrow \alpha AX_{\cdot j} + \beta y  \f$
+		 *
+		 * If the output vector is too short it is resized, adding zero elements as needed. If it is too long, only the first Nrow(A) elements are modified.
+		 *
+		 * \param[in] tri \f$A\f$ (focal object) triangle ID ('u' for upper or 'l' for lower)
+		 * \param[in] alpha the \f$\alpha\f$ constant
+		 * \param[in] X matrix \f$X\f$ whose column will be used
+		 * \param[in] xCol column of \f$X\f$ to be used (0 base)
+		 * \param[in] beta the \f$\beta\f$ constant
+		 * \param[in,out] y result vector
+		 *
+		 */
+		void symc(const char &tri, const double &alpha, const MatrixViewConst &X, const size_t &xCol, const double &beta, vector<double> &y) const;
+		/** \brief Multiply by triangular matrix
+		 *
+		 * Multiply the _MatrixView_ object by a triangular matrix \f$A\f$. The interface for the BLAS _DSYMM_ routine. Updates current object \f$B\f$
+		 *
+		 * \f$B \leftarrow \alpha op(A) B\f$
+		 *
+		 * if _side_ is 'l' (left) and
+		 *
+		 * \f$B \leftarrow \alpha B op(A)\f$
+		 *
+		 * if _side_ is 'r' (right).
+		 * \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively. The triangular \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix. The current object is replaced by the transformed resulting matrix.
+		 *
+		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
+		 * \param[in] side multiplication side
+		 * \param[in] transA whether matrix \f$A\f$ should be transposed
+		 * \param[in] uDiag whether \f$A\f$ unit-diagonal or not
+		 * \param[in] alpha the \f$\alpha\f$ constant
+		 * \param[in] trA triangular matrix \f$A\f$
+		 *
+		 */
+		void trm(const char &tri, const char &side, const bool &transA, const bool &uDiag, const double &alpha, const MatrixView &trA);
+		/** \brief Multiply by triangular _MatrixViewConst_
+		 *
+		 * Multiply the _MatrixView_ object by a triangular matrix \f$A\f$. The interface for the BLAS _DSYMM_ routine. Updates current object \f$B\f$
+		 *
+		 * \f$B \leftarrow \alpha op(A) B\f$
+		 *
+		 * if _side_ is 'l' (left) and
+		 *
+		 * \f$B \leftarrow \alpha B op(A)\f$
+		 *
+		 * if _side_ is 'r' (right).
+		 * \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively. The triangular \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix. The current object is replaced by the transformed resulting matrix.
+		 *
+		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
+		 * \param[in] side multiplication side
+		 * \param[in] transA whether matrix \f$A\f$ should be transposed
+		 * \param[in] uDiag whether \f$A\f$ unit-diagonal or not
+		 * \param[in] alpha the \f$\alpha\f$ constant
+		 * \param[in] trA triangular matrix \f$A\f$
+		 *
+		 */
+		void trm(const char &tri, const char &side, const bool &transA, const bool &uDiag, const double &alpha, const MatrixViewConst &trA);
 		/** \brief General matrix multiplication
 		 *
 		 * Interface for the BLAS _DGEMM_ routine. Updates the input/output matrix \f$C\f$

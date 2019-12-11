@@ -317,7 +317,6 @@ void MatrixView::svdSafe(MatrixView &U, vector<double> &s) const {
 	workArr.resize(0);
 	if (resSVD < 0) {
 		throw string("ERROR: illegal matrix element in safe SVD");
-		exit(14);
 	} else if (resSVD > 0){
 		throw string("ERROR: DBDSQR did not converge in safe SVD");
 	}
@@ -808,6 +807,81 @@ void MatrixView::symc(const char &tri, const double &alpha, const MatrixView &X,
 	dsymv_(&tri, &n, &alpha, data_->data()+idx_, &lda, xbeg, &incx, &beta, y.data(), &incy);
 }
 
+void MatrixView::symc(const char &tri, const double &alpha, const MatrixViewConst &X, const size_t &xCol, const double &beta, vector<double> &y) const{
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if (Ncol_ != Nrow_) {
+		throw string("ERROR: symmetric matrix (current object) has to be square in symc()");
+	}
+	if ((Ncol_ > INT_MAX) || (X.getNrows() > INT_MAX)) {
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symc()");
+	}
+	if (X.getNrows() != Ncol_) {
+		throw string("ERROR: Incompatible dimensions between A and X in symc()");
+	}
+	if (xCol >= X.getNcols()) {
+		throw string("ERROR: column index out of range for matrix X in symc()");
+	}
+#endif
+	if (y.size() < Nrow_) {
+		y.resize(Nrow_);
+	}
+
+	// BLAS routine constants
+	const int n    = static_cast<int>(Nrow_);
+	const int lda  = n;
+	const int incx = 1;
+	const int incy = 1;
+
+	const double *xbeg = X.data_->data() + X.idx_ + xCol*(X.Nrow_); // offset to the column of interest
+
+	dsymv_(&tri, &n, &alpha, data_->data()+idx_, &lda, xbeg, &incx, &beta, y.data(), &incy);
+}
+
+void MatrixView::trm(const char &tri, const char &side, const bool &transA, const bool &uDiag, const double &alpha, const MatrixView &trA){
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if (trA.getNrows() != trA.getNcols()) {
+		throw string("ERROR: triangular matrix trA has to be square in trm()");
+	}
+	if (side == 'l') {
+		if ((Nrow_ > INT_MAX) || (trA.getNcols() > INT_MAX)) {
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in trm()");
+		}
+	} else if (side == 'r') {
+		if ((trA.getNrows() > INT_MAX) || (Ncol_ > INT_MAX)) {
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in trm()");
+		}
+	}
+
+	if ((trA.getNcols() != Nrow_) && (side == 'l')) { // AB
+		throw string("ERROR: Incompatible dimensions between B and A in trm()");
+	}
+	if ((trA.getNrows() != Ncol_) && (side == 'r')) { // BA
+		throw string("ERROR: Incompatible dimensions between A and B in trm()");
+	}
+	if ((side != 'l') && (side != 'r')) {
+		throw string("ERROR: unknown side indicator in symm()");
+	}
+#endif
+
+	int m = static_cast<int>(Nrow_);
+	int n = static_cast<int>(Ncol_);
+
+	// final integer parameters
+	const int lda = static_cast<int>(trA.getNrows());
+	const int ldb = static_cast<int>(Nrow_);
+	char tAtok = (transA ? 't' : 'n');
+	char Dtok  = (uDiag ? 'u' : 'n');
+
+	dtrmm_(&side, &tri, &tAtok, &Dtok, &m, &n, &alpha, trA.data_->data()+trA.idx_, &lda, data_->data()+idx_, &ldb);
+
+}
+
 void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixView &A, const bool &transB, const double &beta, MatrixView &C) const{
 #ifndef LMRG_CHECK_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
@@ -836,7 +910,6 @@ void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixView 
 	} else {
 		if (transB && (A.getNcols() != Ncol_)) {
 			throw string("ERROR: Incompatible dimensions between A and B^T in gemm()");
-			exit(16);
 		} else if (!transB && (A.getNcols() != Nrow_)) {
 			throw string("ERROR: Incompatible dimensions between A and B in gemm()");
 		}
@@ -920,7 +993,6 @@ void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixViewC
 	} else {
 		if (transB && (A.getNcols() != Ncol_)) {
 			throw string("ERROR: Incompatible dimensions between A and B^T in gemm()");
-			exit(16);
 		} else if (!transB && (A.getNcols() != Nrow_)) {
 			throw string("ERROR: Incompatible dimensions between A and B in gemm()");
 		}
@@ -1595,7 +1667,6 @@ void MatrixViewConst::svdSafe(MatrixView &U, vector<double> &s) const {
 	workArr.resize(0);
 	if (resSVD < 0) {
 		throw string("ERROR: illegal matrix element in safe SVD");
-		exit(14);
 	} else if (resSVD > 0){
 		throw string("ERROR: DBDSQR did not converge in safe SVD");
 	}
@@ -1967,7 +2038,6 @@ void MatrixViewConst::gemm(const bool &transA, const double &alpha, const Matrix
 	} else {
 		if (transB && (A.getNcols() != Ncol_)) {
 			throw string("ERROR: Incompatible dimensions between A and B^T in gemm()");
-			exit(16);
 		} else if (!transB && (A.getNcols() != Nrow_)) {
 			throw string("ERROR: Incompatible dimensions between A and B in gemm()");
 		}
@@ -2050,7 +2120,6 @@ void MatrixViewConst::gemm(const bool &transA, const double &alpha, const Matrix
 	} else {
 		if (transB && (A.getNcols() != Ncol_)) {
 			throw string("ERROR: Incompatible dimensions between A and B^T in gemm()");
-			exit(16);
 		} else if (!transB && (A.getNcols() != Nrow_)) {
 			throw string("ERROR: Incompatible dimensions between A and B in gemm()");
 		}

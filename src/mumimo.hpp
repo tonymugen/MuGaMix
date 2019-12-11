@@ -59,16 +59,16 @@ namespace BayesicSpace {
 		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, tauP_{0.0} {};
 		/** \brief Constructor
 		 *
-		 * \parameter[in] yVec pointer vectorized data matrix
-		 * \parameter[in] iSigVec pointer to vectorized inverse-covariance matrix collection
-		 * \parameter[in] d number of traits
-		 * \parameter[in] hierInd pointer to vector of hierarchical indexes
-		 * \parameter[in] xVec pointer to vectorized covariate predictor matrix
-		 * \parameter[in] tau fixed prior for the unmodeled ("fixed") effects and population means
+		 * \param[in] yVec pointer vectorized data matrix
+		 * \param[in] iSigVec pointer to vectorized inverse-covariance matrix collection
+		 * \param[in] d number of traits
+		 * \param[in] hierInd pointer to vector of hierarchical indexes
+		 * \param[in] xVec pointer to vectorized covariate predictor matrix
+		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and population means
 		 */
 		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const size_t &d, const vector<Index> *hierInd, const vector<double> *xVec, const double &tau);
 		/** \brief Destructor */
-		~MumiLoc(){};
+		~MumiLoc(){hierInd_ = nullptr; };
 
 		/** \brief Copy constructor (deleted) */
 		MumiLoc(const MumiLoc &in) = delete;
@@ -78,7 +78,7 @@ namespace BayesicSpace {
 		 *
 		 * \param[in] in object to move
 		 */
-		MumiLoc(MumiLoc &&in) : Y_{move(in.Y_)}, ISigE_{move(in.ISigE_)}, ISigA_{move(in.ISigA_)}, X_{move(in.X_)}, hierInd_{in.hierInd_}, tau0_{in.tau0_}, tauP_{in.tauP_} {in.hierInd_ = nullptr;};
+		MumiLoc(MumiLoc &&in);
 		/** \brief Move assignment operator
 		 *
 		 * \param[in] in object to be moved
@@ -115,31 +115,50 @@ namespace BayesicSpace {
 		/** \brief Pointer to vector of indexes connecting hierarchy levels */
 		const vector<Index> *hierInd_;
 		/** \brief Fixed prior precision for unmodeled effects */
-		const double tau0_;
+		double tau0_;
 		/** \brief Fixed prior precision for population means */
-		const double tauP_;
+		double tauP_;
 	};
 
 	/** \brief Model for inverse covariances
 	 *
-	 * Implements log-posterior and gradient for inverse covariances.
+	 * Implements log-posterior and gradient for inverse covariances. The inverse-covariances are factorized and stored compactly in the vectors provided to the methods of this class.
+	 * The error matrix is stored first, then the line precision matrix. The unit lower-triangular \f$\boldsymbol{L}_X\f$ is stored first (by column and excluding the diagonal), then the diagonal log-precision matrix \f$\boldsymbol{T}_X\f$ (see the model description for notation).
 	 *
 	 */
 	class MumiISig : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiISig(): Model(), vTheta_{nullptr}, hierInd_{nullptr}, nu0_{2.0}, invAsq_{1e10} {};
+		MumiISig(): Model(), hierInd_{nullptr}, nu0_{2.0}, invAsq_{1e-10} {};
 		/** \brief Constructor
 		 *
-		 * \parameter[in] yVec pointer to data
-		 * \parameter[in] vTheta pointer to vector of location parameters
-		 * \parameter[in] xVec pointer to vectorized covariate matrix (with intercept)
-		 * \parameter[in] hierInd pointer to a vector with hierarchical indexes
-		 * \parameter[in] nu0 prior degrees of freedom \f$\nu_0\f$
-		 * \parameter[in] invAsq prior precision \f$a^{-2}\f$
+		 * \param[in] yVec pointer to data
+		 * \param[in] vTheta pointer to vector of location parameters
+		 * \param[in] xVec pointer to vectorized covariate matrix (with intercept)
+		 * \param[in] hierInd pointer to a vector with hierarchical indexes
+		 * \param[in] nu0 prior degrees of freedom \f$\nu_0\f$
+		 * \param[in] invAsq prior precision \f$a^{-2}\f$
 		 *
 		 */
 		MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<double> *xVec, const vector<Index> *hierInd, const double &nu0, const double &invAsq);
+
+		/** \brief Destructor */
+		~MumiISig(){hierInd_ = nullptr; };
+		/** \brief Copy constructor (deleted) */
+		MumiISig(const MumiLoc &in) = delete;
+		/** \brief Copy assignment (deleted) */
+		MumiISig& operator=(const MumiISig &in) = delete;
+		/** \brief Move constructor
+		 *
+		 * \param[in] in object to move
+		 */
+		MumiISig(MumiISig &&in);
+		/** \brief Move assignment operator
+		 *
+		 * \param[in] in object to be moved
+		 * \return target object
+		 */
+		MumiISig& operator=(MumiISig &&in);
 		/** \brief Log-posterior function
 		 *
 		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector.
@@ -147,7 +166,7 @@ namespace BayesicSpace {
 		 * \param[in] viSig parameter vector
 		 * \return Value of the log-posterior
 		 */
-		virtual double logPost(const vector<double> &viSig) const;
+		double logPost(const vector<double> &viSig) const;
 		/** \brief Gradient of the log-posterior
 		 *
 		 * Calculates the patial derivative of the log-posterior for each element in the provided parameter vector.
@@ -156,26 +175,21 @@ namespace BayesicSpace {
 		 * \param[out] grad partial derivative (gradient) vector
 		 *
 		 */
-		virtual void gradient(const vector<double> &viSig, vector<double> &grad) const;
+		void gradient(const vector<double> &viSig, vector<double> &grad) const;
 
 	protected:
-		/** \brief Pointer to location parameters
-		 *
-		 * The vectorized matrix contains all location parameters: intercept, covariates (parameters with fixed priors or continuous predictors), and "random" (parameters with hierarchical priors).
-		 */
-		const vector<double> *vTheta_;
 		/** \brief Pointer to vector of indexes connecting hierarchy levels */
 		const vector<Index> *hierInd_;
 		/** \brief Prior degrees of freedom
 		 *
 		 * Degrees of freedom of the half-\f$t\f$ prior distribution on the covariance matrix. If \f$\nu_0 = 2\f$, the prior is half-Cauchy. Should not be large for a vague prior.
 		 */
-		const double nu0_;
+		double nu0_;
 		/** \brief Prior inverse-variance
 		 *
 		 * Inverse variance of the prior. Should be set to a large value for a vague prior.
 		 */
-		const double invAsq_;
+		double invAsq_;
 
 		/** \brief Data view */
 		MatrixViewConst Y_;
@@ -191,6 +205,16 @@ namespace BayesicSpace {
 		MatrixViewConst B_;
 		/** \brief Population mean view */
 		MatrixViewConst M_;
+		/** \brief Error factorized precision matrix view
+		 *
+		 * Points to `L_`.
+		 */
+		MatrixView Le_;
+		/** \brief Line factorized preficision matrix view
+		 *
+		 * Points to `L_`.
+		 */
+		MatrixView La_;
 		/** \brief Expanded _L_ matrices
 		 *
 		 * The error and line unity triangular matrices (\f$\boldsymbol{L}_X\f$ in the model description).
@@ -199,11 +223,16 @@ namespace BayesicSpace {
 
 		/** \brief Expand the vector of factorized precision matrices
 		 *
-		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the provided vector into the internal `L_` vector.
+		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the provided vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
 		 *
-		 * \parameter[in] viSig vector of factorized precision matrices
+		 * \param[in] viSig compressed vector of factorized precision matrices
 		 */
 		void expandISvec_(const vector<double> &viSig);
+		/** \brief Output the expanded vector of factorized precision matrices
+		 *
+		 * \param[out] viSig compressed vector of factorized precision matrices
+		 */
+		void saveISvec_(vector<double> &viSig);
 	};
 
 	/** \brief Replicated mixture model analysis
