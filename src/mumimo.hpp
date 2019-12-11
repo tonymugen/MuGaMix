@@ -207,19 +207,19 @@ namespace BayesicSpace {
 		MatrixViewConst M_;
 		/** \brief Error factorized precision matrix view
 		 *
-		 * Points to `L_`.
+		 * Points to `vLx_`.
 		 */
 		MatrixView Le_;
 		/** \brief Line factorized preficision matrix view
 		 *
-		 * Points to `L_`.
+		 * Points to `vLx_`.
 		 */
 		MatrixView La_;
 		/** \brief Expanded _L_ matrices
 		 *
-		 * The error and line unity triangular matrices (\f$\boldsymbol{L}_X\f$ in the model description).
+		 * Vectorized error and line unity triangular matrices (\f$\boldsymbol{L}_X\f$ in the model description).
 		 */
-		vector<double> L_;
+		vector<double> vLx_;
 
 		/** \brief Expand the vector of factorized precision matrices
 		 *

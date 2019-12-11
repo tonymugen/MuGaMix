@@ -254,9 +254,9 @@ MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, con
 	A_ = MatrixViewConst(vTheta, 0, Nln, d);
 	B_ = MatrixViewConst(vTheta, Nln*d, Nb, d);
 	M_ = MatrixViewConst(vTheta, Nln*d + Nb*d, Npop, d);
-	L_.resize(2*d*d, 0.0);
-	Le_ = MatrixView(&L_, 0, d, d);
-	La_ = MatrixView(&L_, d*d, d, d);
+	vLx_.resize(2*d*d, 0.0);
+	Le_ = MatrixView(&vLx_, 0, d, d);
+	La_ = MatrixView(&vLx_, d*d, d, d);
 	for (size_t k = 0; k < d; k++) {
 		Le_.setElem(k, k, 1.0);
 		La_.setElem(k, k, 1.0);
@@ -273,9 +273,9 @@ MumiISig::MumiISig(MumiISig &&in) {
 		A_       = move(in.A_);
 		B_       = move(in.B_);
 		M_       = move(in.M_);
-		L_       = move(in.L_);
-		Le_      = MatrixView(&L_, 0, Y_.getNcols(), Y_.getNcols());
-		La_      = MatrixView(&L_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols());
+		vLx_     = move(in.vLx_);
+		Le_      = MatrixView(&vLx_, 0, Y_.getNcols(), Y_.getNcols());
+		La_      = MatrixView(&vLx_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols());
 
 		in.hierInd_ = nullptr;
 	}
@@ -291,9 +291,9 @@ MumiISig& MumiISig::operator=(MumiISig &&in){
 		A_       = move(in.A_);
 		B_       = move(in.B_);
 		M_       = move(in.M_);
-		L_       = move(in.L_);
-		Le_      = MatrixView(&L_, 0, Y_.getNcols(), Y_.getNcols());
-		La_      = MatrixView(&L_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols());
+		vLx_     = move(in.vLx_);
+		Le_      = MatrixView(&vLx_, 0, Y_.getNcols(), Y_.getNcols());
+		La_      = MatrixView(&vLx_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols());
 
 		in.hierInd_ = nullptr;
 	}

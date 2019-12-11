@@ -35,6 +35,7 @@
 
 #include "mumimo.hpp"
 #include "index.hpp"
+#include "matrixView.hpp"
 
 //[[Rcpp::export]]
 double lpTest(const std::vector<double> &yVec, const std::vector<double> &iSigVec, const std::vector<int32_t> &repFac, const std::vector<int32_t> &lnFac, const std::vector<double> &paramValues, const int32_t &d){
@@ -176,4 +177,5 @@ Rcpp::List testLocSampler(const std::vector<double> &yVec, const std::vector<dou
 	}
 	return Rcpp::List::create(Rcpp::Named("chain", chain));
 }
+
 

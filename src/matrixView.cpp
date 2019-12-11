@@ -879,7 +879,47 @@ void MatrixView::trm(const char &tri, const char &side, const bool &transA, cons
 	char Dtok  = (uDiag ? 'u' : 'n');
 
 	dtrmm_(&side, &tri, &tAtok, &Dtok, &m, &n, &alpha, trA.data_->data()+trA.idx_, &lda, data_->data()+idx_, &ldb);
+}
 
+void MatrixView::trm(const char &tri, const char &side, const bool &transA, const bool &uDiag, const double &alpha, const MatrixViewConst &trA){
+#ifndef LMRG_CHECK_OFF
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero");
+	}
+	if (trA.getNrows() != trA.getNcols()) {
+		throw string("ERROR: triangular matrix trA has to be square in trm()");
+	}
+	if (side == 'l') {
+		if ((Nrow_ > INT_MAX) || (trA.getNcols() > INT_MAX)) {
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in trm()");
+		}
+	} else if (side == 'r') {
+		if ((trA.getNrows() > INT_MAX) || (Ncol_ > INT_MAX)) {
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in trm()");
+		}
+	}
+
+	if ((trA.getNcols() != Nrow_) && (side == 'l')) { // AB
+		throw string("ERROR: Incompatible dimensions between B and A in trm()");
+	}
+	if ((trA.getNrows() != Ncol_) && (side == 'r')) { // BA
+		throw string("ERROR: Incompatible dimensions between A and B in trm()");
+	}
+	if ((side != 'l') && (side != 'r')) {
+		throw string("ERROR: unknown side indicator in symm()");
+	}
+#endif
+
+	int m = static_cast<int>(Nrow_);
+	int n = static_cast<int>(Ncol_);
+
+	// final integer parameters
+	const int lda = static_cast<int>(trA.getNrows());
+	const int ldb = static_cast<int>(Nrow_);
+	char tAtok = (transA ? 't' : 'n');
+	char Dtok  = (uDiag ? 'u' : 'n');
+
+	dtrmm_(&side, &tri, &tAtok, &Dtok, &m, &n, &alpha, trA.data_->data()+trA.idx_, &lda, data_->data()+idx_, &ldb);
 }
 
 void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixView &A, const bool &transB, const double &beta, MatrixView &C) const{
