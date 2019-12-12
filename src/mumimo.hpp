@@ -209,17 +209,17 @@ namespace BayesicSpace {
 		 *
 		 * Points to `vLx_`.
 		 */
-		MatrixView Le_;
+		mutable MatrixView Le_;
 		/** \brief Line factorized preficision matrix view
 		 *
 		 * Points to `vLx_`.
 		 */
-		MatrixView La_;
+		mutable MatrixView La_;
 		/** \brief Expanded _L_ matrices
 		 *
 		 * Vectorized error and line unity triangular matrices (\f$\boldsymbol{L}_X\f$ in the model description).
 		 */
-		vector<double> vLx_;
+		mutable vector<double> vLx_;
 
 		/** \brief Expand the vector of factorized precision matrices
 		 *
@@ -227,12 +227,12 @@ namespace BayesicSpace {
 		 *
 		 * \param[in] viSig compressed vector of factorized precision matrices
 		 */
-		void expandISvec_(const vector<double> &viSig);
+		void expandISvec_(const vector<double> &viSig) const;
 		/** \brief Output the expanded vector of factorized precision matrices
 		 *
 		 * \param[out] viSig compressed vector of factorized precision matrices
 		 */
-		void saveISvec_(vector<double> &viSig);
+		void saveISvec_(vector<double> &viSig) const;
 	};
 
 	/** \brief Replicated mixture model analysis

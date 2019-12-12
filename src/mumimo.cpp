@@ -300,7 +300,7 @@ MumiISig& MumiISig::operator=(MumiISig &&in){
 	return *this;
 }
 
-void MumiISig::expandISvec_(const vector<double> &viSig){
+void MumiISig::expandISvec_(const vector<double> &viSig) const{
 	size_t eInd = 0;                                                      // index of the Le lower triangle in the input vector
 	size_t aInd = (Y_.getNcols()*(Y_.getNcols() - 1)/2) + Y_.getNcols();  // index of the La lower triangle in the input vector
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {             // the last column is all 0, except the last element = 1.0
@@ -313,7 +313,7 @@ void MumiISig::expandISvec_(const vector<double> &viSig){
 	}
 }
 
-void MumiISig::saveISvec_(vector<double> &viSig){
+void MumiISig::saveISvec_(vector<double> &viSig) const{
 	size_t eInd = 0;                                                      // index of the Le lower triangle in the input vector
 	size_t aInd = (Y_.getNcols()*(Y_.getNcols() - 1)/2) + Y_.getNcols();  // index of the La lower triangle in the input vector
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {             // the last column is all 0, except the last element = 1.0
@@ -327,7 +327,31 @@ void MumiISig::saveISvec_(vector<double> &viSig){
 }
 
 double MumiISig::logPost(const vector<double> &viSig) const{
-	return 0.0;
+	double lp = 0.0;
+	// expand the element vector to make the L matrices
+	expandISvec_(viSig);
+	// Calculate the Y residuals
+	vector<double> vResid(Y_.getNcols()*Y_.getNrows(), 0.0);
+	MatrixView yResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
+	A_.colExpand((*hierInd_)[0], yResid); // ZA
+	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
+			yResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - yResid.getElem(iRow, jCol) ); // Y - ZA
+		}
+	}
+	B_.gemm(false, -1.0, X_, false, 1.0, yResid); // Y - ZA - XB
+	// multiply by L_E
+	yResid.trm('l', 'r', false, true, 1.0, Le_);
+	// Now calculate the trace of the RL_ET_EL_^Tr^T matrix
+	double eTrace = 0.0;
+	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+		double dp = 0.0;
+		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+			dp += yResid.getElem(iRow, jCol)*yResid.getElem(iRow, jCol);
+		}
+		eTrace += viSig[jCol];
+	}
+	return lp;
 }
 
 void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const{
