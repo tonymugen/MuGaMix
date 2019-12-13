@@ -129,7 +129,7 @@ namespace BayesicSpace {
 	class MumiISig : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiISig(): Model(), hierInd_{nullptr}, nu0_{2.0}, invAsq_{1e-10} {};
+		MumiISig(): Model(), hierInd_{nullptr}, nu0_{2.0}, invAsq_{1e-10}, fTeInd_{0}, fTaInd_{0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer to data
@@ -220,6 +220,10 @@ namespace BayesicSpace {
 		 * Vectorized error and line unity triangular matrices (\f$\boldsymbol{L}_X\f$ in the model description).
 		 */
 		mutable vector<double> vLx_;
+		/** \brief Index of the first \f$\boldsymbol{T}_E\f$ element */
+		size_t fTeInd_;
+		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
+		size_t fTaInd_;
 
 		/** \brief Expand the vector of factorized precision matrices
 		 *

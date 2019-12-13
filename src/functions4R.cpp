@@ -35,10 +35,9 @@
 
 #include "mumimo.hpp"
 #include "index.hpp"
-#include "matrixView.hpp"
 
 //[[Rcpp::export]]
-double lpTest(const std::vector<double> &yVec, const std::vector<double> &iSigVec, const std::vector<int32_t> &repFac, const std::vector<int32_t> &lnFac, const std::vector<double> &paramValues, const int32_t &d){
+double lpTestL(const std::vector<double> &yVec, const std::vector<double> &iSigVec, const std::vector<int32_t> &repFac, const std::vector<int32_t> &lnFac, const std::vector<double> &paramValues, const int32_t &d){
 	if (d <= 0) {
 		Rcpp::stop("ERROR: number of traits must be positive");
 	}
@@ -63,7 +62,6 @@ double lpTest(const std::vector<double> &yVec, const std::vector<double> &iSigVe
 		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
 		BayesicSpace::MumiLoc test(&yVec, &iSigVec, d, &factors, &xVec, 1e-5);
 		double res = test.logPost(paramValues);
-		//double res = 1.0;
 		return res;
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
@@ -178,4 +176,38 @@ Rcpp::List testLocSampler(const std::vector<double> &yVec, const std::vector<dou
 	return Rcpp::List::create(Rcpp::Named("chain", chain));
 }
 
+//[[Rcpp::export]]
+double lpTestS(const std::vector<double> &yVec, const std::vector<double> &iSigVec, const std::vector<int32_t> &repFac, const std::vector<int32_t> &lnFac, const std::vector<double> &paramValues, const int32_t &d){
+	if (d <= 0) {
+		Rcpp::stop("ERROR: number of traits must be positive");
+	}
+	std::vector<size_t> l1;
+	std::vector<size_t> l2;
+	for (auto &rf : repFac) {
+		if (rf <= 0) {
+			Rcpp::stop("ERROR: all elements of the replicate factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(rf-1) );
+	}
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l2.push_back( static_cast<size_t>(lf-1) );
+	}
+	try {
+		std::vector<BayesicSpace::Index> factors;
+		factors.push_back(BayesicSpace::Index(l1));
+		factors.push_back(BayesicSpace::Index(l2));
+		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
+		BayesicSpace::MumiISig test(&yVec, &paramValues, &xVec, &factors, 2.0, 1e-10);
+		double res = test.logPost(iSigVec);
+		//double res = 1.0;
+		return res;
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+
+	return 0.0;
+}
 

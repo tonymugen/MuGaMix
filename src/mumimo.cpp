@@ -261,6 +261,9 @@ MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, con
 		Le_.setElem(k, k, 1.0);
 		La_.setElem(k, k, 1.0);
 	}
+	size_t trLen = d*(d-1)/2;
+	fTeInd_      = trLen;
+	fTaInd_      = 2*trLen + d;
 };
 
 MumiISig::MumiISig(MumiISig &&in) {
@@ -276,6 +279,8 @@ MumiISig::MumiISig(MumiISig &&in) {
 		vLx_     = move(in.vLx_);
 		Le_      = MatrixView(&vLx_, 0, Y_.getNcols(), Y_.getNcols());
 		La_      = MatrixView(&vLx_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols());
+		fTeInd_  = in.fTeInd_;
+		fTaInd_  = in.fTaInd_;
 
 		in.hierInd_ = nullptr;
 	}
@@ -294,6 +299,8 @@ MumiISig& MumiISig::operator=(MumiISig &&in){
 		vLx_     = move(in.vLx_);
 		Le_      = MatrixView(&vLx_, 0, Y_.getNcols(), Y_.getNcols());
 		La_      = MatrixView(&vLx_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols());
+		fTeInd_  = in.fTeInd_;
+		fTaInd_  = in.fTaInd_;
 
 		in.hierInd_ = nullptr;
 	}
@@ -327,31 +334,66 @@ void MumiISig::saveISvec_(vector<double> &viSig) const{
 }
 
 double MumiISig::logPost(const vector<double> &viSig) const{
-	double lp = 0.0;
 	// expand the element vector to make the L matrices
 	expandISvec_(viSig);
 	// Calculate the Y residuals
 	vector<double> vResid(Y_.getNcols()*Y_.getNrows(), 0.0);
-	MatrixView yResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
-	A_.colExpand((*hierInd_)[0], yResid); // ZA
+	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
+	A_.colExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
-			yResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - yResid.getElem(iRow, jCol) ); // Y - ZA
+			mResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
 		}
 	}
-	B_.gemm(false, -1.0, X_, false, 1.0, yResid); // Y - ZA - XB
+	B_.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
 	// multiply by L_E
-	yResid.trm('l', 'r', false, true, 1.0, Le_);
-	// Now calculate the trace of the RL_ET_EL_^Tr^T matrix
+	mResid.trm('l', 'r', false, true, 1.0, Le_);
+	// Now calculate the trace of the RL_ET_EL_^TR^T matrix
 	double eTrace = 0.0;
 	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
 		double dp = 0.0;
 		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
-			dp += yResid.getElem(iRow, jCol)*yResid.getElem(iRow, jCol);
+			dp += mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
 		}
-		eTrace += viSig[jCol];
+		eTrace += exp(0.5*viSig[fTeInd_ + jCol])*dp;
 	}
-	return lp;
+
+	// Clear the Y residuals and re-use for A residuals
+	vResid.clear();
+	vResid.resize(A_.getNrows()*A_.getNcols(), 0.0);
+	mResid = MatrixView(&vResid, 0, A_.getNrows(), A_.getNcols());
+	M_.colExpand((*hierInd_)[1], mResid);
+	for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < A_.getNrows(); ++iRow) {
+			mResid.setElem( iRow, jCol, A_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // A - Z[p]M[p]
+		}
+	}
+	mResid.trm('l', 'r', false, true, 1.0, La_);
+	// Now calculate the trace of the RL_AT_AL_^TR^T matrix
+	double aTrace = 0.0;
+	for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
+		double dp = 0.0;
+		for (size_t iRow = 0; iRow < A_.getNrows(); iRow++) {
+			dp += mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
+		}
+		aTrace += exp(0.5*viSig[fTaInd_ + jCol])*dp;
+	}
+	// Calculate the prior components; k and m are as in the derivation document; doing the L_E and L_A in one pass
+	// first element has just the diagonal
+	double pTrace = log(nu0_*exp(viSig[fTeInd_]) + invAsq_) + log(nu0_*exp(viSig[fTaInd_]) + invAsq_);
+	for (size_t k = 1; k < Le_.getNcols(); k++) {
+		double sE = 0.0;
+		double sA = 0.0;
+		for (size_t m = 0; m <= k - 1; m++) { // the <= is intentional; excluding only m = k
+			sE += exp(viSig[fTeInd_ + m])*Le_.getElem(k, m)*Le_.getElem(k, m);
+			sA += exp(viSig[fTaInd_ + m])*La_.getElem(k, m)*La_.getElem(k, m);
+		}
+		sE += exp(viSig[fTeInd_ + k]);
+		sA += exp(viSig[fTaInd_ + k]);
+		pTrace += log(nu0_*sE + invAsq_) + log(nu0_*sA + invAsq_);
+	}
+	pTrace *= nu0_ + 2*static_cast<double>(Y_.getNcols());
+	return -0.5*(eTrace + aTrace + pTrace);
 }
 
 void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const{
