@@ -406,7 +406,27 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 }
 
 void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const{
-
+	// expand the element vector to make the L matrices
+	expandISvec_(viSig);
+	// Calculate the Y residuals
+	vector<double> vResid(Y_.getNcols()*Y_.getNrows(), 0.0);
+	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
+	A_.colExpand((*hierInd_)[0], mResid); // ZA
+	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
+			mResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
+		}
+	}
+	B_.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
+	vector<double> vRtR(Y_.getNcols()*Y_.getNcols(), 0.0);
+	MatrixView mRtR(&vRtR, 0, Y_.getNcols(), Y_.getNcols());
+	mResid.syrk('l', 1.0, 0.0, mRtR);
+	vector<double> vRtRLT(Y_.getNcols()*Y_.getNcols(), 0.0);
+	MatrixView mRtRLT(&vRtRLT, 0, Y_.getNcols(), Y_.getNcols());
+	Le_.symm('l', 'r', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_E; R = Y - ZA - XB
+	for (size_t k = 1; k < Y_.getNcols() ; k++) {
+		
+	}
 }
 
 // WrapMM methods
