@@ -355,7 +355,7 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
 			dp += mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
 		}
-		eTrace += exp(0.5*viSig[fTeInd_ + jCol])*dp;
+		eTrace += exp(viSig[fTeInd_ + jCol])*dp;
 	}
 
 	// Clear the Y residuals and re-use for A residuals
@@ -376,12 +376,21 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 		for (size_t iRow = 0; iRow < A_.getNrows(); iRow++) {
 			dp += mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
 		}
-		aTrace += exp(0.5*viSig[fTaInd_ + jCol])*dp;
+		aTrace += exp(viSig[fTaInd_ + jCol])*dp;
 	}
+	// Sum of log-determinants
+	double ldetSumE = 0.0;
+	double ldetSumA = 0.0;
+	for (size_t k = 0; k < Y_.getNcols() ; k++) {
+		ldetSumE += viSig[fTeInd_ + k];
+		ldetSumA += viSig[fTaInd_ + k];
+	}
+	ldetSumE *= static_cast<double>(Y_.getNrows() + 2*Y_.getNcols()) + nu0_;
+	ldetSumA *= static_cast<double>(A_.getNrows() + 2*A_.getNcols()) + nu0_;
 	// Calculate the prior components; k and m are as in the derivation document; doing the L_E and L_A in one pass
 	// first element has just the diagonal
 	double pTrace = log(nu0_*exp(viSig[fTeInd_]) + invAsq_) + log(nu0_*exp(viSig[fTaInd_]) + invAsq_);
-	for (size_t k = 1; k < Le_.getNcols(); k++) {
+	for (size_t k = 1; k < Le_.getNcols(); k++) { // k starts from the second element (k=1)
 		double sE = 0.0;
 		double sA = 0.0;
 		for (size_t m = 0; m <= k - 1; m++) { // the <= is intentional; excluding only m = k
@@ -392,8 +401,8 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 		sA += exp(viSig[fTaInd_ + k]);
 		pTrace += log(nu0_*sE + invAsq_) + log(nu0_*sA + invAsq_);
 	}
-	pTrace *= nu0_ + 2*static_cast<double>(Y_.getNcols());
-	return -0.5*(eTrace + aTrace + pTrace);
+	pTrace *= nu0_ + 2.0*static_cast<double>(Y_.getNcols());
+	return -0.5*(eTrace + aTrace - ldetSumE - ldetSumA + pTrace);
 }
 
 void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const{
