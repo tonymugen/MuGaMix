@@ -424,9 +424,41 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	vector<double> vRtRLT(Y_.getNcols()*Y_.getNcols(), 0.0);
 	MatrixView mRtRLT(&vRtRLT, 0, Y_.getNcols(), Y_.getNcols());
 	Le_.symm('l', 'r', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_E; R = Y - ZA - XB
-	for (size_t k = 1; k < Y_.getNcols() ; k++) {
-		
+	// make a vector of T_X (provided values are on the log scale; will use for T_E and T_A)
+	vector<double> Tx;
+	for (size_t k = 0; k < Y_.getNcols(); k++) {
+		Tx.push_back(exp(viSig[fTeInd_ + k]));
 	}
+	// mutiply the lower triangle by T_E
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {         // nothing to be done for the last column (it only has a diagonal element)
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols() ; iRow++) {
+			double prod = mRtRLT.getElem(iRow, jCol)*Tx[jCol];
+			mRtRLT.setElem(iRow, jCol, prod);
+		}
+	}
+	// construct the weighted L_E
+	// start with unweighted values because they can be used in weight calculations
+	vector<double> vechLwX;                                     // vech(L^w_X)
+	vector<double> weights(Y_.getNcols(), 0.0);                 // will become a d-vector of weights (each element corresponding to a row of L_X; the first element is weighted T_E[1,1])
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {   // nothing to be done for the last column (it only has a diagonal element)
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols() ; iRow++) {
+			double prod1 = Tx[jCol]*Le_.getElem(iRow, jCol);
+			vechLwX.push_back(prod1);
+			weights[iRow] += prod1*Le_.getElem(iRow, jCol); // unweighted for now
+		}
+	}
+	for (size_t k = 0; k < Y_.getNcols(); k++) {
+		weights[k] = nu0_*(weights[k] + Tx[k]) + invAsq_;
+	}
+	size_t vechInd = 0;
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols() ; iRow++) {
+			vechLwX[vechInd] = vechLwX[vechInd]/weights[iRow];
+			vechInd++;
+		}
+	}
+
+
 }
 
 // WrapMM methods
