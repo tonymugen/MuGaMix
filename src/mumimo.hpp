@@ -220,11 +220,19 @@ namespace BayesicSpace {
 		 * Vectorized error and line unity triangular matrices (\f$\boldsymbol{L}_X\f$ in the model description).
 		 */
 		mutable vector<double> vLx_;
+		// Constants
 		/** \brief Index of the first \f$\boldsymbol{T}_E\f$ element */
 		size_t fTeInd_;
+		/** \brief Index of the first \f$\boldsymbol{L}_A\f$ element */
+		size_t fLaInd_;
 		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
 		size_t fTaInd_;
-
+		/** \brief nu0*(nu0 + 2d) */
+		double nxnd_;
+		/** \brief N + nu0 + 2d */
+		double Nnd_;
+		/** \brief N_A + nu0 + 2d */
+		double NAnd_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the provided vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
@@ -232,11 +240,6 @@ namespace BayesicSpace {
 		 * \param[in] viSig compressed vector of factorized precision matrices
 		 */
 		void expandISvec_(const vector<double> &viSig) const;
-		/** \brief Output the expanded vector of factorized precision matrices
-		 *
-		 * \param[out] viSig compressed vector of factorized precision matrices
-		 */
-		void saveISvec_(vector<double> &viSig) const;
 	};
 
 	/** \brief Replicated mixture model analysis

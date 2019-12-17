@@ -226,7 +226,6 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 			gM.setElem( iRow, jCol, gM.getElem(iRow, jCol) - tauP_*M.getElem(iRow, jCol) ); // Z[p]^T(A - Z[p]M[p])Sig[A]^-1 - tau[p]M[p]
 		}
 	}
-
 }
 
 // MumiISig methods
@@ -263,7 +262,11 @@ MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, con
 	}
 	size_t trLen = d*(d-1)/2;
 	fTeInd_      = trLen;
+	fLaInd_      = trLen + d;
 	fTaInd_      = 2*trLen + d;
+	nxnd_        = nu0_*(nu0_ + 2.0*static_cast<double>(d));
+	Nnd_         = static_cast<double>(Y_.getNrows()) + nu0_ + static_cast<double>(d);
+	NAnd_        = static_cast<double>(Nln) + nu0_ + static_cast<double>(d);
 };
 
 MumiISig::MumiISig(MumiISig &&in) {
@@ -280,7 +283,11 @@ MumiISig::MumiISig(MumiISig &&in) {
 		Le_      = MatrixView(&vLx_, 0, Y_.getNcols(), Y_.getNcols());
 		La_      = MatrixView(&vLx_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols());
 		fTeInd_  = in.fTeInd_;
+		fLaInd_  = in.fLaInd_;
 		fTaInd_  = in.fTaInd_;
+		nxnd_    = in.nxnd_;
+		Nnd_     = in.Nnd_;
+		NAnd_    = in.NAnd_;
 
 		in.hierInd_ = nullptr;
 	}
@@ -300,7 +307,11 @@ MumiISig& MumiISig::operator=(MumiISig &&in){
 		Le_      = MatrixView(&vLx_, 0, Y_.getNcols(), Y_.getNcols());
 		La_      = MatrixView(&vLx_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols());
 		fTeInd_  = in.fTeInd_;
+		fLaInd_  = in.fLaInd_;
 		fTaInd_  = in.fTaInd_;
+		nxnd_    = in.nxnd_;
+		Nnd_     = in.Nnd_;
+		NAnd_    = in.NAnd_;
 
 		in.hierInd_ = nullptr;
 	}
@@ -315,19 +326,6 @@ void MumiISig::expandISvec_(const vector<double> &viSig) const{
 			Le_.setElem(iRow, jCol, viSig[eInd]);
 			eInd++;
 			La_.setElem(iRow, jCol, viSig[aInd]);
-			aInd++;
-		}
-	}
-}
-
-void MumiISig::saveISvec_(vector<double> &viSig) const{
-	size_t eInd = 0;                                                      // index of the Le lower triangle in the input vector
-	size_t aInd = (Y_.getNcols()*(Y_.getNcols() - 1)/2) + Y_.getNcols();  // index of the La lower triangle in the input vector
-	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {             // the last column is all 0, except the last element = 1.0
-		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			viSig[eInd] = Le_.getElem(iRow, jCol);
-			eInd++;
-			viSig[aInd] = La_.getElem(iRow, jCol);
 			aInd++;
 		}
 	}
@@ -457,8 +455,67 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 			vechInd++;
 		}
 	}
-
-
+	// add the lower triangles and store the results in the gradient vector
+	vechInd = 0;
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols() ; iRow++) {
+			grad[vechInd] = -mRtRLT.getElem(iRow, jCol) - nxnd_*vechLwX[vechInd];
+			vechInd++;
+		}
+	}
+	// The T_E gradient
+	// Starting with the first matrix: mRtRLT becomes L_E^TR^TRL_ET_E
+	mRtRLT.trm('l', 'r', true, true, 1.0, Le_);
+	// now sum everything and store the result in the gradient vector
+	for (size_t k = 0; k < Y_.getNcols(); k++) {
+		grad[fTeInd_ + k] = Nnd_ - mRtRLT.getElem(k, k) - nxnd_*Tx[k]/weights[k];
+	}
+	//
+	// L_A and T_A next
+	//
+	// Start with caclulating the residual, replacing the old one
+	vResid.resize(A_.getNcols()*A_.getNrows(), 0.0);
+	mResid = MatrixView(&vResid, 0, A_.getNrows(), A_.getNcols());
+	M_.colExpand((*hierInd_)[1], mResid); // Z_pM_p
+	for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < A_.getNrows(); ++ iRow) {
+			mResid.setElem( iRow, jCol, A_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // A - Z_pM_p
+		}
+	}
+	// Calculate the crossproduct and multiply by L_A
+	mResid.syrk('l', 1.0, 0.0, mRtR);
+	La_.symm('l', 'r', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_A; R = A - Z_pM_p
+	for (size_t k = 0; k < A_.getNcols(); k++) {
+		Tx.push_back(exp(viSig[fTaInd_ + k]));
+	}
+	weights.assign(weights.size(), 0.0);
+	vechInd = 0;
+	for (size_t jCol = 0; jCol < A_.getNcols() - 1; jCol++) {   // nothing to be done for the last column (it only has a diagonal element)
+		for (size_t iRow = jCol + 1; iRow < A_.getNcols() ; iRow++) {
+			double prod1 = Tx[jCol]*La_.getElem(iRow, jCol);
+			vechLwX[vechInd] = prod1;
+			weights[iRow] += prod1*La_.getElem(iRow, jCol); // unweighted for now
+			vechInd++;
+		}
+	}
+	for (size_t k = 0; k < A_.getNcols(); k++) {
+		weights[k] = nu0_*(weights[k] + Tx[k]) + invAsq_;
+	}
+	// add the lower triangles and store the results in the gradient vector
+	vechInd = 0;
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols() ; iRow++) {
+			grad[fLaInd_+vechInd] = -mRtRLT.getElem(iRow, jCol) - nxnd_*vechLwX[vechInd];
+			vechInd++;
+		}
+	}
+	// The T_A gradient
+	// Starting with the first matrix: mRtRLT becomes L_A^TR^TRL_AT_A
+	mRtRLT.trm('l', 'r', true, true, 1.0, La_);
+	// now sum everything and store the result in the gradient vector
+	for (size_t k = 0; k < A_.getNcols(); k++) {
+		grad[fTaInd_ + k] = NAnd_ - mRtRLT.getElem(k, k) - nxnd_*Tx[k]/weights[k];
+	}
 }
 
 // WrapMM methods
