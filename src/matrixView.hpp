@@ -326,7 +326,7 @@ namespace BayesicSpace {
 		void symc(const char &tri, const double &alpha, const MatrixViewConst &X, const size_t &xCol, const double &beta, vector<double> &y) const;
 		/** \brief Multiply by triangular matrix
 		 *
-		 * Multiply the _MatrixView_ object by a triangular matrix \f$A\f$. The interface for the BLAS _DSYMM_ routine. Updates current object \f$B\f$
+		 * Multiply the _MatrixView_ object by a triangular matrix \f$A\f$. The interface for the BLAS _DTRMM_ routine. Updates current object \f$B\f$
 		 *
 		 * \f$B \leftarrow \alpha op(A) B\f$
 		 *
@@ -348,7 +348,7 @@ namespace BayesicSpace {
 		void trm(const char &tri, const char &side, const bool &transA, const bool &uDiag, const double &alpha, const MatrixView &trA);
 		/** \brief Multiply by triangular _MatrixViewConst_
 		 *
-		 * Multiply the _MatrixView_ object by a triangular matrix \f$A\f$. The interface for the BLAS _DSYMM_ routine. Updates current object \f$B\f$
+		 * Multiply the _MatrixView_ object by a triangular matrix \f$A\f$. The interface for the BLAS _DTRMM_ routine. Updates current object \f$B\f$
 		 *
 		 * \f$B \leftarrow \alpha op(A) B\f$
 		 *

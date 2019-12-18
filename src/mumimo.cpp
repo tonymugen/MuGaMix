@@ -263,10 +263,10 @@ MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, con
 	size_t trLen = d*(d-1)/2;
 	fTeInd_      = trLen;
 	fLaInd_      = trLen + d;
-	fTaInd_      = 2*trLen + d;
+	fTaInd_      = fLaInd_ + trLen;
 	nxnd_        = nu0_*(nu0_ + 2.0*static_cast<double>(d));
-	Nnd_         = static_cast<double>(Y_.getNrows()) + nu0_ + static_cast<double>(d);
-	NAnd_        = static_cast<double>(Nln) + nu0_ + static_cast<double>(d);
+	Nnd_         = static_cast<double>(Y_.getNrows()) + nu0_ + 2.0*static_cast<double>(d);
+	NAnd_        = static_cast<double>(Nln) + nu0_ + 2.0*static_cast<double>(d);
 };
 
 MumiISig::MumiISig(MumiISig &&in) {
@@ -421,15 +421,15 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	mResid.syrk('l', 1.0, 0.0, mRtR);
 	vector<double> vRtRLT(Y_.getNcols()*Y_.getNcols(), 0.0);
 	MatrixView mRtRLT(&vRtRLT, 0, Y_.getNcols(), Y_.getNcols());
-	Le_.symm('l', 'r', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_E; R = Y - ZA - XB
+	Le_.symm('l', 'l', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_E; R = Y - ZA - XB
 	// make a vector of T_X (provided values are on the log scale; will use for T_E and T_A)
 	vector<double> Tx;
 	for (size_t k = 0; k < Y_.getNcols(); k++) {
 		Tx.push_back(exp(viSig[fTeInd_ + k]));
 	}
-	// mutiply the lower triangle by T_E
-	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {         // nothing to be done for the last column (it only has a diagonal element)
-		for (size_t iRow = jCol + 1; iRow < Y_.getNcols() ; iRow++) {
+	// mutiply by T_E (the whole matrix because I will need it for left-multiplication later)
+	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+		for (size_t iRow = 0; iRow < Y_.getNcols() ; iRow++) {
 			double prod = mRtRLT.getElem(iRow, jCol)*Tx[jCol];
 			mRtRLT.setElem(iRow, jCol, prod);
 		}
@@ -465,10 +465,10 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	}
 	// The T_E gradient
 	// Starting with the first matrix: mRtRLT becomes L_E^TR^TRL_ET_E
-	mRtRLT.trm('l', 'r', true, true, 1.0, Le_);
+	mRtRLT.trm('l', 'l', true, true, 1.0, Le_);
 	// now sum everything and store the result in the gradient vector
 	for (size_t k = 0; k < Y_.getNcols(); k++) {
-		grad[fTeInd_ + k] = Nnd_ - mRtRLT.getElem(k, k) - nxnd_*Tx[k]/weights[k];
+		grad[fTeInd_ + k] = 0.5*(Nnd_ - mRtRLT.getElem(k, k) - nxnd_*Tx[k]/weights[k]);
 	}
 	//
 	// L_A and T_A next
@@ -484,9 +484,16 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	}
 	// Calculate the crossproduct and multiply by L_A
 	mResid.syrk('l', 1.0, 0.0, mRtR);
-	La_.symm('l', 'r', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_A; R = A - Z_pM_p
+	La_.symm('l', 'l', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_A; R = A - Z_pM_p
 	for (size_t k = 0; k < A_.getNcols(); k++) {
-		Tx.push_back(exp(viSig[fTaInd_ + k]));
+		Tx[k] = exp(viSig[fTaInd_ + k]);
+	}
+	// mutiply by T_A (the whole matrix because I will need it for left-multiplication later)
+	for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
+		for (size_t iRow = 0; iRow < A_.getNcols() ; iRow++) {
+			double prod = mRtRLT.getElem(iRow, jCol)*Tx[jCol];
+			mRtRLT.setElem(iRow, jCol, prod);
+		}
 	}
 	weights.assign(weights.size(), 0.0);
 	vechInd = 0;
@@ -501,6 +508,13 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	for (size_t k = 0; k < A_.getNcols(); k++) {
 		weights[k] = nu0_*(weights[k] + Tx[k]) + invAsq_;
 	}
+	vechInd = 0;
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols() ; iRow++) {
+			vechLwX[vechInd] = vechLwX[vechInd]/weights[iRow];
+			vechInd++;
+		}
+	}
 	// add the lower triangles and store the results in the gradient vector
 	vechInd = 0;
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
@@ -511,10 +525,10 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	}
 	// The T_A gradient
 	// Starting with the first matrix: mRtRLT becomes L_A^TR^TRL_AT_A
-	mRtRLT.trm('l', 'r', true, true, 1.0, La_);
+	mRtRLT.trm('l', 'l', true, true, 1.0, La_);
 	// now sum everything and store the result in the gradient vector
 	for (size_t k = 0; k < A_.getNcols(); k++) {
-		grad[fTaInd_ + k] = NAnd_ - mRtRLT.getElem(k, k) - nxnd_*Tx[k]/weights[k];
+		grad[fTaInd_ + k] = 0.5*(NAnd_ - mRtRLT.getElem(k, k) - nxnd_*Tx[k]/weights[k]);
 	}
 }
 

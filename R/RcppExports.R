@@ -5,8 +5,8 @@ lpTestL <- function(yVec, iSigVec, repFac, lnFac, paramValues, d) {
     .Call(`_MuGaMix_lpTestL`, yVec, iSigVec, repFac, lnFac, paramValues, d)
 }
 
-gradTest <- function(yVec, iSigVec, repFac, lnFac, paramValues, d, idx) {
-    .Call(`_MuGaMix_gradTest`, yVec, iSigVec, repFac, lnFac, paramValues, d, idx)
+gradTestL <- function(yVec, iSigVec, repFac, lnFac, paramValues, d, idx) {
+    .Call(`_MuGaMix_gradTestL`, yVec, iSigVec, repFac, lnFac, paramValues, d, idx)
 }
 
 testInitTheta <- function(yVec, trueISigVec, lnFac, popFac, Npop, d) {
@@ -19,5 +19,9 @@ testLocSampler <- function(yVec, trueISigVec, lnFac, popFac, Npop, d, Nadapt, Ns
 
 lpTestS <- function(yVec, iSigVec, repFac, lnFac, paramValues, d) {
     .Call(`_MuGaMix_lpTestS`, yVec, iSigVec, repFac, lnFac, paramValues, d)
+}
+
+gradTestS <- function(yVec, iSigVec, repFac, lnFac, paramValues, d, idx) {
+    .Call(`_MuGaMix_gradTestS`, yVec, iSigVec, repFac, lnFac, paramValues, d, idx)
 }
 

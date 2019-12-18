@@ -71,7 +71,7 @@ double lpTestL(const std::vector<double> &yVec, const std::vector<double> &iSigV
 }
 
 //[[Rcpp::export]]
-double gradTest(const std::vector<double> &yVec, const std::vector<double> &iSigVec, const std::vector<int32_t> &repFac, const std::vector<int32_t> &lnFac, const std::vector<double> &paramValues, const int32_t &d, const int32_t &idx){
+double gradTestL(const std::vector<double> &yVec, const std::vector<double> &iSigVec, const std::vector<int32_t> &repFac, const std::vector<int32_t> &lnFac, const std::vector<double> &paramValues, const int32_t &d, const int32_t &idx){
 	if (d <= 0) {
 		Rcpp::stop("ERROR: number of traits must be positive");
 	}
@@ -204,6 +204,41 @@ double lpTestS(const std::vector<double> &yVec, const std::vector<double> &iSigV
 		double res = test.logPost(iSigVec);
 		//double res = 1.0;
 		return res;
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+
+	return 0.0;
+}
+
+//[[Rcpp::export]]
+double gradTestS(const std::vector<double> &yVec, const std::vector<double> &iSigVec, const std::vector<int32_t> &repFac, const std::vector<int32_t> &lnFac, const std::vector<double> &paramValues, const int32_t &d, const int32_t &idx){
+	if (d <= 0) {
+		Rcpp::stop("ERROR: number of traits must be positive");
+	}
+	std::vector<size_t> l1;
+	std::vector<size_t> l2;
+	for (auto &rf : repFac) {
+		if (rf <= 0) {
+			Rcpp::stop("ERROR: all elements of the replicate factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(rf-1) );
+	}
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l2.push_back( static_cast<size_t>(lf-1) );
+	}
+	try {
+		std::vector<BayesicSpace::Index> factors;
+		factors.push_back(BayesicSpace::Index(l1));
+		factors.push_back(BayesicSpace::Index(l2));
+		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
+		std::vector<double> grad(yVec.size(), 0.0);
+		BayesicSpace::MumiISig test(&yVec, &paramValues, &xVec, &factors, 2.0, 1e-10);
+		test.gradient(iSigVec, grad);
+		return grad[idx-1];
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
 	}
