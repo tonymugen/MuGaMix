@@ -60,7 +60,7 @@ double lpTestL(const std::vector<double> &yVec, const std::vector<double> &iSigV
 		factors.push_back(BayesicSpace::Index(l1));
 		factors.push_back(BayesicSpace::Index(l2));
 		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
-		BayesicSpace::MumiLoc test(&yVec, &iSigVec, d, &factors, &xVec, 1e-5);
+		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &factors, &xVec, 1e-5);
 		double res = test.logPost(paramValues);
 		return res;
 	} catch(std::string problem) {
@@ -95,7 +95,7 @@ double gradTestL(const std::vector<double> &yVec, const std::vector<double> &iSi
 		factors.push_back(BayesicSpace::Index(l2));
 		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
 		std::vector<double> grad(yVec.size(), 0.0);
-		BayesicSpace::MumiLoc test(&yVec, &iSigVec, d, &factors, &xVec, 1e-5);
+		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &factors, &xVec, 1e-5);
 		test.gradient(paramValues, grad);
 		return grad[idx-1];
 	} catch(std::string problem) {

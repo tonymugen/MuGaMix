@@ -56,17 +56,16 @@ namespace BayesicSpace {
 	class MumiLoc : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, tauP_{0.0} {};
+		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, tauP_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer vectorized data matrix
 		 * \param[in] iSigVec pointer to vectorized inverse-covariance matrix collection
-		 * \param[in] d number of traits
 		 * \param[in] hierInd pointer to vector of hierarchical indexes
 		 * \param[in] xVec pointer to vectorized covariate predictor matrix
 		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and population means
 		 */
-		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const size_t &d, const vector<Index> *hierInd, const vector<double> *xVec, const double &tau);
+		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const vector<double> *xVec, const double &tau);
 		/** \brief Destructor */
 		~MumiLoc(){hierInd_ = nullptr; };
 
@@ -106,10 +105,6 @@ namespace BayesicSpace {
 	protected:
 		/** \brief Matrix view of data */
 		MatrixViewConst Y_;
-		/** \brief Matrix view of the error inverse-covariance */
-		MatrixViewConst ISigE_;
-		/** \brief Matrix view of the line inverse-covariance */
-		MatrixViewConst ISigA_;
 		/** \brief Matrix view of covariate predictors */
 		MatrixViewConst X_;
 		/** \brief Pointer to vector of indexes connecting hierarchy levels */
@@ -118,6 +113,36 @@ namespace BayesicSpace {
 		double tau0_;
 		/** \brief Fixed prior precision for population means */
 		double tauP_;
+		/** \brief Pointer to a precision parameter vector */
+		const vector<double> *iSigTheta_;
+		/** \brief Error factorized precision matrix view
+		 *
+		 * Points to `vLx_`.
+		 */
+		mutable MatrixView Le_;
+		/** \brief Line factorized preficision matrix view
+		 *
+		 * Points to `vLx_`.
+		 */
+		mutable MatrixView La_;
+		/** \brief Expanded _L_ matrices
+		 *
+		 * Vectorized error and line unity triangular matrices (\f$\boldsymbol{L}_X\f$ in the model description).
+		 */
+		mutable vector<double> vLx_;
+		// Constants
+		/** \brief Index of the first \f$\boldsymbol{T}_E\f$ element */
+		size_t fTeInd_;
+		/** \brief Index of the first \f$\boldsymbol{L}_A\f$ element */
+		size_t fLaInd_;
+		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
+		size_t fTaInd_;
+		/** \brief Expand the vector of factorized precision matrices
+		 *
+		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
+		 *
+		 */
+		void expandISvec_() const;
 	};
 
 	/** \brief Model for inverse covariances
