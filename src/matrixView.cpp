@@ -206,7 +206,7 @@ void MatrixView::cholInv(){
 	// copying the lower triangle to the upper
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
 		for (size_t jCol = 0; jCol < iRow; jCol++) {
-			data_[Nrow_*iRow + jCol] = data_[Nrow_*jCol + iRow];
+			(*data_)[idx_ + Nrow_*iRow + jCol] = (*data_)[idx_ + Nrow_*jCol + iRow];
 		}
 	}
 
@@ -239,7 +239,7 @@ void MatrixView::cholInv(MatrixView &out) const {
 	}
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
 		for (size_t jCol = 0; jCol < iRow; jCol++) {
-			out.data_[Nrow_*iRow + jCol] = out.data_[Nrow_*jCol + iRow];
+			(*out.data_)[out.idx_ + Nrow_*iRow + jCol] = (*out.data_)[out.idx_ + Nrow_*jCol + iRow];
 		}
 	}
 }
@@ -1667,7 +1667,7 @@ void MatrixViewConst::cholInv(MatrixView &out) const {
 	}
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
 		for (size_t jCol = 0; jCol < iRow; jCol++) {
-			out.data_[Nrow_*iRow + jCol] = out.data_[Nrow_*jCol + iRow];
+			(*out.data_)[out.idx_ + Nrow_*iRow + jCol] = (*out.data_)[out.idx_ + Nrow_*jCol + iRow];
 		}
 	}
 }

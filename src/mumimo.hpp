@@ -61,11 +61,11 @@ namespace BayesicSpace {
 		 *
 		 * \param[in] yVec pointer vectorized data matrix
 		 * \param[in] iSigVec pointer to vectorized inverse-covariance matrix collection
-		 * \param[in] hierInd pointer to vector of hierarchical indexes
 		 * \param[in] xVec pointer to vectorized covariate predictor matrix
+		 * \param[in] hierInd pointer to vector of hierarchical indexes
 		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and population means
 		 */
-		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const vector<double> *xVec, const double &tau);
+		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<double> *xVec, const vector<Index> *hierInd, const double &tau);
 		/** \brief Destructor */
 		~MumiLoc(){hierInd_ = nullptr; };
 
@@ -284,11 +284,11 @@ namespace BayesicSpace {
 		 * \param[in] vX vectorized fixed effect matrix, should include the intercept as first element
 		 * \param[in] y2line factor connecting data to lines (accessions)
 		 * \param[in] ln2pop factor connecting lines to populations
-		 * \param[in] d number of traits
-		 * \param[in] trueISig vector of true inverse-covariances (for development)
 		 * \param[in] tau0 prior precision for the "fixed" effects
+		 * \param[in] nu0 prior degrees of freedom for precision matrices
+		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const vector<double> &vX, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const size_t &d, const vector<double> &trueISig, const double &tau0);
+		WrapMMM(const vector<double> &vY, const vector<double> &vX, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Copy constructor (deleted) */
 		WrapMMM(WrapMMM &in) = delete;
 		/** \brief Move constructor (deleted) */
@@ -304,8 +304,10 @@ namespace BayesicSpace {
 		 * \param[out] chain MCMC chain
 		 */
 		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &chain);
-		/** \brief Get location theta (just for testing */
+		/** \brief Get location theta (just for testing) */
 		void getTheta(vector <double> &theta){theta = vTheta_;};
+		/** \brief Get precision matrix theta (just for testing) */
+		void getISig(vector <double> &vISig){vISig = vISig_;};
 	private:
 		/** \brief Vectorized data matrix
 		 *

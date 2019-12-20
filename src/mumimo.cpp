@@ -44,7 +44,7 @@ using std::string;
 using namespace BayesicSpace;
 
 // MumiLoc methods
-MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const vector<double> *xVec, const double &tau) : Model(), hierInd_{hierInd}, tau0_{tau}, tauP_{tau}, iSigTheta_{iSigVec} {
+MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<double> *xVec, const vector<Index> *hierInd, const double &tau) : Model(), hierInd_{hierInd}, tau0_{tau}, tauP_{tau}, iSigTheta_{iSigVec} {
 	const size_t n = (*hierInd_)[0].size();
 	if (yVec->size()%n) {
 		throw string("ERROR: Y dimensions not compatible with the number of data points implied by the replicate factor");
@@ -131,7 +131,8 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	A.colExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
-			mResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
+			double diff =  Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
+			mResid.setElem( iRow, jCol, diff); // Y - ZA
 		}
 	}
 	B.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
@@ -165,7 +166,8 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	M.colExpand((*hierInd_)[1], mResid);
 	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
-			mResid.setElem( iRow, jCol, A.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // A - Z[p]M[p]
+			double diff =  A.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
+			mResid.setElem( iRow, jCol, diff); // A - Z[p]M[p]
 		}
 	}
 	mResid.trm('l', 'r', false, true, 1.0, La_);
@@ -212,7 +214,8 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	A.colExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
-			mResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
+			double diff =  Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
+			mResid.setElem( iRow, jCol, diff); // Y - ZA
 		}
 	}
 	B.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
@@ -258,7 +261,8 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	M.colExpand((*hierInd_)[1], mAMresid); // Z[p]M[p]
 	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
-			mAMresid.setElem( iRow, jCol, A.getElem(iRow, jCol) - mAMresid.getElem(iRow, jCol) ); // A - Z[p]M[p]
+			double diff =  A.getElem(iRow, jCol) - mAMresid.getElem(iRow, jCol);
+			mAMresid.setElem( iRow, jCol, diff); // A - Z[p]M[p]
 		}
 	}
 	// (A-Z[p]M[p])Sig^{-1}[A]
@@ -271,7 +275,8 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// A partial derivatives
 	for (size_t jCol = 0; jCol < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
-			gA.setElem( iRow, jCol, gA.getElem(iRow, jCol) - mAMresISA.getElem(iRow, jCol) ); // Z^T(Y - ZA - XB)Sig[E]^-1 - (A-Z[p]M[p])Sig^{-1}[A]
+			double diff =  gA.getElem(iRow, jCol) - mAMresISA.getElem(iRow, jCol);
+			gA.setElem( iRow, jCol, diff); // Z^T(Y - ZA - XB)Sig[E]^-1 - (A-Z[p]M[p])Sig^{-1}[A]
 		}
 	}
 
@@ -280,7 +285,8 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// B partial derivatives
 	for (size_t jCol = 0; jCol < B.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < B.getNrows(); ++iRow) {
-			gB.setElem( iRow, jCol, gB.getElem(iRow, jCol) - tau0_*B.getElem(iRow, jCol) ); // X^T(Y - ZA - XB)Sig[E]^-1 - tau[0]B
+			double diff =  gB.getElem(iRow, jCol) - tau0_*B.getElem(iRow, jCol);
+			gB.setElem( iRow, jCol, diff); // X^T(Y - ZA - XB)Sig[E]^-1 - tau[0]B
 		}
 	}
 
@@ -289,7 +295,8 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// M[p] partial derivatives
 	for (size_t jCol = 0; jCol < M.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < M.getNrows(); ++iRow) {
-			gM.setElem( iRow, jCol, gM.getElem(iRow, jCol) - tauP_*M.getElem(iRow, jCol) ); // Z[p]^T(A - Z[p]M[p])Sig[A]^-1 - tau[p]M[p]
+			double diff =  gM.getElem(iRow, jCol) - tauP_*M.getElem(iRow, jCol);
+			gM.setElem( iRow, jCol, diff); // Z[p]^T(A - Z[p]M[p])Sig[A]^-1 - tau[p]M[p]
 		}
 	}
 }
@@ -406,7 +413,8 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	A_.colExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
-			mResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
+			double diff = Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
+			mResid.setElem( iRow, jCol, diff); // Y - ZA
 		}
 	}
 	B_.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
@@ -429,7 +437,8 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	M_.colExpand((*hierInd_)[1], mResid);
 	for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A_.getNrows(); ++iRow) {
-			mResid.setElem( iRow, jCol, A_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // A - Z[p]M[p]
+			double diff =  A_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
+			mResid.setElem( iRow, jCol, diff); // A - Z[p]M[p]
 		}
 	}
 	mResid.trm('l', 'r', false, true, 1.0, La_);
@@ -478,7 +487,8 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	A_.colExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
-			mResid.setElem( iRow, jCol, Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // Y - ZA
+			double diff =  Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
+			mResid.setElem( iRow, jCol, diff); // Y - ZA
 		}
 	}
 	B_.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
@@ -545,7 +555,8 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	M_.colExpand((*hierInd_)[1], mResid); // Z_pM_p
 	for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A_.getNrows(); ++ iRow) {
-			mResid.setElem( iRow, jCol, A_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol) ); // A - Z_pM_p
+			double diff =  A_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
+			mResid.setElem( iRow, jCol, diff); // A - Z_pM_p
 		}
 	}
 	// Calculate the crossproduct and multiply by L_A
@@ -599,20 +610,22 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 }
 
 // WrapMM methods
-WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const size_t &d, const vector<double> &trueISig, const double &tau0): vY_{vY}, vX_{vX}, vISig_{trueISig} {
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const double &tau0, const double &nu0, const double &invAsq): vY_{vY}, vX_{vX} {
 	hierInd_.push_back(Index(y2line));
 	hierInd_.push_back(Index(ln2pop));
 	if (hierInd_[0].groupNumber() != hierInd_[1].size()) {
 		throw string("WrapMMM constructor ERROR: the line and population hierarchical indexes do not match");
 	}
-	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, &vX_, tau0) );
-	const size_t N   = vY_.size()/d;
-	if (N != vY_.size()/d) {
-		throw string("WrapMMM constructor ERROR: the line factor not same length as the data");
+	models_.push_back( new MumiLoc(&vY_, &vISig_, &vX_, &hierInd_, tau0) );
+	models_.push_back( new MumiISig(&vY_, &vTheta_, &vX_, &hierInd_, nu0, invAsq) );
+	const size_t N = hierInd_[0].size();
+	if (vY.size()%N) {
+		throw string("WrapMMM constructor ERROR: length of response vector not divisible by data point number");
 	}
 	if (vX_.size()%N) {
 		throw string("WrapMMM constructor ERROR: vectorized X must contain and integer number of predictors");
 	}
+	const size_t d    = vY.size()/N;
 	const size_t Nln  = ln2pop.size();
 	const size_t Npop = hierInd_[1].groupNumber();
 	const size_t Nb   = vX_.size()/N;
@@ -621,6 +634,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 	const size_t Mdim = Npop*d;
 
 	// Calculate starting values for theta
+	//
 	MatrixViewConst Y(&vY_, 0, N, d);
 	MatrixViewConst X(&vX_, 0, N, Nb);
 
@@ -632,24 +646,93 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 	vector<double> vXtX(Nb*Nb, 0.0);
 	MatrixView XtX(&vXtX, 0, Nb, Nb);
 
-	X.syrk('u', 1.0, 0.0, XtX);
+	X.syrk('l', 1.0, 0.0, XtX);
 	XtX.chol();
 	XtX.cholInv();
 	vector<double> vXtY(Bdim, 0.0);
 	MatrixView XtY(&vXtY, 0, Nb, d);
 	Y.gemm(true, 1.0, X, false, 0.0, XtY);
-	XtY.symm('u', 'l', 1.0, XtX, 0.0, B);
+	XtY.symm('l', 'l', 1.0, XtX, 0.0, B);
 
 	vector<double> bResid(vY_);
 	MatrixView YmXb(&bResid, 0, N, d); // Y - XB
 	B.gemm(false, -1.0, X, false, 1.0, YmXb);
 	YmXb.colMeans(hierInd_[0], A); // residual means to get A starting values
 	A.colMeans(hierInd_[1], M);    // A means to get population mean starting values
-	for (auto &t : vTheta_) {      // add noise
+
+	// Calculate starting precision matrix values; do that before adding noise to theta
+	//
+	vector<double> vSig(d*d, 0.0);
+	MatrixView Sig(&vSig, 0, d, d);
+
+	// Y residual
+	vector<double> vZA(N*d, 0.0);
+	MatrixView ZA(&vZA, 0, N, d);
+	A.colExpand(hierInd_[0], ZA);
+	for (size_t i = 0; i < bResid.size(); i++) {
+		bResid[i] -= vZA[i];
+	}
+	YmXb.syrk('l', 1.0, 0.0, Sig);
+	// add a small value to the diagonal to make sure the matrix is non-singular
+	for (size_t k = 0; k < d; k++) {
+		double diag = Sig.getElem(k, k);
+		Sig.setElem(k, k, diag + 1e-4);
+	}
+	Sig.chol();
+	Sig.cholInv();
+
+	// save the scaled precision matrix lower triangle and log-diagonals to the precision parameter vector
+	vector<double> sqrT;
+	for (size_t k = 0; k < d; k++) {
+		sqrT.push_back(sqrt(Sig.getElem(k, k)));
+	}
+	for (size_t jCol = 0; jCol < d-1; jCol++) {
+		for (size_t iRow = jCol+1; iRow < d; iRow++) {
+			vISig_.push_back( Sig.getElem(iRow, jCol)/(sqrT[iRow]*sqrT[jCol]) );
+		}
+	}
+	for (size_t k = 0; k < d; k++) {
+		vISig_.push_back( log(Sig.getElem(k, k)) );
+	}
+	// A precision matrix
+	vZA.resize(Nln*d);
+	MatrixView ZM(&vZA, 0, Nln, d);
+	M.colExpand(hierInd_[1], ZM);
+	for (size_t jCol = 0; jCol < d ; jCol++) {
+		for (size_t iRow = 0; iRow < Nln ; iRow++) {
+			double diff = A.getElem(iRow, jCol) - ZM.getElem(iRow, jCol);
+			ZM.setElem(iRow, jCol, diff); // A - ZM is now in ZM
+		}
+	}
+	ZM.syrk('l', 1.0, 0.0, Sig);
+	// add a small value to the diagonal again
+	for (size_t k = 0; k < d ; k++) {
+		double diag = Sig.getElem(k, k) + 1e-4;
+		Sig.setElem(k, k, diag);
+	}
+	Sig.chol();
+	Sig.cholInv();
+	for (size_t k = 0; k < d; k++) {
+		sqrT[k] = sqrt(Sig.getElem(k, k));
+	}
+	for (size_t jCol = 0; jCol < d-1; jCol++) {
+		for (size_t iRow = jCol+1; iRow < d; iRow++) {
+			vISig_.push_back( Sig.getElem(iRow, jCol)/(sqrT[iRow]*sqrT[jCol]) );
+		}
+	}
+	for (size_t k = 0; k < d; k++) {
+		vISig_.push_back( log(Sig.getElem(k, k)) );
+	}
+	// add noise
+	for (auto &t : vTheta_) {
 		t += rng_.rnorm();
+	}
+	for (auto &s : vISig_) {
+		s+= rng_.rnorm();
 	}
 
 	sampler_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	sampler_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 }
 
 WrapMMM::~WrapMMM(){
@@ -674,6 +757,9 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector
 		}
 		for (auto &t : vTheta_) {
 			chain.push_back(t);
+		}
+		for (auto &p : vISig_) {
+			chain.push_back(p);
 		}
 	}
 }
