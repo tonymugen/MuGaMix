@@ -662,6 +662,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 
 	// Calculate starting precision matrix values; do that before adding noise to theta
 	//
+	const double n   = static_cast<double>(N-1);
+	const double nLN = static_cast<double>(Nln-1);
 	vector<double> vSig(d*d, 0.0);
 	MatrixView Sig(&vSig, 0, d, d);
 
@@ -673,6 +675,10 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 		bResid[i] -= vZA[i];
 	}
 	YmXb.syrk('l', 1.0, 0.0, Sig);
+	// make covariances
+	for (auto &k : vSig) {
+		k = k/n;
+	}
 	// add a small value to the diagonal to make sure the matrix is non-singular
 	for (size_t k = 0; k < d; k++) {
 		double diag = Sig.getElem(k, k);
@@ -705,6 +711,10 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 		}
 	}
 	ZM.syrk('l', 1.0, 0.0, Sig);
+	// make covariances
+	for (auto &k : vSig) {
+		k = k/nLN;
+	}
 	// add a small value to the diagonal again
 	for (size_t k = 0; k < d ; k++) {
 		double diag = Sig.getElem(k, k) + 1e-4;
@@ -728,7 +738,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 		t += rng_.rnorm();
 	}
 	for (auto &s : vISig_) {
-		s+= rng_.rnorm();
+		s += rng_.rnorm();
 	}
 
 	sampler_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
