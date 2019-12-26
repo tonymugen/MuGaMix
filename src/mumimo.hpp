@@ -303,7 +303,7 @@ namespace BayesicSpace {
 		 * \param[in] Nsample number of sampling steps
 		 * \param[out] chain MCMC chain
 		 */
-		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &chain);
+		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &chain, vector<uint32_t> &treeLen);
 		/** \brief Get location theta (just for testing) */
 		void getTheta(vector <double> &theta){theta = vTheta_;};
 		/** \brief Get precision matrix theta (just for testing) */

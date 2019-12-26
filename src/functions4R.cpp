@@ -71,6 +71,46 @@ double lpTestL(const std::vector<double> &yVec, const std::vector<double> &iSigV
 }
 
 //[[Rcpp::export]]
+Rcpp::List lpTestLI(const std::vector<double> &yVec, const std::vector<double> &iSigVec, const std::vector<int32_t> &repFac, const std::vector<int32_t> &lnFac, const std::vector<double> &paramValues, const int32_t &i, const int32_t &d, const double &mar){
+	if (d <= 0) {
+		Rcpp::stop("ERROR: number of traits must be positive");
+	}
+	std::vector<size_t> l1;
+	std::vector<size_t> l2;
+	for (auto &rf : repFac) {
+		if (rf <= 0) {
+			Rcpp::stop("ERROR: all elements of the replicate factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(rf-1) );
+	}
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l2.push_back( static_cast<size_t>(lf-1) );
+	}
+	std::vector<double> lpost;
+	std::vector<double> chParam(paramValues);
+	try {
+		std::vector<BayesicSpace::Index> factors;
+		factors.push_back(BayesicSpace::Index(l1));
+		factors.push_back(BayesicSpace::Index(l2));
+		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
+		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &xVec, &factors, 1e-5);
+		double val = chParam[i - 1];
+		for (double add = -mar; add  <= mar; add += 0.1) {
+			chParam[i - 1] = val + add;
+			lpost.push_back(test.logPost(chParam));
+		}
+		return Rcpp::List::create(Rcpp::Named("lpost", lpost));
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+
+	return Rcpp::List::create(Rcpp::Named("lpost", lpost));
+}
+
+//[[Rcpp::export]]
 double gradTestL(const std::vector<double> &yVec, const std::vector<double> &iSigVec, const std::vector<int32_t> &repFac, const std::vector<int32_t> &lnFac, const std::vector<double> &paramValues, const int32_t &d, const int32_t &idx){
 	if (d <= 0) {
 		Rcpp::stop("ERROR: number of traits must be positive");
@@ -103,6 +143,47 @@ double gradTestL(const std::vector<double> &yVec, const std::vector<double> &iSi
 	}
 
 	return 0.0;
+}
+
+//[[Rcpp::export]]
+Rcpp::List gradTestLI(const std::vector<double> &yVec, const std::vector<double> &iSigVec, const std::vector<int32_t> &repFac, const std::vector<int32_t> &lnFac, const std::vector<double> &paramValues, const int32_t &d, const int32_t &idx, const double &mar){
+	if (d <= 0) {
+		Rcpp::stop("ERROR: number of traits must be positive");
+	}
+	std::vector<size_t> l1;
+	std::vector<size_t> l2;
+	for (auto &rf : repFac) {
+		if (rf <= 0) {
+			Rcpp::stop("ERROR: all elements of the replicate factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(rf-1) );
+	}
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l2.push_back( static_cast<size_t>(lf-1) );
+	}
+	std::vector<double> grdRes;
+	std::vector<double> chParam(paramValues);
+	try {
+		std::vector<BayesicSpace::Index> factors;
+		factors.push_back(BayesicSpace::Index(l1));
+		factors.push_back(BayesicSpace::Index(l2));
+		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
+		std::vector<double> grad(yVec.size(), 0.0);
+		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &xVec, &factors, 1e-5);
+		for (double add = -mar; add <= mar; add += 0.1) {
+			chParam[idx-1] = paramValues[idx-1] + add;
+			test.gradient(chParam, grad);
+			grdRes.push_back(grad[idx-1]);
+		}
+		return Rcpp::List::create(Rcpp::Named("gradVal", grdRes));
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+
+	return Rcpp::List::create(Rcpp::Named("gradVal", grdRes));
 }
 
 //[[Rcpp::export]]
@@ -235,13 +316,14 @@ Rcpp::List testLocSampler(const std::vector<double> &yVec, const std::vector<int
 	}
 	std::vector<double> X(lnFac.size(), 1.0);
 	std::vector<double> chain;
+	std::vector<uint32_t> tree;
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
 
 	try {
 		BayesicSpace::WrapMMM test(yVec, X, l1, l2, 1e-5, 2.0, 1e-10);
-		test.runSampler(Na, Ns, chain);
-		return Rcpp::List::create(Rcpp::Named("chain", chain));
+		test.runSampler(Na, Ns, chain, tree);
+		return Rcpp::List::create(Rcpp::Named("chain", chain), Rcpp::Named("tree", tree));
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
 	}

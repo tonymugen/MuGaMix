@@ -136,8 +136,6 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 		}
 	}
 	B.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
-	vector<double> vResIS(Ydim, 0.0);
-	MatrixView resISE(&vResIS, 0, Y_.getNrows(), Y_.getNcols());
 	// multiply by L_E
 	mResid.trm('l', 'r', false, true, 1.0, Le_);
 	// Now calculate the trace of the RL_ET_EL_^TR^T matrix
@@ -150,7 +148,6 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 		eTrace += exp((*iSigTheta_)[fTeInd_ + jCol])*dp;
 	}
 	vResid.clear();
-	vResIS.clear();
 	// B cross-product trace
 	double trB = 0.0;
 	for (size_t jCol = 0; jCol < Y_.getNcols(); ++jCol) {
@@ -737,12 +734,12 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 	for (auto &t : vTheta_) {
 		t += rng_.rnorm();
 	}
-	for (auto &s : vISig_) {
-		s += rng_.rnorm();
-	}
+	//for (auto &s : vISig_) {
+	//	s += rng_.rnorm();
+	//}
 
 	sampler_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	sampler_.push_back( new SamplerNUTS(models_[1], &vISig_) );
+	//sampler_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 }
 
 WrapMMM::~WrapMMM(){
@@ -754,10 +751,11 @@ WrapMMM::~WrapMMM(){
 	}
 }
 
-void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &chain){
+void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &chain, vector<uint32_t> &treeLen){
+	treeLen.clear();
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		for (auto &s : sampler_) {
-			s->adapt();
+			treeLen.push_back(s->adapt());
 		}
 	}
 	chain.clear();

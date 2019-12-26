@@ -76,7 +76,7 @@ namespace BayesicSpace {
 		 */
 		SamplerNUTS& operator=(SamplerNUTS &&in);
 		/** \brief Destructor */
-		~SamplerNUTS(){ theta_ = nullptr; };
+		~SamplerNUTS(){ theta_ = nullptr; model_ = nullptr; };
 
 		/** \brief Get the current step size \f$ \epsilon \f$
 		 *
