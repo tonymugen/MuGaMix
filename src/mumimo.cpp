@@ -732,7 +732,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 	}
 	// add noise
 	for (auto &t : vTheta_) {
-		t += rng_.rnorm();
+		t += 0.01*rng_.rnorm();
 	}
 	//for (auto &s : vISig_) {
 	//	s += rng_.rnorm();

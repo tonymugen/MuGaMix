@@ -31,6 +31,8 @@
 #include <string>
 #include <limits>
 #include <cmath>
+//-
+#include <fstream> //-
 
 #include "danuts.hpp"
 #include "random.hpp"
@@ -134,14 +136,22 @@ void SamplerNUTS::findInitialEpsilon_(){
 		r0.push_back(rng_.rnorm());
 	}
 
+	epsilon_ *= 0.01;//-
 	vector<double> thetaPrime(*theta_);
 	vector<double> rPrime(r0);
 	leapfrog_(thetaPrime, rPrime, epsilon_);
 	char a = '\0'; // instead of a boolean to guarantee one byte
 
+	std::fstream tstOut; //-
+	tstOut.open("tst.txt", std::ios::out | std::ios::trunc); //-
+	vector<double> tstGrad(theta_->size(), 0.0); //-
 	// have to make sure no weirdness (like NaN or Inf) comes out of the log-posterior evaluation
 	double logp      = model_->logPost(*theta_);
 	double logpPrime = model_->logPost(thetaPrime);
+	leapfrog_(thetaPrime, rPrime, epsilon_);//-
+	leapfrog_(thetaPrime, rPrime, epsilon_);//-
+	leapfrog_(thetaPrime, rPrime, epsilon_);//-
+	tstOut << "log(p) = " << logp << "; log(p)' = " << logpPrime << "; log(p)'' = " << model_->logPost(thetaPrime) << std::endl; //-
 	int fpClsLP      = fpclassify(logp);
 	int fpClsLPP     = fpclassify(logpPrime);
 	if (fpClsLPP == FP_NAN) {
@@ -214,7 +224,8 @@ void SamplerNUTS::findInitialEpsilon_(){
 		}
 	}
 	mu_ = 2.302585 + log(epsilon_);  // log(10epsilon_0)
-
+	tstOut << "eps0 = " << epsilon_ << std::endl; //-
+	tstOut.close(); //-
 }
 
 void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const double &epsilon){
