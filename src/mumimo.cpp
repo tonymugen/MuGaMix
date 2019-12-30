@@ -259,7 +259,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
 			double diff =  A.getElem(iRow, jCol) - mAMresid.getElem(iRow, jCol);
-			mAMresid.setElem( iRow, jCol, diff); // A - Z[p]M[p]
+			mAMresid.setElem(iRow, jCol, diff); // A - Z[p]M[p]
 		}
 	}
 	// (A-Z[p]M[p])Sig^{-1}[A]
@@ -273,7 +273,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	for (size_t jCol = 0; jCol < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
 			double diff =  gA.getElem(iRow, jCol) - mAMresISA.getElem(iRow, jCol);
-			gA.setElem( iRow, jCol, diff); // Z^T(Y - ZA - XB)Sig[E]^-1 - (A-Z[p]M[p])Sig^{-1}[A]
+			gA.setElem(iRow, jCol, diff); // Z^T(Y - ZA - XB)Sig[E]^-1 - (A-Z[p]M[p])Sig^{-1}[A]
 		}
 	}
 
@@ -283,7 +283,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	for (size_t jCol = 0; jCol < B.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < B.getNrows(); ++iRow) {
 			double diff =  gB.getElem(iRow, jCol) - tau0_*B.getElem(iRow, jCol);
-			gB.setElem( iRow, jCol, diff); // X^T(Y - ZA - XB)Sig[E]^-1 - tau[0]B
+			gB.setElem(iRow, jCol, diff); // X^T(Y - ZA - XB)Sig[E]^-1 - tau[0]B
 		}
 	}
 

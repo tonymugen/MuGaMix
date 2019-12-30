@@ -129,7 +129,6 @@ SamplerNUTS& SamplerNUTS::operator=(SamplerNUTS &&in){
 void SamplerNUTS::findInitialEpsilon_(){
 	// Algorithm 4 in Hoffman and Gelman
 	// epsilon_ initialized in the constructor initialization list
-	// start with the location parameters
 	vector<double> r0;
 	for (size_t i = 0; i < theta_->size(); i++) {
 		r0.push_back(rng_.rnorm());
