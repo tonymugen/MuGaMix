@@ -145,6 +145,97 @@ namespace BayesicSpace {
 		void expandISvec_() const;
 	};
 
+	class MumiTst : public Model {
+	public:
+		/** \brief Default constructor */
+		MumiTst() : Model(), hierInd_{nullptr}, tau0_{0.0}, tauP_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0} {};
+		/** \brief Constructor
+		 *
+		 * \param[in] yVec pointer vectorized data matrix
+		 * \param[in] iSigVec pointer to vectorized inverse-covariance matrix collection
+		 * \param[in] xVec pointer to vectorized covariate predictor matrix
+		 * \param[in] hierInd pointer to vector of hierarchical indexes
+		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and population means
+		 */
+		MumiTst(const vector<double> *yVec, const vector<double> *iSigVec, const vector<double> *xVec, const vector<Index> *hierInd, const double &tau);
+		/** \brief Destructor */
+		~MumiTst(){hierInd_ = nullptr; };
+
+		/** \brief Copy constructor (deleted) */
+		MumiTst(const MumiTst &in) = delete;
+		/** \brief Copy assignment (deleted) */
+		MumiLoc& operator=(const MumiTst &in) = delete;
+		/** \brief Move constructor
+		 *
+		 * \param[in] in object to move
+		 */
+		MumiTst(MumiTst &&in);
+		/** \brief Move assignment operator
+		 *
+		 * \param[in] in object to be moved
+		 * \return target object
+		 */
+		MumiTst& operator=(MumiTst &&in);
+		/** \brief Log-posterior function
+		 *
+		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector. The parameter vector has the covariates, line means, and population means in that order.
+		 *
+		 * \param[in] theta parameter vector
+		 * \return Value of the log-posterior
+		 */
+		double logPost(const vector<double> &theta) const;
+		/** \brief Gradient of the log-posterior
+		 *
+		 * Calculates the patial derivative of the log-posterior for each element in the provided parameter vector.
+		 *
+		 * \param[in] theta parameter vector
+		 * \param[out] grad partial derivative (gradient) vector
+		 *
+		 */
+		void gradient(const vector<double> &theta, vector<double> &grad) const;
+
+	protected:
+		/** \brief Matrix view of data */
+		MatrixViewConst Y_;
+		/** \brief Matrix view of covariate predictors */
+		MatrixViewConst X_;
+		/** \brief Pointer to vector of indexes connecting hierarchy levels */
+		const vector<Index> *hierInd_;
+		/** \brief Fixed prior precision for unmodeled effects */
+		double tau0_;
+		/** \brief Fixed prior precision for population means */
+		double tauP_;
+		/** \brief Pointer to a precision parameter vector */
+		const vector<double> *iSigTheta_;
+		/** \brief Error factorized precision matrix view
+		 *
+		 * Points to `vLx_`.
+		 */
+		mutable MatrixView Le_;
+		/** \brief Line factorized preficision matrix view
+		 *
+		 * Points to `vLx_`.
+		 */
+		mutable MatrixView La_;
+		/** \brief Expanded _L_ matrices
+		 *
+		 * Vectorized error and line unity triangular matrices (\f$\boldsymbol{L}_X\f$ in the model description).
+		 */
+		mutable vector<double> vLx_;
+		// Constants
+		/** \brief Index of the first \f$\boldsymbol{T}_E\f$ element */
+		size_t fTeInd_;
+		/** \brief Index of the first \f$\boldsymbol{L}_A\f$ element */
+		size_t fLaInd_;
+		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
+		size_t fTaInd_;
+		/** \brief Expand the vector of factorized precision matrices
+		 *
+		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
+		 *
+		 */
+		void expandISvec_() const;
+	};
 	/** \brief Model for inverse covariances
 	 *
 	 * Implements log-posterior and gradient for inverse covariances. The inverse-covariances are factorized and stored compactly in the vectors provided to the methods of this class.

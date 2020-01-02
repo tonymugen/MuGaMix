@@ -298,6 +298,263 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	}
 }
 
+MumiTst::MumiTst(const vector<double> *yVec, const vector<double> *iSigVec, const vector<double> *xVec, const vector<Index> *hierInd, const double &tau) : Model(), hierInd_{hierInd}, tau0_{tau}, tauP_{tau}, iSigTheta_{iSigVec} {
+	const size_t n = (*hierInd_)[0].size();
+	if (yVec->size()%n) {
+		throw string("ERROR: Y dimensions not compatible with the number of data points implied by the replicate factor");
+	}
+	const size_t d = yVec->size()/n;
+	Y_     = MatrixViewConst(yVec, 0, n, d);
+	X_     = MatrixViewConst(xVec, 0, n, xVec->size()/n);
+
+	vLx_.resize(2*d*d, 0.0);
+	Le_ = MatrixView(&vLx_, 0, d, d);
+	La_ = MatrixView(&vLx_, d*d, d, d);
+	for (size_t k = 0; k < d; k++) {
+		Le_.setElem(k, k, 1.0);
+		La_.setElem(k, k, 1.0);
+	}
+	size_t trLen = d*(d-1)/2;
+	fTeInd_      = trLen;
+	fLaInd_      = trLen + d;
+	fTaInd_      = fLaInd_ + trLen;
+}
+
+MumiTst::MumiTst(MumiTst &&in) : tau0_{in.tau0_}, tauP_{in.tauP_} {
+	if (this != &in) {
+		Y_       = move(in.Y_);
+		X_       = move(in.X_);
+		hierInd_ = in.hierInd_;
+		Le_      = move(in.Le_);
+		La_      = move(in.La_);
+		vLx_     = move(in.vLx_);
+		fTeInd_  = in.fTeInd_;
+		fLaInd_  = in.fLaInd_;
+		fTaInd_  = in.fTaInd_;
+
+		in.hierInd_   = nullptr;
+		in.iSigTheta_ = nullptr;
+	}
+}
+
+
+MumiTst& MumiTst::operator=(MumiTst &&in){
+	if (this != &in) {
+		Y_       = move(in.Y_);
+		X_       = move(in.X_);
+		hierInd_ = in.hierInd_;
+		Le_      = move(in.Le_);
+		La_      = move(in.La_);
+		vLx_     = move(in.vLx_);
+		fTeInd_  = in.fTeInd_;
+		fLaInd_  = in.fLaInd_;
+		fTaInd_  = in.fTaInd_;
+
+		in.hierInd_   = nullptr;
+		in.iSigTheta_ = nullptr;
+	}
+	return *this;
+}
+
+void MumiTst::expandISvec_() const{
+	size_t eInd = 0;                                                      // index of the Le lower triangle in the input vector
+	size_t aInd = fLaInd_;                                                // index of the La lower triangle in the input vector
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {             // the last column is all 0, except the last element = 1.0
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+			Le_.setElem(iRow, jCol, (*iSigTheta_)[eInd]);
+			eInd++;
+			La_.setElem(iRow, jCol, (*iSigTheta_)[aInd]);
+			aInd++;
+		}
+	}
+}
+
+double MumiTst::logPost(const vector<double> &theta) const{
+	// make L matrices
+	expandISvec_();
+	const size_t Nln  = (*hierInd_)[0].groupNumber();
+	const size_t Npop = (*hierInd_)[1].groupNumber();
+	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
+	MatrixViewConst B(&theta, 0, X_.getNcols(), Y_.getNcols());
+	MatrixViewConst A(&theta, X_.getNcols()*Y_.getNcols(), Nln, Y_.getNcols() );
+	MatrixViewConst M(&theta, (Nln + X_.getNcols())*Y_.getNcols(), Npop, Y_.getNcols() );
+
+	// Calculate the residual Y - XB - ZA matrix
+	vector<double> vResid(Ydim, 0.0);
+	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
+	A.colExpand((*hierInd_)[0], mResid); // ZA
+	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
+			double diff =  Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
+			mResid.setElem( iRow, jCol, diff); // Y - ZA
+		}
+	}
+	B.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
+	// multiply by L_E
+	mResid.trm('l', 'r', false, true, 1.0, Le_);
+	// Now calculate the trace of the RL_ET_EL_^TR^T matrix
+	double eTrace = 0.0;
+	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+		double dp = 0.0;
+		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+			dp += mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
+		}
+		eTrace += exp((*iSigTheta_)[fTeInd_ + jCol])*dp;
+	}
+	vResid.clear();
+	// B cross-product trace
+	double trB = 0.0;
+	for (size_t jCol = 0; jCol < Y_.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < B.getNrows(); ++iRow) {
+			trB += B.getElem(iRow, jCol)*B.getElem(iRow, jCol);
+		}
+	}
+	trB *= tau0_;
+	// Clear the Y residuals and re-use for A residuals
+	vResid.clear();
+	vResid.resize(A.getNrows()*A.getNcols(), 0.0);
+	mResid = MatrixView(&vResid, 0, A.getNrows(), A.getNcols());
+	M.colExpand((*hierInd_)[1], mResid);
+	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
+			double diff =  A.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
+			mResid.setElem( iRow, jCol, diff); // A - Z[p]M[p]
+		}
+	}
+	mResid.trm('l', 'r', false, true, 1.0, La_);
+	// Now calculate the trace of the RL_AT_AL_^TR^T matrix
+	double aTrace = 0.0;
+	for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
+		double dp = 0.0;
+		for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
+			dp += mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
+		}
+		aTrace += exp((*iSigTheta_)[fTaInd_ + jCol])*dp;
+	}
+	// M[p] crossproduct trace
+	double trM = 0.0;
+	for (size_t jCol = 0; jCol < M.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < M.getNrows(); ++iRow) {
+			trM += M.getElem(iRow, jCol)*M.getElem(iRow, jCol);
+		}
+	}
+	trM *= tauP_;
+
+	// now sum to get the log-posterior
+	return -0.5*(eTrace + trB + aTrace + trM);
+}
+
+void MumiTst::gradient(const vector<double> &theta, vector<double> &grad) const{
+	expandISvec_();
+	const size_t Nln  = (*hierInd_)[0].groupNumber();
+	const size_t Npop = (*hierInd_)[1].groupNumber();
+	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
+	MatrixViewConst B(&theta, 0, X_.getNcols(), Y_.getNcols());
+	MatrixViewConst A(&theta, X_.getNcols()*Y_.getNcols(), Nln, Y_.getNcols() );
+	MatrixViewConst M(&theta, (Nln + X_.getNcols())*Y_.getNcols(), Npop, Y_.getNcols() );
+	const size_t Adim = A.getNrows()*A.getNcols();
+
+	// Matrix views of the gradient
+	MatrixView gB(&grad, 0, X_.getNcols(), Y_.getNcols());
+	MatrixView gA(&grad, X_.getNcols()*Y_.getNcols(), Nln, Y_.getNcols() );
+	MatrixView gM(&grad, (Nln + X_.getNcols())*Y_.getNcols(), Npop, Y_.getNcols() );
+
+	// Calculate the residual Y - XB - ZA matrix
+	vector<double> vResid(Ydim, 0.0);
+	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
+	A.colExpand((*hierInd_)[0], mResid); // ZA
+	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
+			double diff =  Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
+			mResid.setElem( iRow, jCol, diff); // Y - ZA
+		}
+	}
+	B.gemm(false, -1.0, X_, false, 1.0, mResid); // Y - ZA - XB
+
+	// Make precision matrices
+	vector<double> vISigE(Y_.getNcols()*Y_.getNcols(), 0.0);
+	MatrixView iSigE(&vISigE, 0, Y_.getNcols(), Y_.getNcols());
+	// L_ExT_E
+	vector<double> Tx;
+	for (size_t k = 0; k < Y_.getNcols(); k++) {
+		Tx.push_back(exp((*iSigTheta_)[fTeInd_ + k]));
+	}
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
+		iSigE.setElem(jCol, jCol, Tx[jCol]);
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+			iSigE.setElem(iRow, jCol, Le_.getElem(iRow, jCol)*Tx[jCol]);
+		}
+	}
+	// last element of the vector is the lower right corner element
+	vISigE.back() = Tx.back();
+	iSigE.trm('l', 'r', true, true, 1.0, Le_);
+	vector<double> vISigA(Y_.getNcols()*Y_.getNcols(), 0.0);
+	MatrixView iSigA(&vISigA, 0, Y_.getNcols(), Y_.getNcols());
+	for (size_t k = 0; k < Y_.getNcols(); k++) {
+		Tx[k] = exp((*iSigTheta_)[fTaInd_ + k]);
+	}
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
+		iSigA.setElem(jCol, jCol, Tx[jCol]);
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+			iSigA.setElem(iRow, jCol, La_.getElem(iRow, jCol)*Tx[jCol]);
+		}
+	}
+	vISigA.back() = Tx.back();
+	iSigA.trm('l', 'r', true, true, 1.0, La_);
+	// (Y - ZA - XB)Sig[E]^-1
+	vector<double> vResISE(Ydim, 0.0);
+	MatrixView mResISE(&vResISE, 0, Y_.getNrows(), Y_.getNcols());
+	mResid.symm('l', 'r', 1.0, iSigE, 0.0, mResISE);
+
+	// Calculate the residual A - Z[p]M[p]
+	vector<double> vAMresid(Adim, 0.0);
+	MatrixView mAMresid(&vAMresid, 0, A.getNrows(), A.getNcols());
+	M.colExpand((*hierInd_)[1], mAMresid); // Z[p]M[p]
+	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
+			double diff =  A.getElem(iRow, jCol) - mAMresid.getElem(iRow, jCol);
+			mAMresid.setElem(iRow, jCol, diff); // A - Z[p]M[p]
+		}
+	}
+	// (A-Z[p]M[p])Sig^{-1}[A]
+	vector<double> vAMresISA(Adim, 0.0);
+	MatrixView mAMresISA(&vAMresISA, 0, A.getNrows(), A.getNcols());
+	mAMresid.symm('l', 'r', 1.0, iSigA, 0.0, mAMresISA);
+
+	// X^T(Y - ZA - XB)Sig[E]^-1 store in gB
+	/*
+	mResISE.gemm(true, 1.0, X_, false, 0.0, gB);
+	// B partial derivatives
+	for (size_t jCol = 0; jCol < B.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < B.getNrows(); ++iRow) {
+			double diff =  gB.getElem(iRow, jCol) - tau0_*B.getElem(iRow, jCol);
+			gB.setElem(iRow, jCol, diff); // X^T(Y - ZA - XB)Sig[E]^-1 - tau[0]B
+		}
+	}
+	*/
+	
+	// A partial derivatives
+	// Z^T(Y - ZA - XB)Sig[E]^-1 store in gA
+	mResISE.colSums((*hierInd_)[0], gA);
+	for (size_t jCol = 0; jCol < A.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
+			double diff =  gA.getElem(iRow, jCol) - mAMresISA.getElem(iRow, jCol);
+			gA.setElem(iRow, jCol, diff); // Z^T(Y - ZA - XB)Sig[E]^-1 - (A-Z[p]M[p])Sig^{-1}[A]
+		}
+	}
+	/*
+	// Z[p]^T(A - Z[p]M[p])Sig[A]^-1
+	mAMresISA.colSums((*hierInd_)[1], gM);
+	// M[p] partial derivatives
+	for (size_t jCol = 0; jCol < M.getNcols(); ++jCol) {
+		for (size_t iRow = 0; iRow < M.getNrows(); ++iRow) {
+			double diff =  gM.getElem(iRow, jCol) - tauP_*M.getElem(iRow, jCol);
+			gM.setElem( iRow, jCol, diff); // Z[p]^T(A - Z[p]M[p])Sig[A]^-1 - tau[p]M[p]
+		}
+	}
+	*/
+}
+
 // MumiISig methods
 MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<double> *xVec, const vector<Index> *hierInd, const double &nu0, const double &invAsq) : Model(), hierInd_{hierInd}, nu0_{nu0}, invAsq_{invAsq} {
 	// TODO: delete the tests after code testing; they will all be done by the wrapping class
@@ -613,7 +870,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 	if (hierInd_[0].groupNumber() != hierInd_[1].size()) {
 		throw string("WrapMMM constructor ERROR: the line and population hierarchical indexes do not match");
 	}
-	models_.push_back( new MumiLoc(&vY_, &vISig_, &vX_, &hierInd_, tau0) );
+	//models_.push_back( new MumiLoc(&vY_, &vISig_, &vX_, &hierInd_, tau0) );
+	models_.push_back( new MumiTst(&vY_, &vISig_, &vX_, &hierInd_, tau0) );
 	models_.push_back( new MumiISig(&vY_, &vTheta_, &vX_, &hierInd_, nu0, invAsq) );
 	const size_t N = hierInd_[0].size();
 	if (vY.size()%N) {
@@ -636,8 +894,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 	MatrixViewConst X(&vX_, 0, N, Nb);
 
 	vTheta_.resize(Adim + Bdim + Mdim, 0.0);
-	MatrixView A(&vTheta_, 0, Nln, d);
-	MatrixView B(&vTheta_, Adim, Nb, d);
+	MatrixView B(&vTheta_, 0, Nb, d);
+	MatrixView A(&vTheta_, Bdim, Nln, d);
 	MatrixView M(&vTheta_, Adim+Bdim, Npop, d);
 
 	vector<double> vXtX(Nb*Nb, 0.0);
@@ -731,8 +989,11 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 		vISig_.push_back( log(Sig.getElem(k, k)) );
 	}
 	// add noise
-	for (auto &t : vTheta_) {
-		t += 0.01*rng_.rnorm();
+	//for (auto &t : vTheta_) {
+	//	t += 0.01*rng_.rnorm();
+	//}
+	for (size_t i = d; i < Bdim+d; i++) {
+		vTheta_[i] += rng_.rnorm();
 	}
 	//for (auto &s : vISig_) {
 	//	s += rng_.rnorm();

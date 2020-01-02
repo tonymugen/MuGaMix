@@ -136,7 +136,7 @@ void SamplerNUTS::findInitialEpsilon_(){
 		r0.push_back(rng_.rnorm());
 	}
 
-	epsilon_ *= 0.01;//-
+	//epsilon_ *= 0.1;//-
 	vector<double> thetaPrime(*theta_);
 	vector<double> rPrime(r0);
 	leapfrog_(thetaPrime, rPrime, epsilon_);
@@ -148,7 +148,6 @@ void SamplerNUTS::findInitialEpsilon_(){
 	// have to make sure no weirdness (like NaN or Inf) comes out of the log-posterior evaluation
 	double logp      = model_->logPost(*theta_);
 	double logpPrime = model_->logPost(thetaPrime);
-	leapfrog_(thetaPrime, rPrime, epsilon_);//-
 	leapfrog_(thetaPrime, rPrime, epsilon_);//-
 	leapfrog_(thetaPrime, rPrime, epsilon_);//-
 	tstOut << "log(p) = " << logp << "; log(p)' = " << logpPrime << "; log(p)'' = " << model_->logPost(thetaPrime) << std::endl; //-
@@ -232,13 +231,15 @@ void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const doub
 	vector<double> thtGrad(theta_->size(), 0.0);
 	model_->gradient(theta, thtGrad);
 
-	for (size_t j = 0; j < theta.size(); j++) {
+	//for (size_t j = 0; j < theta.size(); j++) {
+	for (size_t j = 10; j < 1510; j++) {
 		r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
 		theta[j] += epsilon*r[j];            // leapfrog update of theta
 	}
 	model_->gradient(theta, thtGrad);
 	// one more half-step update of r
-	for (size_t k = 0; k < theta.size(); k++) {
+	//for (size_t k = 0; k < theta.size(); k++) {
+	for (size_t k = 10; k < 1510; k++) {
 		r[k] += 0.5*epsilon*thtGrad[k];
 	}
 
