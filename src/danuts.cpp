@@ -31,8 +31,6 @@
 #include <string>
 #include <limits>
 #include <cmath>
-//-
-#include <fstream> //-
 
 #include "danuts.hpp"
 #include "random.hpp"
@@ -47,7 +45,7 @@ using std::signbit;
 
 // static members
 const double SamplerNUTS::deltaMax_ = 1000.0;
-const double SamplerNUTS::delta_    = 0.6;
+const double SamplerNUTS::delta_    = 0.65; // this value arrived at empirically for mumimo
 const double SamplerNUTS::t0_       = 10.0;
 const double SamplerNUTS::gamma_    = 0.05;
 const double SamplerNUTS::negKappa_ = -0.75;
@@ -136,21 +134,14 @@ void SamplerNUTS::findInitialEpsilon_(){
 		r0.push_back(rng_.rnorm());
 	}
 
-	//epsilon_ *= 0.1;//-
 	vector<double> thetaPrime(*theta_);
 	vector<double> rPrime(r0);
 	leapfrog_(thetaPrime, rPrime, epsilon_);
 	char a = '\0'; // instead of a boolean to guarantee one byte
 
-	std::fstream tstOut; //-
-	tstOut.open("tst.txt", std::ios::out | std::ios::trunc); //-
-	vector<double> tstGrad(theta_->size(), 0.0); //-
 	// have to make sure no weirdness (like NaN or Inf) comes out of the log-posterior evaluation
 	double logp      = model_->logPost(*theta_);
 	double logpPrime = model_->logPost(thetaPrime);
-	leapfrog_(thetaPrime, rPrime, epsilon_);//-
-	leapfrog_(thetaPrime, rPrime, epsilon_);//-
-	tstOut << "log(p) = " << logp << "; log(p)' = " << logpPrime << "; log(p)'' = " << model_->logPost(thetaPrime) << std::endl; //-
 	int fpClsLP      = fpclassify(logp);
 	int fpClsLPP     = fpclassify(logpPrime);
 	if (fpClsLPP == FP_NAN) {
@@ -223,23 +214,19 @@ void SamplerNUTS::findInitialEpsilon_(){
 		}
 	}
 	mu_ = 2.302585 + log(epsilon_);  // log(10epsilon_0)
-	tstOut << "eps0 = " << epsilon_ << std::endl; //-
-	tstOut.close(); //-
 }
 
 void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const double &epsilon){
 	vector<double> thtGrad(theta_->size(), 0.0);
 	model_->gradient(theta, thtGrad);
 
-	//for (size_t j = 0; j < theta.size(); j++) {
-	for (size_t j = 10; j < 1510; j++) {
+	for (size_t j = 0; j < theta.size(); j++) {
 		r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
 		theta[j] += epsilon*r[j];            // leapfrog update of theta
 	}
 	model_->gradient(theta, thtGrad);
 	// one more half-step update of r
-	//for (size_t k = 0; k < theta.size(); k++) {
-	for (size_t k = 10; k < 1510; k++) {
+	for (size_t k = 0; k < theta.size(); k++) {
 		r[k] += 0.5*epsilon*thtGrad[k];
 	}
 
@@ -610,7 +597,7 @@ uint32_t SamplerNUTS::update() {
 	// I am adding this step here despite the small overhead to make the flow hidden from the user as much as possible, eliminating potential errors
 	if (firstUpdate_) {
 		if (firstAdapt_) {
-			firstUpdate_ = false;   // in case there were no adapt runs, leave epsilon_ = 1.0 (constructor-assigned value)
+			firstUpdate_ = false;   // in case there were no adapt runs, leave epsilon_ as the constructor-assigned value
 		} else {
 			epsilon_     = epsWMN_;
 			firstUpdate_ = false;

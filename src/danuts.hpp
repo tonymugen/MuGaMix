@@ -59,7 +59,7 @@ namespace BayesicSpace {
 		 * \param[in] theta pointer to the vector of parameters
 		 *
 		 */
-		SamplerNUTS(const Model *model, vector<double> *theta) : Sampler(), epsilon_{1.0}, nH0_{0.0}, m_{1.0}, Hprevious_{0.0}, logEpsBarPrevious_{0.0}, epsWMN_{0.0}, currW_{0.0}, firstAdapt_{true}, firstUpdate_{true}, model_{model}, theta_{theta} {};
+		SamplerNUTS(const Model *model, vector<double> *theta) : Sampler(), epsilon_{1e-2}, nH0_{0.0}, m_{1.0}, Hprevious_{0.0}, logEpsBarPrevious_{0.0}, epsWMN_{0.0}, currW_{0.0}, firstAdapt_{true}, firstUpdate_{true}, model_{model}, theta_{theta} {};
 		/** \brief Copy constructor (deleted)*/
 		SamplerNUTS(const SamplerNUTS &in) = delete;
 		/** \brief Copy assignement operator (deleted) */

@@ -2,4 +2,6 @@
 .ycm_*
 *.o
 *.so
+.Rhistory
+.Rdata
 
