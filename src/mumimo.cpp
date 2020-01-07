@@ -195,14 +195,14 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	const size_t Nln  = (*hierInd_)[0].groupNumber();
 	const size_t Npop = (*hierInd_)[1].groupNumber();
 	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
+	const size_t Adim = Nln*Y_.getNcols();
 	MatrixViewConst A(&theta, 0, Nln, Y_.getNcols() );
-	MatrixViewConst B(&theta, Nln*Y_.getNcols(), X_.getNcols(), Y_.getNcols());
+	MatrixViewConst B(&theta, Adim, X_.getNcols(), Y_.getNcols());
 	MatrixViewConst M(&theta, (Nln + X_.getNcols())*Y_.getNcols(), Npop, Y_.getNcols() );
-	const size_t Adim = A.getNrows()*A.getNcols();
 
 	// Matrix views of the gradient
 	MatrixView gA(&grad, 0, Nln, Y_.getNcols() );
-	MatrixView gB(&grad, Nln*Y_.getNcols(), X_.getNcols(), Y_.getNcols());
+	MatrixView gB(&grad, Adim, X_.getNcols(), Y_.getNcols());
 	MatrixView gM(&grad, (Nln + X_.getNcols())*Y_.getNcols(), Npop, Y_.getNcols() );
 
 	// Calculate the residual Y - XB - ZA matrix
@@ -276,7 +276,6 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 			gA.setElem(iRow, jCol, diff); // Z^T(Y - ZA - XB)Sig[E]^-1 - (A-Z[p]M[p])Sig^{-1}[A]
 		}
 	}
-
 	// X^T(Y - ZA - XB)Sig[E]^-1 store in gB
 	mResISE.gemm(true, 1.0, X_, false, 0.0, gB);
 	// B partial derivatives
@@ -286,7 +285,6 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 			gB.setElem(iRow, jCol, diff); // X^T(Y - ZA - XB)Sig[E]^-1 - tau[0]B
 		}
 	}
-
 	// Z[p]^T(A - Z[p]M[p])Sig[A]^-1
 	mAMresISA.colSums((*hierInd_)[1], gM);
 	// M[p] partial derivatives
@@ -322,7 +320,7 @@ MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, con
 	const size_t Npop = (*hierInd_)[1].groupNumber();
 	A_ = MatrixViewConst(vTheta, 0, Nln, d);
 	B_ = MatrixViewConst(vTheta, Nln*d, Nb, d);
-	M_ = MatrixViewConst(vTheta, Nln*d + Nb*d, Npop, d);
+	M_ = MatrixViewConst(vTheta, (Nln + Nb)*d, Npop, d);
 	vLx_.resize(2*d*d, 0.0);
 	Le_ = MatrixView(&vLx_, 0, d, d);
 	La_ = MatrixView(&vLx_, d*d, d, d);
@@ -735,12 +733,13 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<double> &vX, const vecto
 	for (auto &t : vTheta_) {
 		t += 0.1*rng_.rnorm();
 	}
-	//for (auto &s : vISig_) {
-	//	s += rng_.rnorm();
-	//}
+	for (auto &s : vISig_) {
+		s += rng_.rnorm();
+	}
 
 	sampler_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	//sampler_.push_back( new SamplerNUTS(models_[1], &vISig_) );
+	//sampler_.push_back( new SamplerMetro(models_[0], &vTheta_) );
+	sampler_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 }
 
 WrapMMM::~WrapMMM(){

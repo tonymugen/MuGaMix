@@ -59,7 +59,7 @@ namespace BayesicSpace {
 		 * \param[in] theta pointer to the vector of parameters
 		 *
 		 */
-		SamplerNUTS(const Model *model, vector<double> *theta) : Sampler(), epsilon_{1e-2}, nH0_{0.0}, m_{1.0}, Hprevious_{0.0}, logEpsBarPrevious_{0.0}, epsWMN_{0.0}, currW_{0.0}, firstAdapt_{true}, firstUpdate_{true}, model_{model}, theta_{theta} {};
+		SamplerNUTS(const Model *model, vector<double> *theta) : Sampler(), epsilon_{1.0}, nH0_{0.0}, m_{1.0}, Hprevious_{0.0}, logEpsBarPrevious_{0.0}, epsWMN_{0.0}, currW_{0.0}, firstAdapt_{true}, firstUpdate_{true}, model_{model}, theta_{theta} {};
 		/** \brief Copy constructor (deleted)*/
 		SamplerNUTS(const SamplerNUTS &in) = delete;
 		/** \brief Copy assignement operator (deleted) */
@@ -125,7 +125,6 @@ namespace BayesicSpace {
 		double mu_;
 		/** \brief Store the \f$ -H(\theta^0, r^0) \f$ for each DA step here */
 		double nH0_;
-		// double &logEpsBarPrevious
 		/** \brief  Warm-up step number */
 		double m_;
 		/** \brief The value \f$\bar{H}_{m-1}\f$ of the \f$H_t\f$ statistic from the previous warm-up step */
@@ -252,6 +251,25 @@ namespace BayesicSpace {
 		vector<double> *theta_;
 	};
 
+	class SamplerMetro : public Sampler {
+	public:
+		SamplerMetro() : Sampler(), model_{nullptr}, theta_{nullptr} {};
+		SamplerMetro(const Model *model, vector<double> *theta) : Sampler(), model_{model}, theta_{theta} {};
+
+		SamplerMetro(const SamplerMetro &in) = delete;
+		SamplerMetro& operator=(const SamplerMetro &in) = delete;
+		SamplerMetro(SamplerMetro &&in);
+		SamplerMetro& operator=(SamplerMetro &&in);
+
+		~SamplerMetro() {model_ = nullptr; theta_ = nullptr; };
+
+		virtual uint32_t adapt();
+		virtual uint32_t update();
+	protected:
+		const Model *model_;
+		vector<double> *theta_;
+		RanDraw rng_;
+	};
 }
 
 #endif /* danuts_hpp */

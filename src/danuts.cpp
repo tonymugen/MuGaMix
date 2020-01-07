@@ -45,7 +45,7 @@ using std::signbit;
 
 // static members
 const double SamplerNUTS::deltaMax_ = 1000.0;
-const double SamplerNUTS::delta_    = 0.65; // this value arrived at empirically for mumimo
+const double SamplerNUTS::delta_    = 0.62; // this value arrived at empirically for mumimo
 const double SamplerNUTS::t0_       = 10.0;
 const double SamplerNUTS::gamma_    = 0.05;
 const double SamplerNUTS::negKappa_ = -0.75;
@@ -680,4 +680,50 @@ uint32_t SamplerNUTS::update() {
 
 }
 
+// SamplerMetro methods
+SamplerMetro::SamplerMetro(SamplerMetro &&in) :  model_{in.model_}, theta_{in.theta_} {
+	in.model_ = nullptr;
+	in.theta_ = nullptr;
+}
+SamplerMetro& SamplerMetro::operator=(SamplerMetro &&in){
+	if (&in == this) {
+		return *this;
+	}
+	model_    = in.model_;
+	theta_    = in.theta_;
+	in.model_ = nullptr;
+	in.theta_ = nullptr;
+
+	return *this;
+}
+
+uint32_t SamplerMetro::adapt(){
+	vector<double> thetaPrime = *theta_;
+	for (auto &t : thetaPrime) {
+		t += rng_.rnorm();
+	}
+	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
+	double lU     = log(rng_.runifnz());
+	if (lU < lAlpha) {
+		(*theta_) = move(thetaPrime);
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+uint32_t SamplerMetro::update(){
+	vector<double> thetaPrime = *theta_;
+	for (auto &t : thetaPrime) {
+		t += 0.01*rng_.rnorm();
+	}
+	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
+	double lU     = log(rng_.runifnz());
+	if (lU < lAlpha) {
+		(*theta_) = move(thetaPrime);
+		return 1;
+	} else {
+		return 0;
+	}
+}
 
