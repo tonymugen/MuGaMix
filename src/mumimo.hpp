@@ -65,7 +65,7 @@ namespace BayesicSpace {
 		 * \param[in] hierInd pointer to vector of hierarchical indexes
 		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and population means
 		 */
-		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<double> *xVec, const vector<Index> *hierInd, const double &tau);
+		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau);
 		/** \brief Destructor */
 		~MumiLoc(){hierInd_ = nullptr; };
 
@@ -105,8 +105,6 @@ namespace BayesicSpace {
 	protected:
 		/** \brief Matrix view of data */
 		MatrixViewConst Y_;
-		/** \brief Matrix view of covariate predictors */
-		MatrixViewConst X_;
 		/** \brief Pointer to vector of indexes connecting hierarchy levels */
 		const vector<Index> *hierInd_;
 		/** \brief Fixed prior precision for unmodeled effects */
@@ -137,6 +135,8 @@ namespace BayesicSpace {
 		size_t fLaInd_;
 		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
 		size_t fTaInd_;
+		/** \brief Index of the first \f$\boldsymbol{T}_P\f$ element */
+		size_t fTpInd_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
@@ -164,7 +164,7 @@ namespace BayesicSpace {
 		 * \param[in] invAsq prior precision \f$a^{-2}\f$
 		 *
 		 */
-		MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<double> *xVec, const vector<Index> *hierInd, const double &nu0, const double &invAsq);
+		MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<Index> *hierInd, const double &nu0, const double &invAsq);
 
 		/** \brief Destructor */
 		~MumiISig(){hierInd_ = nullptr; };
@@ -217,18 +217,15 @@ namespace BayesicSpace {
 
 		/** \brief Data view */
 		MatrixViewConst Y_;
-		/** \brief Covariate predictor view
-		 *
-		 * This is a matrix of covariates, currently with a fixed low-precision Gaussian prior. Analogous to fixed effects in a mixed model. The first column is the intercept.
-		 *
-		 */
-		MatrixViewConst X_;
 		/** \brief Line mean view */
 		MatrixViewConst A_;
 		/** \brief Covriate effect view */
 		MatrixViewConst B_;
 		/** \brief Population mean view */
-		MatrixViewConst M_;
+		MatrixViewConst Mp_;
+		/** \brief Overall mean view */
+		MatrixViewConst mu_;
+
 		/** \brief Error factorized precision matrix view
 		 *
 		 * Points to `vLx_`.
@@ -251,12 +248,16 @@ namespace BayesicSpace {
 		size_t fLaInd_;
 		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
 		size_t fTaInd_;
+		/** \brief Index of the first \f$\boldsymbol{T}_P\f$ element */
+		size_t fTpInd_;
 		/** \brief nu0*(nu0 + 2d) */
 		double nxnd_;
 		/** \brief N + nu0 + 2d */
 		double Nnd_;
 		/** \brief N_A + nu0 + 2d */
 		double NAnd_;
+		/** \brief N_P + nu0 + 2d */
+		double NPnd_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the provided vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
@@ -280,14 +281,13 @@ namespace BayesicSpace {
 		 * The "fixed effect" matrix includes predictors for parameters that have a set high-variance prior (unmodeled effects). This includes the intercept and any continuous predictors.
 		 *
 		 * \param[in] vY vectorized data matrix
-		 * \param[in] vX vectorized fixed effect matrix, should include the intercept as first element
 		 * \param[in] y2line factor connecting data to lines (accessions)
 		 * \param[in] ln2pop factor connecting lines to populations
 		 * \param[in] tau0 prior precision for the "fixed" effects
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const vector<double> &vX, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const double &tau0, const double &nu0, const double &invAsq);
+		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Copy constructor (deleted) */
 		WrapMMM(WrapMMM &in) = delete;
 		/** \brief Move constructor (deleted) */
@@ -313,11 +313,6 @@ namespace BayesicSpace {
 		 * Vectorized matrix of responses.
 		 */
 		vector<double> vY_;
-		/** \brief Vectorized fixed effect matrix
-		 *
-		 * The first element is the intercept (must be provided by the calling function).
-		 */
-		vector<double> vX_;
 		/** \brief Vector of indexes connecting hierarchy levels
 		 *
 		 * First element connects replicates (data) to line means, second connects lines to populations.

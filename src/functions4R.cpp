@@ -59,8 +59,7 @@ double lpTestL(const std::vector<double> &yVec, const std::vector<double> &iSigV
 		std::vector<BayesicSpace::Index> factors;
 		factors.push_back(BayesicSpace::Index(l1));
 		factors.push_back(BayesicSpace::Index(l2));
-		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
-		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &xVec, &factors, 1e-5);
+		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &factors, 1e-5);
 		double res = test.logPost(paramValues);
 		return res;
 	} catch(std::string problem) {
@@ -95,8 +94,7 @@ Rcpp::List lpTestLI(const std::vector<double> &yVec, const std::vector<double> &
 		std::vector<BayesicSpace::Index> factors;
 		factors.push_back(BayesicSpace::Index(l1));
 		factors.push_back(BayesicSpace::Index(l2));
-		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
-		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &xVec, &factors, 1e-5);
+		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &factors, 1e-5);
 		double val = chParam[i - 1];
 		for (double add = -mar; add  <= mar; add += 0.1) {
 			chParam[i - 1] = val + add;
@@ -133,9 +131,8 @@ double gradTestL(const std::vector<double> &yVec, const std::vector<double> &iSi
 		std::vector<BayesicSpace::Index> factors;
 		factors.push_back(BayesicSpace::Index(l1));
 		factors.push_back(BayesicSpace::Index(l2));
-		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
 		std::vector<double> grad(yVec.size(), 0.0);
-		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &xVec, &factors, 1e-5);
+		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &factors, 1e-5);
 		test.gradient(paramValues, grad);
 		return grad[idx-1];
 	} catch(std::string problem) {
@@ -170,9 +167,8 @@ Rcpp::List gradTestLI(const std::vector<double> &yVec, const std::vector<double>
 		std::vector<BayesicSpace::Index> factors;
 		factors.push_back(BayesicSpace::Index(l1));
 		factors.push_back(BayesicSpace::Index(l2));
-		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
 		std::vector<double> grad(yVec.size(), 0.0);
-		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &xVec, &factors, 1e-5);
+		BayesicSpace::MumiLoc test(&yVec, &iSigVec, &factors, 1e-5);
 		for (double add = -mar; add <= mar; add += 0.1) {
 			chParam[idx-1] = paramValues[idx-1] + add;
 			test.gradient(chParam, grad);
@@ -209,8 +205,7 @@ double lpTestS(const std::vector<double> &yVec, const std::vector<double> &iSigV
 		std::vector<BayesicSpace::Index> factors;
 		factors.push_back(BayesicSpace::Index(l1));
 		factors.push_back(BayesicSpace::Index(l2));
-		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
-		BayesicSpace::MumiISig test(&yVec, &paramValues, &xVec, &factors, 2.0, 1e-10);
+		BayesicSpace::MumiISig test(&yVec, &paramValues, &factors, 2.0, 1e-10);
 		double res = test.logPost(iSigVec);
 		//double res = 1.0;
 		return res;
@@ -244,9 +239,8 @@ double gradTestS(const std::vector<double> &yVec, const std::vector<double> &iSi
 		std::vector<BayesicSpace::Index> factors;
 		factors.push_back(BayesicSpace::Index(l1));
 		factors.push_back(BayesicSpace::Index(l2));
-		std::vector<double> xVec(yVec.size()/d, 1.0); // intercept only
 		std::vector<double> grad(yVec.size(), 0.0);
-		BayesicSpace::MumiISig test(&yVec, &paramValues, &xVec, &factors, 2.0, 1e-10);
+		BayesicSpace::MumiISig test(&yVec, &paramValues, &factors, 2.0, 1e-10);
 		test.gradient(iSigVec, grad);
 		return grad[idx-1];
 	} catch(std::string problem) {
@@ -275,11 +269,10 @@ Rcpp::List testInitTheta(const std::vector<double> &yVec, const std::vector<int3
 		}
 		l2.push_back( static_cast<size_t>(pf-1) );
 	}
-	std::vector<double> X(lnFac.size(), 1.0);
 	std::vector<double> theta;
 	std::vector<double> iSg;
 	try {
-		BayesicSpace::WrapMMM test(yVec, X, l1, l2, 1e-5, 2.0, 1e-10);
+		BayesicSpace::WrapMMM test(yVec, l1, l2, 1e-5, 2.0, 1e-10);
 		test.getTheta(theta);
 		test.getISig(iSg);
 		return Rcpp::List::create(Rcpp::Named("theta", theta), Rcpp::Named("iSig", iSg));
@@ -314,14 +307,13 @@ Rcpp::List testLocSampler(const std::vector<double> &yVec, const std::vector<int
 		}
 		l2.push_back( static_cast<size_t>(pf-1) );
 	}
-	std::vector<double> X(lnFac.size(), 1.0);
 	std::vector<double> chain;
 	std::vector<uint32_t> tree;
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
 
 	try {
-		BayesicSpace::WrapMMM test(yVec, X, l1, l2, 1e-5, 2.0, 1e-10);
+		BayesicSpace::WrapMMM test(yVec, l1, l2, 1e-5, 2.0, 1e-10);
 		test.runSampler(Na, Ns, chain, tree);
 		return Rcpp::List::create(Rcpp::Named("chain", chain), Rcpp::Named("tree", tree));
 	} catch(std::string problem) {
