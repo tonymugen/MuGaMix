@@ -56,7 +56,7 @@ namespace BayesicSpace {
 	class MumiLoc : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, tauP_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0} {};
+		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer vectorized data matrix
@@ -109,8 +109,6 @@ namespace BayesicSpace {
 		const vector<Index> *hierInd_;
 		/** \brief Fixed prior precision for unmodeled effects */
 		double tau0_;
-		/** \brief Fixed prior precision for population means */
-		double tauP_;
 		/** \brief Pointer to a precision parameter vector */
 		const vector<double> *iSigTheta_;
 		/** \brief Error factorized precision matrix view

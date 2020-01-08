@@ -313,7 +313,7 @@ Rcpp::List testLocSampler(const std::vector<double> &yVec, const std::vector<int
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
 
 	try {
-		BayesicSpace::WrapMMM test(yVec, l1, l2, 1e-5, 2.0, 1e-10);
+		BayesicSpace::WrapMMM test(yVec, l1, l2, 1e-8, 2.5, 1e-6);
 		test.runSampler(Na, Ns, chain, tree);
 		return Rcpp::List::create(Rcpp::Named("chain", chain), Rcpp::Named("tree", tree));
 	} catch(std::string problem) {

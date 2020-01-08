@@ -45,7 +45,7 @@ using std::signbit;
 
 // static members
 const double SamplerNUTS::deltaMax_ = 1000.0;
-const double SamplerNUTS::delta_    = 0.62; // this value arrived at empirically for mumimo
+const double SamplerNUTS::delta_    = 0.6;
 const double SamplerNUTS::t0_       = 10.0;
 const double SamplerNUTS::gamma_    = 0.05;
 const double SamplerNUTS::negKappa_ = -0.75;

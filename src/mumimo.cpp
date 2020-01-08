@@ -44,7 +44,7 @@ using std::string;
 using namespace BayesicSpace;
 
 // MumiLoc methods
-MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau) : Model(), hierInd_{hierInd}, tau0_{tau}, tauP_{tau}, iSigTheta_{iSigVec} {
+MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec} {
 	const size_t n = (*hierInd_)[0].size();
 	if (yVec->size()%n) {
 		throw string("ERROR: Y dimensions not compatible with the number of data points implied by the replicate factor");
@@ -66,9 +66,10 @@ MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, cons
 	fTpInd_      = fTaInd_ + d;
 }
 
-MumiLoc::MumiLoc(MumiLoc &&in) : tau0_{in.tau0_}, tauP_{in.tauP_} {
+MumiLoc::MumiLoc(MumiLoc &&in) {
 	if (this != &in) {
 		Y_       = move(in.Y_);
+		tau0_    = in.tau0_;
 		hierInd_ = in.hierInd_;
 		Le_      = move(in.Le_);
 		La_      = move(in.La_);
@@ -86,6 +87,7 @@ MumiLoc::MumiLoc(MumiLoc &&in) : tau0_{in.tau0_}, tauP_{in.tauP_} {
 MumiLoc& MumiLoc::operator=(MumiLoc &&in){
 	if (this != &in) {
 		Y_       = move(in.Y_);
+		tau0_    = in.tau0_;
 		hierInd_ = in.hierInd_;
 		Le_      = move(in.Le_);
 		La_      = move(in.La_);
@@ -123,7 +125,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	MatrixViewConst Mp(&theta, Nln*Y_.getNcols(), Npop, Y_.getNcols() );
 	MatrixViewConst mu(&theta, (Nln+Npop)*Y_.getNcols(), 1, Y_.getNcols()); // overall mean
 
-	// Calculate the residual Y - XB - ZA matrix
+	// Calculate the residual Y - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
 	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
 	A.colExpand((*hierInd_)[0], mResid); // ZA
@@ -198,7 +200,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	MatrixView gMp(&grad, Adim, Npop, Y_.getNcols() );
 	MatrixView gmu(&grad, Adim + Npop*Y_.getNcols(), 1, Y_.getNcols()); // overall mean
 
-	// Calculate the residual Y - XB - ZA matrix
+	// Calculate the residual Y - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
 	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
 	A.colExpand((*hierInd_)[0], mResid); // ZA
@@ -239,7 +241,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	}
 	vISigA.back() = Tx.back();
 	iSigA.trm('l', 'r', true, true, 1.0, La_);
-	// (Y - ZA - XB)Sig[E]^-1
+	// (Y - ZA)Sig[E]^-1
 	vector<double> vResISE(Ydim, 0.0);
 	MatrixView mResISE(&vResISE, 0, Y_.getNrows(), Y_.getNcols());
 	mResid.symm('l', 'r', 1.0, iSigE, 0.0, mResISE);
@@ -270,12 +272,16 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	}
 	// Z[p]^T(A - Z[p]M[p])Sig[A]^-1
 	mAMresISA.colSums((*hierInd_)[1], gMp);
+	// make tau_p
+	vector<double> tauP;
+	for (size_t k = fTpInd_; k < iSigTheta_->size(); k++) {
+		tauP.push_back(exp( (*iSigTheta_)[k] ));
+	}
 	// M[p] partial derivatives
 	for (size_t jCol = 0; jCol < Mp.getNcols(); ++jCol) {
-		double muWt = mu.getElem(0, jCol)*exp((*iSigTheta_)[fTpInd_ + jCol]);
 		for (size_t iRow = 0; iRow < Mp.getNrows(); ++iRow) {
-			double diff =  gMp.getElem(iRow, jCol) - muWt;
-			gMp.setElem( iRow, jCol, diff); // Z[p]^T(A - Z[p]M[p])Sig[A]^-1 - tau[p]M[p]
+			double diff =  gMp.getElem(iRow, jCol) - (Mp.getElem(iRow, jCol) - mu.getElem(0, jCol))*tauP[jCol];
+			gMp.setElem( iRow, jCol, diff); // Z[p]^T(A - Z[p]M[p])Sig[A]^-1 - (M[p] - mu)tau[p]
 		}
 	}
 	// mu partial derivatives
@@ -284,7 +290,8 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 		for (size_t iRow = 0; iRow < Mp.getNrows(); iRow++) {
 			colSum += Mp.getElem(iRow, jCol);
 		}
-		colSum *= exp((*iSigTheta_)[fTpInd_ + jCol]);
+		colSum -= static_cast<double>(Npop)*mu.getElem(0, jCol); // Z[m]^T(M_p - mu)
+		colSum *= tauP[jCol];
 		colSum -= tau0_*mu.getElem(0, jCol);
 		gmu.setElem(0, jCol, colSum);
 	}
@@ -613,7 +620,6 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 		}
 	}
 	mResid = MatrixView(&vResid, 0, Mp_.getNrows(), Mp_.getNcols());
-	// Calculate the crossproduct and multiply by L_A
 	mResid.syrk('l', 1.0, 0.0, mRtR);
 	for (size_t k = 0; k < A_.getNcols(); k++) {
 		Tx[k] = exp(viSig[fTpInd_ + k]);
@@ -623,9 +629,9 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	}
 	// now sum everything and store the result in the gradient vector
 	for (size_t k = 0; k < Mp_.getNcols(); k++) {
-		grad[fTpInd_ + k] = 0.5*(NPnd_ - mRtR.getElem(k, k) - nxnd_*Tx[k]/weights[k]);
+		grad[fTpInd_ + k] = 0.5*(NPnd_ - mRtR.getElem(k, k)*Tx[k] - nxnd_*Tx[k]/weights[k]);
 	}
-	
+
 }
 
 // WrapMM methods
@@ -740,14 +746,14 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const v
 			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
 			sSq += diff*diff;
 		}
-		vISig_.push_back(nP/sSq);
+		vISig_.push_back( log(nP/sSq) );
 	}
 	// add noise
 	for (auto &t : vTheta_) {
 		t += 0.1*rng_.rnorm();
 	}
 	for (auto &s : vISig_) {
-		s += rng_.rnorm();
+		s += 0.1*rng_.rnorm();
 	}
 
 	sampler_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
