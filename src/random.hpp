@@ -333,6 +333,14 @@ namespace BayesicSpace {
 		 * \return a sample from the general Gamma distribution
 		 */
 		double rgamma(const double &alpha, const double &beta) const { return beta > 0.0 ? (this->rgamma(alpha))/beta : nan(""); };
+		/** \brief A Dirichlet deviate
+		 *
+		 * Generates a vector of probabilities, given a vector of concetration parameters \f$ \alpha_K > 0 \f$.
+		 *
+		 * \param[in] alpha vector of concentration parameters
+		 * \param[out] p vector of probabilities, must be the same length as \f$ \alpha \f$.
+		 */
+		void rdirichlet(const vector<double> &alpha, vector<double> &p) const;
 		/** \brief A chi-square deviate
 		 *
 		 * Generates a \f$ \chi^2 \f$ random variable with degrees of freedom \f$ \nu > 0.0 \f$.

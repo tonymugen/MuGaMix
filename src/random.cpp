@@ -388,12 +388,22 @@ double RanDraw::rgamma(const double &alpha) const {
 		if (log(u) < 0.5*x*x + d*(1.0 - v + log(v))){
 			break;
 		}
-
-
 	}
 
 	return d*v;
 }
+
+void RanDraw::rdirichlet(const vector<double> &alpha, vector<double> &p) const {
+	double sum = 0.0;
+	for (size_t k = 0; k < alpha.size(); k++) {
+		p[k] = this->rgamma(alpha[k]);
+		sum += p[k];
+	}
+	for (auto &e : p) {
+		e = e/sum;
+	}
+}
+
 uint64_t RanDraw::vitterA(const double &n, const double &N) const {
 	// The notation follows Vitter's (1987) as closely as possible
 	// Note that my runif() is on [0,1] (Vitter assumes (0,1)), so I have to sometimes adjust accordingly
