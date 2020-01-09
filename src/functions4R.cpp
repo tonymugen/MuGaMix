@@ -251,41 +251,12 @@ double gradTestS(const std::vector<double> &yVec, const std::vector<double> &iSi
 }
 
 //[[Rcpp::export]]
-Rcpp::List testInitTheta(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const std::vector<int32_t> &popFac, const int32_t &Npop, const int32_t &d){
+Rcpp::List testLocSampler(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const int32_t &d, const int32_t &Nadapt, const int32_t &Nsamp){
 	if (d <= 0) {
 		Rcpp::stop("ERROR: number of traits must be positive");
 	}
-	std::vector<size_t> l1;
-	std::vector<size_t> l2;
-	for (auto &lf : lnFac) {
-		if (lf <= 0) {
-			Rcpp::stop("ERROR: all elements of the line factor must be positive");
-		}
-		l1.push_back( static_cast<size_t>(lf-1) );
-	}
-	for (auto &pf : popFac) {
-		if (pf <= 0) {
-			Rcpp::stop("ERROR: all elements of the population factor must be positive");
-		}
-		l2.push_back( static_cast<size_t>(pf-1) );
-	}
-	std::vector<double> theta;
-	std::vector<double> iSg;
-	try {
-		BayesicSpace::WrapMMM test(yVec, l1, l2, 1e-5, 2.0, 1e-10);
-		test.getTheta(theta);
-		test.getISig(iSg);
-		return Rcpp::List::create(Rcpp::Named("theta", theta), Rcpp::Named("iSig", iSg));
-	} catch(std::string problem) {
-		Rcpp::stop(problem);
-	}
-	return Rcpp::List::create(Rcpp::Named("theta", theta), Rcpp::Named("iSig", iSg));
-}
-
-//[[Rcpp::export]]
-Rcpp::List testLocSampler(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const std::vector<int32_t> &popFac, const int32_t &Npop, const int32_t &d, const int32_t &Nadapt, const int32_t &Nsamp){
-	if (d <= 0) {
-		Rcpp::stop("ERROR: number of traits must be positive");
+	if (Npop <= 1) {
+		Rcpp::stop("ERROR: there must be at least two populations");
 	}
 	if (Nadapt < 0) {
 		Rcpp::stop("ERROR: Number of adaptation (burn-in) steps must be non-negative");
@@ -294,26 +265,20 @@ Rcpp::List testLocSampler(const std::vector<double> &yVec, const std::vector<int
 		Rcpp::stop("ERROR: Number of sampling steps must be non-negative");
 	}
 	std::vector<size_t> l1;
-	std::vector<size_t> l2;
 	for (auto &lf : lnFac) {
 		if (lf <= 0) {
 			Rcpp::stop("ERROR: all elements of the line factor must be positive");
 		}
 		l1.push_back( static_cast<size_t>(lf-1) );
 	}
-	for (auto &pf : popFac) {
-		if (pf <= 0) {
-			Rcpp::stop("ERROR: all elements of the population factor must be positive");
-		}
-		l2.push_back( static_cast<size_t>(pf-1) );
-	}
 	std::vector<double> chain;
 	std::vector<uint32_t> tree;
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
+	const uint32_t Np = static_cast<uint32_t>(Npop);
 
 	try {
-		BayesicSpace::WrapMMM test(yVec, l1, l2, 1e-8, 2.5, 1e-6);
+		BayesicSpace::WrapMMM test(yVec, l1, Np, 2.0, 1e-8, 2.5, 1e-6);
 		test.runSampler(Na, Ns, chain, tree);
 		return Rcpp::List::create(Rcpp::Named("chain", chain), Rcpp::Named("tree", tree));
 	} catch(std::string problem) {

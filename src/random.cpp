@@ -394,6 +394,11 @@ double RanDraw::rgamma(const double &alpha) const {
 }
 
 void RanDraw::rdirichlet(const vector<double> &alpha, vector<double> &p) const {
+#ifndef PKG_DEBUG_OFF
+	if (alpha.size() != p.size()) {
+		throw string("ERROR: length of alpha vector not the same as length of p vector in RanDraw::rdirichlet()");
+	}
+#endif
 	double sum = 0.0;
 	for (size_t k = 0; k < alpha.size(); k++) {
 		p[k] = this->rgamma(alpha[k]);

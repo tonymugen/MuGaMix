@@ -631,13 +631,24 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	for (size_t k = 0; k < Mp_.getNcols(); k++) {
 		grad[fTpInd_ + k] = 0.5*(NPnd_ - mRtR.getElem(k, k)*Tx[k] - nxnd_*Tx[k]/weights[k]);
 	}
-
 }
 
 // WrapMM methods
-WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const double &tau0, const double &nu0, const double &invAsq): vY_{vY} {
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY} {
 	hierInd_.push_back(Index(y2line));
-	hierInd_.push_back(Index(ln2pop));
+	// Set up population mixture vectors
+	alpha_.resize(Npop, alphaPr);
+	pi_.resize(Npop, 0.0);
+	Dmn_.resize(Npop, 0.0);
+	// Initialize the line to population index
+	// deterministic assignment to true populations for now to test
+	for (size_t k = 0; k < Npop; k++) {
+		for (size_t i = 0; i < hierInd_[0].groupNumber()/Npop; i++) {
+			z_.push_back(k);
+		}
+	}
+	hierInd_.push_back(Index(z_));
+	// TODO: take out after debugging is done
 	if (hierInd_[0].groupNumber() != hierInd_[1].size()) {
 		throw string("WrapMMM constructor ERROR: the line and population hierarchical indexes do not match");
 	}
@@ -648,40 +659,48 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const v
 		throw string("WrapMMM constructor ERROR: length of response vector not divisible by data point number");
 	}
 	const size_t d     = vY.size()/N;
-	const size_t Nln   = ln2pop.size();
-	const size_t Npop  = hierInd_[1].groupNumber();
+	const size_t Nln   = hierInd_[0].groupNumber();
 	const size_t Adim  = Nln*d;
 	const size_t Mpdim = Npop*d;
 
 	// Calculate starting values for theta
-	//
 	MatrixViewConst Y(&vY_, 0, N, d);
 
 	vTheta_.resize(Adim + Mpdim + d, 0.0);
-	MatrixView A(&vTheta_, 0, Nln, d);
-	MatrixView Mp(&vTheta_, Adim, Npop, d);
+	vp_.resize(Npop*Nln, 0.0);
+	A_  = MatrixView(&vTheta_, 0, Nln, d);
+	Mp_ = MatrixView(&vTheta_, Adim, Npop, d);
 	MatrixView mu(&vTheta_, Adim+Mpdim, 1, d);
+	P_  = MatrixView(&vp_, 0, Nln, Npop);
 
-	Y.colMeans(hierInd_[0], A);    //  means to get A starting values
-	A.colMeans(hierInd_[1], Mp);    // A means to get population mean starting values
+	Y.colMeans(hierInd_[0], A_);    //  means to get A starting values
+	A_.colMeans(hierInd_[1], Mp_);    // A means to get population mean starting values
 	vector<double> tmpMu;
-	Mp.colMeans(tmpMu);
+	Mp_.colMeans(tmpMu);
 	for (size_t k = 0; k < d; k++) {
 		mu.setElem(0, k, tmpMu[k]);
 	}
 
 	// Calculate starting precision matrix values; do that before adding noise to theta
 	//
+	size_t trLen     = d*(d-1)/2;
+	fLaInd_          = trLen + d;
+	fTaInd_          = fLaInd_ + trLen;
 	const double n   = 1.0/static_cast<double>(N-1);
 	const double nLN = 1.0/static_cast<double>(Nln-1);
 	const double nP  = static_cast<double>(Npop-1); // not reciprocal on purpose
+	vLa_.resize(d*d, 0.0);
+	La_ = MatrixView(&vLa_, 0, d, d);
+	for (size_t k = 0; k < d; k++) {
+		La_.setElem(k, k, 1.0);
+	}
 	vector<double> vSig(d*d, 0.0);
 	MatrixView Sig(&vSig, 0, d, d);
 
 	// Y residual
 	vector<double> vZA(N*d, 0.0);
 	MatrixView ZA(&vZA, 0, N, d);
-	A.colExpand(hierInd_[0], ZA);
+	A_.colExpand(hierInd_[0], ZA);
 	for (size_t jCol = 0; jCol < d; jCol++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			double diff = Y.getElem(iRow, jCol) - ZA.getElem(iRow, jCol);
@@ -713,10 +732,10 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const v
 	// A precision matrix
 	vZA.resize(Nln*d);
 	MatrixView ZpMp(&vZA, 0, Nln, d);
-	Mp.colExpand(hierInd_[1], ZpMp);
+	Mp_.colExpand(hierInd_[1], ZpMp);
 	for (size_t jCol = 0; jCol < d ; jCol++) {
 		for (size_t iRow = 0; iRow < Nln ; iRow++) {
-			double diff = A.getElem(iRow, jCol) - ZpMp.getElem(iRow, jCol);
+			double diff = A_.getElem(iRow, jCol) - ZpMp.getElem(iRow, jCol);
 			ZpMp.setElem(iRow, jCol, diff); // A - ZM is now in ZM
 		}
 	}
@@ -742,22 +761,23 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const v
 	// tau_p
 	for (size_t jCol = 0; jCol < d; jCol++) {
 		double sSq = 0.0;
-		for (size_t iRow = 0; iRow < Mp.getNrows(); iRow++) {
-			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
+		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) {
+			double diff = Mp_.getElem(iRow, jCol) - mu.getElem(0, jCol);
 			sSq += diff*diff;
 		}
 		vISig_.push_back( log(nP/sSq) );
 	}
+	expandLa_();
 	// add noise
+	/*
 	for (auto &t : vTheta_) {
-		t += 0.1*rng_.rnorm();
+		t += 0.5*rng_.rnorm();
 	}
 	for (auto &s : vISig_) {
-		s += 0.1*rng_.rnorm();
+		s += 0.5*rng_.rnorm();
 	}
-
+*/
 	sampler_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	//sampler_.push_back( new SamplerMetro(models_[0], &vTheta_) );
 	sampler_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 }
 
@@ -770,15 +790,35 @@ WrapMMM::~WrapMMM(){
 	}
 }
 
+void WrapMMM::updatePi_(){
+	for (size_t k = 0; k < Dmn_.size(); k++) {
+		Dmn_[k] = alpha_[k] + static_cast<double>( hierInd_.back().groupSize(k) ); // the cline (accession) to population index always the last one in the vector
+	}
+	rng_.rdirichlet(Dmn_, pi_);
+}
+
+void WrapMMM::expandLa_(){
+	size_t aInd = fLaInd_;                                                // index of the La lower triangle in the input vector
+	for (size_t jCol = 0; jCol < La_.getNcols() - 1; jCol++) {             // the last column is all 0, except the last element = 1.0
+		for (size_t iRow = jCol + 1; iRow < La_.getNcols(); iRow++) {
+			La_.setElem(iRow, jCol, vISig_[aInd]);
+			aInd++;
+		}
+	}
+}
+
 void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &chain, vector<uint32_t> &treeLen){
+	/*
 	treeLen.clear();
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		for (auto &s : sampler_) {
 			treeLen.push_back(s->adapt());
 		}
 	}
+	*/
 	chain.clear();
 	for (uint32_t b = 0; b < Nsample; b++) {
+		/*
 		for (auto &s : sampler_) {
 			s->update();
 		}
@@ -786,6 +826,11 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector
 			chain.push_back(t);
 		}
 		for (auto &p : vISig_) {
+			chain.push_back(p);
+		}
+		*/
+		updatePi_();
+		for (auto &p : vLa_) {
 			chain.push_back(p);
 		}
 	}

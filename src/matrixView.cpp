@@ -58,7 +58,7 @@ using namespace BayesicSpace;
 // MatrixView methods
 
 MatrixView::MatrixView(vector<double> *inVec, const size_t &idx, const size_t &nrow, const size_t &ncol) : data_{inVec}, idx_{idx}, Nrow_{nrow}, Ncol_{ncol} {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (data_->size() < idx_ + Nrow_*Ncol_) {
 		throw string("MatrixView indexes extend past vector end");
 	}
@@ -97,7 +97,7 @@ MatrixView& MatrixView::operator=(MatrixView &&inMat){
 }
 
 double MatrixView::getElem(const size_t& iRow, const size_t &jCol) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ((iRow >= Nrow_) || (jCol >= Ncol_)) {
 		throw string("ERROR: element out of range in getElem()");
 	}
@@ -107,7 +107,7 @@ double MatrixView::getElem(const size_t& iRow, const size_t &jCol) const{
 }
 
 void MatrixView::setElem(const size_t& iRow, const size_t &jCol, const double &input){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ((iRow >= Nrow_) || (jCol >= Ncol_)) {
 		throw string("ERROR: element out of range in setElem()");
 	}
@@ -118,7 +118,7 @@ void MatrixView::setElem(const size_t& iRow, const size_t &jCol, const double &i
 }
 
 void MatrixView::setCol(const size_t jCol, const vector<double> data){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (jCol >= Ncol_) {
 		throw string("ERROR: column index out of range in setCol()");
 	}
@@ -132,7 +132,7 @@ void MatrixView::setCol(const size_t jCol, const vector<double> data){
 }
 
 void MatrixView::chol(){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be symmetric for Cholesky decomposition");
 	}
@@ -157,7 +157,7 @@ void MatrixView::chol(){
 }
 
 void MatrixView::chol(MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be symmetric for Cholesky decomposition");
 	}
@@ -185,7 +185,7 @@ void MatrixView::chol(MatrixView &out) const {
 }
 
 void MatrixView::cholInv(){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be symmetric for Cholesky inversion");
 	}
@@ -213,7 +213,7 @@ void MatrixView::cholInv(){
 }
 
 void MatrixView::cholInv(MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be square for Cholesky inversion");
 	}
@@ -245,7 +245,7 @@ void MatrixView::cholInv(MatrixView &out) const {
 }
 
 void MatrixView::svd(MatrixView &U, vector<double> &s){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -283,7 +283,7 @@ void MatrixView::svd(MatrixView &U, vector<double> &s){
 }
 
 void MatrixView::svdSafe(MatrixView &U, vector<double> &s) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -324,7 +324,7 @@ void MatrixView::svdSafe(MatrixView &U, vector<double> &s) const {
 }
 
 void MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be at least square in eigen()");
 	}
@@ -392,7 +392,7 @@ void MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam){
 }
 
 void MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be at least square in eigen()");
 	}
@@ -468,7 +468,7 @@ void MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<d
 }
 
 void MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be at least square in eigen()");
 	}
@@ -540,7 +540,7 @@ void MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam) 
 }
 
 void MatrixView::eigenSafe(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be at least square in eigen()");
 	}
@@ -621,7 +621,7 @@ void MatrixView::eigenSafe(const char &tri, const size_t &n, MatrixView &U, vect
 }
 
 void MatrixView::syrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
 		throw string("ERROR: at least one matrix dimension too big to safely convert to int in syrk()");
 	}
@@ -647,7 +647,7 @@ void MatrixView::syrk(const char &tri, const double &alpha, const double &beta, 
 }
 
 void MatrixView::tsyrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
 		throw string("ERROR: at least one matrix dimension too big to safely convert to int in tsyrk()");
 	}
@@ -672,7 +672,7 @@ void MatrixView::tsyrk(const char &tri, const double &alpha, const double &beta,
 }
 
 void MatrixView::symm(const char &tri, const char &side, const double &alpha, const MatrixView &symA, const double &beta, MatrixView &C) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -723,7 +723,7 @@ void MatrixView::symm(const char &tri, const char &side, const double &alpha, co
 	dsymm_(&side, &tri, &m, &n, &alpha, symA.data_->data()+symA.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
 }
 void MatrixView::symm(const char &tri, const char &side, const double &alpha, const MatrixViewConst &symA, const double &beta, MatrixView &C) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -775,7 +775,7 @@ void MatrixView::symm(const char &tri, const char &side, const double &alpha, co
 }
 
 void MatrixView::symc(const char &tri, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -808,7 +808,7 @@ void MatrixView::symc(const char &tri, const double &alpha, const MatrixView &X,
 }
 
 void MatrixView::symc(const char &tri, const double &alpha, const MatrixViewConst &X, const size_t &xCol, const double &beta, vector<double> &y) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -841,7 +841,7 @@ void MatrixView::symc(const char &tri, const double &alpha, const MatrixViewCons
 }
 
 void MatrixView::trm(const char &tri, const char &side, const bool &transA, const bool &uDiag, const double &alpha, const MatrixView &trA){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -882,7 +882,7 @@ void MatrixView::trm(const char &tri, const char &side, const bool &transA, cons
 }
 
 void MatrixView::trm(const char &tri, const char &side, const bool &transA, const bool &uDiag, const double &alpha, const MatrixViewConst &trA){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -923,7 +923,7 @@ void MatrixView::trm(const char &tri, const char &side, const bool &transA, cons
 }
 
 void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixView &A, const bool &transB, const double &beta, MatrixView &C) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -1006,7 +1006,7 @@ void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixView 
 }
 
 void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixViewConst &A, const bool &transB, const double &beta, MatrixView &C) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -1088,7 +1088,7 @@ void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixViewC
 	dgemm_(&tAtok, &tBtok, &m, &n, &k, &alpha, A.data_->data()+A.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
 }
 void MatrixView::gemc(const bool &trans, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -1166,7 +1166,7 @@ MatrixView& MatrixView::operator/=(const double &scal){
 }
 
 void MatrixView::rowExpand(const Index &ind, MatrixView &out) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.groupNumber() != Ncol_) {
 		throw string("ERROR: Number of Index groups not equal to number of columns in rowExpand()");
 	}
@@ -1200,7 +1200,7 @@ void MatrixView::rowSums(vector<double> &sums) const{
 	}
 }
 void MatrixView::rowSums(const Index &ind, MatrixView &out) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
 		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowSums()");
 	}
@@ -1237,7 +1237,7 @@ void MatrixView::rowMeans(vector<double> &means) const{
 	}
 }
 void MatrixView::rowMeans(const Index &ind, MatrixView &out) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
 		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowMeans()");
 	}
@@ -1266,7 +1266,7 @@ void MatrixView::rowMeans(const Index &ind, MatrixView &out) const{
 }
 
 void MatrixView::colExpand(const Index &ind, MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.groupNumber() != Nrow_) {
 		throw string("ERROR: incorrect number of Index groups in colExpand()");
 	}
@@ -1302,7 +1302,7 @@ void MatrixView::colSums(vector<double> &sums) const{
 	}
 }
 void MatrixView::colSums(const Index &ind, MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
 		throw string("ERROR: Wrong total length of Index in colSums()");
 	}
@@ -1340,7 +1340,7 @@ void MatrixView::colMeans(vector<double> &means) const{
 	}
 }
 void MatrixView::colMeans(const Index &ind, MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
 		throw string("ERROR: Wrong total length of Index in colMeans()");
 	}
@@ -1368,7 +1368,7 @@ void MatrixView::colMeans(const Index &ind, MatrixView &out) const {
 }
 
 void MatrixView::rowMultiply(const vector<double> &scalars){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Ncol_) {
 		throw string("ERROR: Vector of scalars has wrong length in rowMultiply(vector)");
 	}
@@ -1381,7 +1381,7 @@ void MatrixView::rowMultiply(const vector<double> &scalars){
 	}
 }
 void MatrixView::rowMultiply(const double &scalar, const size_t &iRow){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (iRow >= Nrow_) {
 		throw string("ERROR: Row index out of bounds in rowMultiply(scalar)");
 	}
@@ -1391,7 +1391,7 @@ void MatrixView::rowMultiply(const double &scalar, const size_t &iRow){
 	}
 }
 void MatrixView::colMultiply(const vector<double> &scalars){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Nrow_) {
 		throw string("ERROR: Vector of scalars has wrong length in colMultiply(vector)");
 	}
@@ -1404,7 +1404,7 @@ void MatrixView::colMultiply(const vector<double> &scalars){
 	}
 }
 void MatrixView::colMultiply(const double &scalar, const size_t &jCol){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (jCol >= Ncol_) {
 		throw string("ERROR: Column index out of bounds in colMultiply(scalar)");
 	}
@@ -1414,7 +1414,7 @@ void MatrixView::colMultiply(const double &scalar, const size_t &jCol){
 	}
 }
 void MatrixView::rowDivide(const vector<double> &scalars){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Ncol_) {
 		throw string("ERROR: Vector of scalars has wrong length in rowDivide(vector)");
 	}
@@ -1427,7 +1427,7 @@ void MatrixView::rowDivide(const vector<double> &scalars){
 	}
 }
 void MatrixView::rowDivide(const double &scalar, const size_t &iRow){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (iRow >= Nrow_) {
 		throw string("ERROR: Row index out of bounds in rowDivide(scalar)");
 	}
@@ -1437,7 +1437,7 @@ void MatrixView::rowDivide(const double &scalar, const size_t &iRow){
 	}
 }
 void MatrixView::colDivide(const vector<double> &scalars){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Nrow_) {
 		throw string("ERROR: Vector of scalars has wrong length in colDivide(vector)");
 	}
@@ -1450,7 +1450,7 @@ void MatrixView::colDivide(const vector<double> &scalars){
 	}
 }
 void MatrixView::colDivide(const double &scalar, const size_t &jCol){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (jCol >= Ncol_) {
 		throw string("ERROR: Column index out of bounds in colDivide(scalar)");
 	}
@@ -1460,7 +1460,7 @@ void MatrixView::colDivide(const double &scalar, const size_t &jCol){
 	}
 }
 void MatrixView::rowAdd(const vector<double> &scalars){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Ncol_) {
 		throw string("ERROR: Vector of scalars has wrong length in rowAdd(vector)");
 	}
@@ -1473,7 +1473,7 @@ void MatrixView::rowAdd(const vector<double> &scalars){
 	}
 }
 void MatrixView::rowAdd(const double &scalar, const size_t &iRow){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (iRow >= Nrow_) {
 		throw string("ERROR: Row index out of bounds in rowAdd(scalar)");
 	}
@@ -1483,7 +1483,7 @@ void MatrixView::rowAdd(const double &scalar, const size_t &iRow){
 	}
 }
 void MatrixView::colAdd(const vector<double> &scalars){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Nrow_) {
 		throw string("ERROR: Vector of scalars has wrong length in colAdd(vector)");
 	}
@@ -1496,7 +1496,7 @@ void MatrixView::colAdd(const vector<double> &scalars){
 	}
 }
 void MatrixView::colAdd(const double &scalar, const size_t &jCol){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (jCol >= Ncol_) {
 		throw string("ERROR: Column index out of bounds in colAdd(scalar)");
 	}
@@ -1506,7 +1506,7 @@ void MatrixView::colAdd(const double &scalar, const size_t &jCol){
 	}
 }
 void MatrixView::rowSub(const vector<double> &scalars){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Ncol_) {
 		throw string("ERROR: Vector of scalars has wrong length in rowSub(vector)");
 	}
@@ -1519,7 +1519,7 @@ void MatrixView::rowSub(const vector<double> &scalars){
 	}
 }
 void MatrixView::rowSub(const double &scalar, const size_t &iRow){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (iRow >= Nrow_) {
 		throw string("ERROR: Row index out of bounds in rowSub(scalar)");
 	}
@@ -1529,7 +1529,7 @@ void MatrixView::rowSub(const double &scalar, const size_t &iRow){
 	}
 }
 void MatrixView::colSub(const vector<double> &scalars){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Nrow_) {
 		throw string("ERROR: Vector of scalars has wrong length in colSub(vector)");
 	}
@@ -1542,7 +1542,7 @@ void MatrixView::colSub(const vector<double> &scalars){
 	}
 }
 void MatrixView::colSub(const double &scalar, const size_t &jCol){
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (jCol >= Ncol_) {
 		throw string("ERROR: Column index out of bounds in colSub(scalar)");
 	}
@@ -1603,7 +1603,7 @@ MatrixViewConst& MatrixViewConst::operator=(MatrixView &&inMat){
 }
 
 double MatrixViewConst::getElem(const size_t& iRow, const size_t &jCol) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ((iRow >= Nrow_) || (jCol >= Ncol_)) {
 		throw string("ERROR: element out of range in getElem()");
 	}
@@ -1613,7 +1613,7 @@ double MatrixViewConst::getElem(const size_t& iRow, const size_t &jCol) const{
 }
 
 void MatrixViewConst::chol(MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be symmetric for Cholesky decomposition");
 	}
@@ -1641,7 +1641,7 @@ void MatrixViewConst::chol(MatrixView &out) const {
 }
 
 void MatrixViewConst::cholInv(MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be square for Cholesky inversion");
 	}
@@ -1673,7 +1673,7 @@ void MatrixViewConst::cholInv(MatrixView &out) const {
 }
 
 void MatrixViewConst::svdSafe(MatrixView &U, vector<double> &s) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -1714,7 +1714,7 @@ void MatrixViewConst::svdSafe(MatrixView &U, vector<double> &s) const {
 }
 
 void MatrixViewConst::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be at least square in eigen()");
 	}
@@ -1785,7 +1785,7 @@ void MatrixViewConst::eigenSafe(const char &tri, MatrixView &U, vector<double> &
 }
 
 void MatrixViewConst::eigenSafe(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
 		throw string("ERROR: matrix has to be at least square in eigen()");
 	}
@@ -1865,7 +1865,7 @@ void MatrixViewConst::eigenSafe(const char &tri, const size_t &n, MatrixView &U,
 }
 
 void MatrixViewConst::syrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
 		throw string("ERROR: at least one matrix dimension too big to safely convert to int in syrk()");
 	}
@@ -1890,7 +1890,7 @@ void MatrixViewConst::syrk(const char &tri, const double &alpha, const double &b
 }
 
 void MatrixViewConst::tsyrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
 		throw string("ERROR: at least one matrix dimension too big to safely convert to int in tsyrk()");
 	}
@@ -1915,7 +1915,7 @@ void MatrixViewConst::tsyrk(const char &tri, const double &alpha, const double &
 }
 
 void MatrixViewConst::symm(const char &tri, const char &side, const double &alpha, const MatrixView &symA, const double &beta, MatrixView &C) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -1966,7 +1966,7 @@ void MatrixViewConst::symm(const char &tri, const char &side, const double &alph
 	dsymm_(&side, &tri, &m, &n, &alpha, symA.data_->data()+symA.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
 }
 void MatrixViewConst::symm(const char &tri, const char &side, const double &alpha, const MatrixViewConst &symA, const double &beta, MatrixView &C) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -2018,7 +2018,7 @@ void MatrixViewConst::symm(const char &tri, const char &side, const double &alph
 }
 
 void MatrixViewConst::symc(const char &tri, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -2051,7 +2051,7 @@ void MatrixViewConst::symc(const char &tri, const double &alpha, const MatrixVie
 }
 
 void MatrixViewConst::gemm(const bool &transA, const double &alpha, const MatrixView &A, const bool &transB, const double &beta, MatrixView &C) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -2133,7 +2133,7 @@ void MatrixViewConst::gemm(const bool &transA, const double &alpha, const Matrix
 	dgemm_(&tAtok, &tBtok, &m, &n, &k, &alpha, A.data_->data()+A.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
 }
 void MatrixViewConst::gemm(const bool &transA, const double &alpha, const MatrixViewConst &A, const bool &transB, const double &beta, MatrixView &C) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -2215,7 +2215,7 @@ void MatrixViewConst::gemm(const bool &transA, const double &alpha, const Matrix
 	dgemm_(&tAtok, &tBtok, &m, &n, &k, &alpha, A.data_->data()+A.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
 }
 void MatrixViewConst::gemc(const bool &trans, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
@@ -2261,7 +2261,7 @@ void MatrixViewConst::gemc(const bool &trans, const double &alpha, const MatrixV
 }
 
 void MatrixViewConst::rowExpand(const Index &ind, MatrixView &out) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.groupNumber() != Ncol_) {
 		throw string("ERROR: Number of Index groups not equal to number of columns in rowExpand()");
 	}
@@ -2295,7 +2295,7 @@ void MatrixViewConst::rowSums(vector<double> &sums) const{
 	}
 }
 void MatrixViewConst::rowSums(const Index &ind, MatrixView &out) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
 		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowSums()");
 	}
@@ -2332,7 +2332,7 @@ void MatrixViewConst::rowMeans(vector<double> &means) const{
 	}
 }
 void MatrixViewConst::rowMeans(const Index &ind, MatrixView &out) const{
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
 		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowMeans()");
 	}
@@ -2361,7 +2361,7 @@ void MatrixViewConst::rowMeans(const Index &ind, MatrixView &out) const{
 }
 
 void MatrixViewConst::colExpand(const Index &ind, MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.groupNumber() != Nrow_) {
 		throw string("ERROR: incorrect number of Index groups in colExpand()");
 	}
@@ -2397,7 +2397,7 @@ void MatrixViewConst::colSums(vector<double> &sums) const{
 	}
 }
 void MatrixViewConst::colSums(const Index &ind, MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
 		throw string("ERROR: Wrong total length of Index in colSums()");
 	}
@@ -2435,7 +2435,7 @@ void MatrixViewConst::colMeans(vector<double> &means) const{
 	}
 }
 void MatrixViewConst::colMeans(const Index &ind, MatrixView &out) const {
-#ifndef LMRG_CHECK_OFF
+#ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
 		throw string("ERROR: Wrong total length of Index in colMeans()");
 	}

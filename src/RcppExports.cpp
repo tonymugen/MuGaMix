@@ -107,35 +107,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// testInitTheta
-Rcpp::List testInitTheta(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const std::vector<int32_t>& popFac, const int32_t& Npop, const int32_t& d);
-RcppExport SEXP _MuGaMix_testInitTheta(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP popFacSEXP, SEXP NpopSEXP, SEXP dSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type popFac(popFacSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    rcpp_result_gen = Rcpp::wrap(testInitTheta(yVec, lnFac, popFac, Npop, d));
-    return rcpp_result_gen;
-END_RCPP
-}
 // testLocSampler
-Rcpp::List testLocSampler(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const std::vector<int32_t>& popFac, const int32_t& Npop, const int32_t& d, const int32_t& Nadapt, const int32_t& Nsamp);
-RcppExport SEXP _MuGaMix_testLocSampler(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP popFacSEXP, SEXP NpopSEXP, SEXP dSEXP, SEXP NadaptSEXP, SEXP NsampSEXP) {
+Rcpp::List testLocSampler(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const int32_t& Npop, const int32_t& d, const int32_t& Nadapt, const int32_t& Nsamp);
+RcppExport SEXP _MuGaMix_testLocSampler(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP NpopSEXP, SEXP dSEXP, SEXP NadaptSEXP, SEXP NsampSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
     Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type popFac(popFacSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nadapt(NadaptSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nsamp(NsampSEXP);
-    rcpp_result_gen = Rcpp::wrap(testLocSampler(yVec, lnFac, popFac, Npop, d, Nadapt, Nsamp));
+    rcpp_result_gen = Rcpp::wrap(testLocSampler(yVec, lnFac, Npop, d, Nadapt, Nsamp));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -147,8 +131,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_MuGaMix_gradTestLI", (DL_FUNC) &_MuGaMix_gradTestLI, 8},
     {"_MuGaMix_lpTestS", (DL_FUNC) &_MuGaMix_lpTestS, 6},
     {"_MuGaMix_gradTestS", (DL_FUNC) &_MuGaMix_gradTestS, 7},
-    {"_MuGaMix_testInitTheta", (DL_FUNC) &_MuGaMix_testInitTheta, 5},
-    {"_MuGaMix_testLocSampler", (DL_FUNC) &_MuGaMix_testLocSampler, 7},
+    {"_MuGaMix_testLocSampler", (DL_FUNC) &_MuGaMix_testLocSampler, 6},
     {NULL, NULL, 0}
 };
 

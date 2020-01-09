@@ -276,16 +276,16 @@ namespace BayesicSpace {
 		/** \brief Constructor for a one-level hierarchical model
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
-		 * The "fixed effect" matrix includes predictors for parameters that have a set high-variance prior (unmodeled effects). This includes the intercept and any continuous predictors.
 		 *
 		 * \param[in] vY vectorized data matrix
 		 * \param[in] y2line factor connecting data to lines (accessions)
-		 * \param[in] ln2pop factor connecting lines to populations
+		 * \param[in] Npop number of populations
+		 * \param[in] alphaPr prior on mixture proporions (prior proportions are assumed equal)
 		 * \param[in] tau0 prior precision for the "fixed" effects
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<size_t> &ln2pop, const double &tau0, const double &nu0, const double &invAsq);
+		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Copy constructor (deleted) */
 		WrapMMM(WrapMMM &in) = delete;
 		/** \brief Move constructor (deleted) */
@@ -313,14 +313,41 @@ namespace BayesicSpace {
 		vector<double> vY_;
 		/** \brief Vector of indexes connecting hierarchy levels
 		 *
-		 * First element connects replicates (data) to line means, second connects lines to populations.
+		 * First element connects replicates (data) to line means, second connects lines to populations. The second index is updated as part of the mixture model.
 		 *
 		 */
 		vector<Index> hierInd_;
+		/** \brief Prior mixture proportions */
+		vector<double> alpha_;
+		/** \brief Dirichlet expected values */
+		vector<double> Dmn_;
+		/** \brief Mixture proportions */
+		vector<double> pi_;
+		/** \brief Allocation vector */
+		vector<size_t> z_;
 		/** \brief Location parameters */
 		vector<double> vTheta_;
 		/** \brief Inerese-covariances */
 		vector<double> vISig_;
+		/** \brief Matrix view of line (accession) means */
+		MatrixView A_;
+		/** \brief Matrix view of population means */
+		MatrixView Mp_;
+		/** \brief Index of the first \f$\boldsymbol{L}_A\f$ element */
+		size_t fLaInd_;
+		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
+		size_t fTaInd_;
+		/** \brief Expanded vectorized \f$ L_A \f$ matrix */
+		vector<double> vLa_;
+		/** \brief Matrix view of the \f$ L_A \f$ matrix */
+		MatrixView La_;
+		/** \brief Vectorized matrix of line probabilities
+		 *
+		 * Rows correspond to lines (accessions), columns have probabilities that a line belongs to each popultion.
+		 */
+		vector<double> vp_;
+		/** \brief Matrix view of the probability vector */
+		MatrixView P_;
 		/** \brief Models
 		 *
 		 * The location parameter model first, then the inverse-covariance model.
@@ -333,6 +360,14 @@ namespace BayesicSpace {
 		vector<Sampler*> sampler_;
 		/** \brief Random number generator */
 		RanDraw rng_;
+		/** \brief Update mixture proportions */
+		void updatePi_();
+		/** \brief Expand lower triangle of the \f$ L_A \f$ matrix
+		 *
+		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix. The input vector `vISig_` stores only the non-zero elements of these matrices.
+		 *
+		 */
+		void expandLa_();
 
 	};
 }
