@@ -648,6 +648,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		}
 	}
 	hierInd_.push_back(Index(z_));
+	updatePi_();
 	// TODO: take out after debugging is done
 	if (hierInd_[0].groupNumber() != hierInd_[1].size()) {
 		throw string("WrapMMM constructor ERROR: the line and population hierarchical indexes do not match");
@@ -671,7 +672,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	A_  = MatrixView(&vTheta_, 0, Nln, d);
 	Mp_ = MatrixView(&vTheta_, Adim, Npop, d);
 	MatrixView mu(&vTheta_, Adim+Mpdim, 1, d);
-	Pz_  = MatrixView(&vPz_, 0, Nln, Npop);
+	Pz_ = MatrixView(&vPz_, 0, Npop, Nln);
 
 	Y.colMeans(hierInd_[0], A_);    //  means to get A starting values
 	A_.colMeans(hierInd_[1], Mp_);    // A means to get population mean starting values
@@ -801,7 +802,7 @@ void WrapMMM::expandLa_(){
 	for (size_t k = fTaInd_; k < fTaInd_ + La_.getNcols(); k++) {
 		Ta.push_back( exp(0.5*vISig_[k]) );
 	}
-	size_t aInd = fLaInd_;                                                // index of the La lower triangle in the input vector
+	size_t aInd = fLaInd_;                                             // index of the La lower triangle in the input vector
 	for (size_t jCol = 0; jCol < La_.getNcols(); jCol++) {             // the last column is all 0, except the last element = Ta[d]
 		La_.setElem(jCol, jCol, Ta[jCol]);
 		for (size_t iRow = jCol + 1; iRow < La_.getNcols(); iRow++) {
@@ -812,9 +813,30 @@ void WrapMMM::expandLa_(){
 }
 
 void WrapMMM::updatePz_(){
-	for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
-		for (size_t iRow = 0; iRow < A_.getNrows(); iRow++) {
-			Aresid_.setElem(iRow, jCol, A_.getElem(iRow, jCol) - Mp_.getElem(0, jCol)); // will iterate through populations first
+	for (size_t p = 0; p < Mp_.getNrows(); p++) {             // for each population
+		for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < A_.getNrows(); iRow++) {
+				Aresid_.setElem(iRow, jCol, A_.getElem(iRow, jCol) - Mp_.getElem(p, jCol)); // will iterate through populations first
+			}
+		}
+		Aresid_.trm('l', 'r', false, false, 1.0, La_); // half-kernel
+		for (size_t iA = 0; iA < Aresid_.getNrows(); iA++) {
+			double sSq = 0.0;
+			for (size_t jCol = 0; jCol < Aresid_.getNcols(); jCol++) {
+				sSq += Aresid_.getElem(iA, jCol)*Aresid_.getElem(iA, jCol);
+			}
+			Pz_.setElem(p, iA, pi_[p]*exp(-0.5*sSq));
+		}
+	}
+	// normalize the scores to create p[ij]
+	for (size_t jCol = 0; jCol < Pz_.getNcols(); jCol++) {
+		double sum = 0.0;
+		for (size_t iPop = 0; iPop < Pz_.getNrows(); iPop++) {
+			sum += Pz_.getElem(iPop, jCol);
+		}
+		for (size_t iPop = 0; iPop < Pz_.getNrows(); iPop++) {
+			double div = Pz_.getElem(iPop, jCol)/sum;
+			Pz_.setElem(iPop, jCol, div);
 		}
 	}
 }
@@ -842,7 +864,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector
 		}
 		*/
 		updatePz_();
-		for (auto &p : vAresid_) {
+		for (auto &p : vPz_) {
 			chain.push_back(p);
 		}
 	}

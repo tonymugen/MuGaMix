@@ -347,7 +347,7 @@ namespace BayesicSpace {
 		MatrixView Aresid_;
 		/** \brief Vectorized matrix of line probabilities
 		 *
-		 * Rows correspond to lines (accessions), columns have probabilities that a line belongs to each population, or the probability that \f$ z_i = j \f$.
+		 * Columns correspond to lines (accessions), rows have probabilities that a line belongs to each population, or the probability that \f$ z_i = j \f$.
 		 */
 		vector<double> vPz_;
 		/** \brief Matrix view of the probability vector */
