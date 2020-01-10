@@ -667,11 +667,11 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	MatrixViewConst Y(&vY_, 0, N, d);
 
 	vTheta_.resize(Adim + Mpdim + d, 0.0);
-	vp_.resize(Npop*Nln, 0.0);
+	vPz_.resize(Npop*Nln, 0.0);
 	A_  = MatrixView(&vTheta_, 0, Nln, d);
 	Mp_ = MatrixView(&vTheta_, Adim, Npop, d);
 	MatrixView mu(&vTheta_, Adim+Mpdim, 1, d);
-	P_  = MatrixView(&vp_, 0, Nln, Npop);
+	Pz_  = MatrixView(&vPz_, 0, Nln, Npop);
 
 	Y.colMeans(hierInd_[0], A_);    //  means to get A starting values
 	A_.colMeans(hierInd_[1], Mp_);    // A means to get population mean starting values
@@ -691,9 +691,6 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	const double nP  = static_cast<double>(Npop-1); // not reciprocal on purpose
 	vLa_.resize(d*d, 0.0);
 	La_ = MatrixView(&vLa_, 0, d, d);
-	for (size_t k = 0; k < d; k++) {
-		La_.setElem(k, k, 1.0);
-	}
 	vector<double> vSig(d*d, 0.0);
 	MatrixView Sig(&vSig, 0, d, d);
 
@@ -768,6 +765,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		vISig_.push_back( log(nP/sSq) );
 	}
 	expandLa_();
+	vAresid_.resize(Adim, 0.0);
+	Aresid_ = MatrixView(&vAresid_, 0, Nln, d);
 	// add noise
 	/*
 	for (auto &t : vTheta_) {
@@ -798,11 +797,24 @@ void WrapMMM::updatePi_(){
 }
 
 void WrapMMM::expandLa_(){
+	vector <double> Ta;
+	for (size_t k = fTaInd_; k < fTaInd_ + La_.getNcols(); k++) {
+		Ta.push_back( exp(0.5*vISig_[k]) );
+	}
 	size_t aInd = fLaInd_;                                                // index of the La lower triangle in the input vector
-	for (size_t jCol = 0; jCol < La_.getNcols() - 1; jCol++) {             // the last column is all 0, except the last element = 1.0
+	for (size_t jCol = 0; jCol < La_.getNcols(); jCol++) {             // the last column is all 0, except the last element = Ta[d]
+		La_.setElem(jCol, jCol, Ta[jCol]);
 		for (size_t iRow = jCol + 1; iRow < La_.getNcols(); iRow++) {
-			La_.setElem(iRow, jCol, vISig_[aInd]);
+			La_.setElem(iRow, jCol, vISig_[aInd]*Ta[jCol]);
 			aInd++;
+		}
+	}
+}
+
+void WrapMMM::updatePz_(){
+	for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
+		for (size_t iRow = 0; iRow < A_.getNrows(); iRow++) {
+			Aresid_.setElem(iRow, jCol, A_.getElem(iRow, jCol) - Mp_.getElem(0, jCol)); // will iterate through populations first
 		}
 	}
 }
@@ -829,8 +841,8 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector
 			chain.push_back(p);
 		}
 		*/
-		updatePi_();
-		for (auto &p : vLa_) {
+		updatePz_();
+		for (auto &p : vAresid_) {
 			chain.push_back(p);
 		}
 	}

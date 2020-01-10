@@ -341,13 +341,17 @@ namespace BayesicSpace {
 		vector<double> vLa_;
 		/** \brief Matrix view of the \f$ L_A \f$ matrix */
 		MatrixView La_;
+		/** \brief Vectorized \f$ A - m_{i\cdot} \f$ residual */
+		vector<double> vAresid_;
+		/** \brief Matrix view of the residual */
+		MatrixView Aresid_;
 		/** \brief Vectorized matrix of line probabilities
 		 *
-		 * Rows correspond to lines (accessions), columns have probabilities that a line belongs to each popultion.
+		 * Rows correspond to lines (accessions), columns have probabilities that a line belongs to each population, or the probability that \f$ z_i = j \f$.
 		 */
-		vector<double> vp_;
+		vector<double> vPz_;
 		/** \brief Matrix view of the probability vector */
-		MatrixView P_;
+		MatrixView Pz_;
 		/** \brief Models
 		 *
 		 * The location parameter model first, then the inverse-covariance model.
@@ -364,10 +368,12 @@ namespace BayesicSpace {
 		void updatePi_();
 		/** \brief Expand lower triangle of the \f$ L_A \f$ matrix
 		 *
-		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix. The input vector `vISig_` stores only the non-zero elements of these matrices.
+		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix and multiplies its columns by the square root of \f$ T_A \f$. The input vector `vISig_` stores only the non-zero elements of these matrices.
 		 *
 		 */
 		void expandLa_();
+		/** \brief Update \f$ p_{ij} \f$ */
+		void updatePz_();
 
 	};
 }
