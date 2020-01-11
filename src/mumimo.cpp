@@ -172,8 +172,10 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	double trM = 0.0;
 	for (size_t jCol = 0; jCol < Mp.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Mp.getNrows(); ++iRow) {
-			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
-			trM += diff*exp((*iSigTheta_)[fTpInd_ + jCol])*diff;
+			if ((hierInd_->back().groupSize(iRow))) {
+				double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
+				trM += diff*exp((*iSigTheta_)[fTpInd_ + jCol])*diff;
+			}
 		}
 	}
 	double trP = 0.0;
@@ -187,6 +189,8 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 
 void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	expandISvec_();
+	grad.clear();
+	grad.resize(theta.size(), 0.0);
 	const size_t Nln  = (*hierInd_)[0].groupNumber();
 	const size_t Npop = (*hierInd_)[1].groupNumber();
 	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
@@ -280,15 +284,19 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// M[p] partial derivatives
 	for (size_t jCol = 0; jCol < Mp.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Mp.getNrows(); ++iRow) {
-			double diff =  gMp.getElem(iRow, jCol) - (Mp.getElem(iRow, jCol) - mu.getElem(0, jCol))*tauP[jCol];
-			gMp.setElem( iRow, jCol, diff); // Z[p]^T(A - Z[p]M[p])Sig[A]^-1 - (M[p] - mu)tau[p]
+			if (hierInd_->back().groupSize(iRow)) {
+				double diff =  gMp.getElem(iRow, jCol) - (Mp.getElem(iRow, jCol) - mu.getElem(0, jCol))*tauP[jCol];
+				gMp.setElem( iRow, jCol, diff); // Z[p]^T(A - Z[p]M[p])Sig[A]^-1 - (M[p] - mu)tau[p]
+			}
 		}
 	}
 	// mu partial derivatives
 	for (size_t jCol = 0; jCol < Mp.getNcols(); jCol++) {
 		double colSum = 0.0;
 		for (size_t iRow = 0; iRow < Mp.getNrows(); iRow++) {
-			colSum += Mp.getElem(iRow, jCol);
+			if (hierInd_->back().groupSize(iRow)) {
+				colSum += Mp.getElem(iRow, jCol);
+			}
 		}
 		colSum -= static_cast<double>(Npop)*mu.getElem(0, jCol); // Z[m]^T(M_p - mu)
 		colSum *= tauP[jCol];
@@ -449,8 +457,10 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	double trM = 0.0;
 	for (size_t jCol = 0; jCol < Mp_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Mp_.getNrows(); ++iRow) {
-			double diff = Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol);
-			trM += diff*exp(viSig[fTpInd_ + jCol])*diff;
+			if (hierInd_->back().groupSize(iRow)) {
+				double diff = Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol);
+				trM += diff*exp(viSig[fTpInd_ + jCol])*diff;
+			}
 		}
 	}
 	// Sum of log-determinants
@@ -486,6 +496,8 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const{
 	// expand the element vector to make the L matrices
 	expandISvec_(viSig);
+	grad.clear();
+	grad.resize(viSig.size(), 0.0);
 	// Calculate the Y residuals
 	vector<double> vResid(Y_.getNcols()*Y_.getNrows(), 0.0);
 	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
@@ -616,7 +628,11 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	vResid.clear();
 	for (size_t jCol = 0; jCol < Mp_.getNcols(); jCol++) {
 		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) {
-			vResid.push_back(Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol));
+			if (hierInd_->back().groupSize(iRow)) {
+				vResid.push_back(Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol));
+			} else {
+				vResid.push_back(-mu_.getElem(0, jCol));
+			}
 		}
 	}
 	mResid = MatrixView(&vResid, 0, Mp_.getNrows(), Mp_.getNcols());
