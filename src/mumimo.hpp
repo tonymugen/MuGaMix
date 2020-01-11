@@ -298,9 +298,11 @@ namespace BayesicSpace {
 		 *
 		 * \param[in] Nadapt number of adaptation (burn-in) steps
 		 * \param[in] Nsample number of sampling steps
-		 * \param[out] chain MCMC chain
+		 * \param[out] thetaChain MCMC chain of model parameters
+		 * \param[out] piChain MCMC chain of \f$ p_{ij} \f$
+		 * \param[out] treeLen tree length during adaptation
 		 */
-		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &chain, vector<uint32_t> &treeLen);
+		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &thetaChain, vector<double> &piChain, vector<uint32_t> &treeLen);
 		/** \brief Get location theta (just for testing) */
 		void getTheta(vector <double> &theta){theta = vTheta_;};
 		/** \brief Get precision matrix theta (just for testing) */

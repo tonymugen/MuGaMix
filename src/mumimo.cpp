@@ -641,6 +641,11 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	pi_.resize(Npop, 0.0);
 	Dmn_.resize(Npop, 0.0);
 	// Initialize the line to population index
+	/*
+	for (size_t iA = 0; iA < hierInd_[0].groupNumber(); iA++) {
+		z_.push_back(rng_.sampleInt(Npop)); // the max value is not included
+	}
+	*/
 	// deterministic assignment to true populations for now to test
 	for (size_t k = 0; k < Npop; k++) {
 		for (size_t i = 0; i < hierInd_[0].groupNumber()/Npop; i++) {
@@ -769,14 +774,12 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	vAresid_.resize(Adim, 0.0);
 	Aresid_ = MatrixView(&vAresid_, 0, Nln, d);
 	// add noise
-	/*
 	for (auto &t : vTheta_) {
 		t += 0.5*rng_.rnorm();
 	}
 	for (auto &s : vISig_) {
 		s += 0.5*rng_.rnorm();
 	}
-*/
 	sampler_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	sampler_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 }
@@ -839,33 +842,46 @@ void WrapMMM::updatePz_(){
 			Pz_.setElem(iPop, jCol, div);
 		}
 	}
+	// assign z_ values
+	for (size_t iA = 0; iA < Aresid_.getNrows(); iA++) {
+		double    u = rng_.runif();
+		double cumP = 0.0;
+		for (size_t p = 0; p < Mp_.getNrows(); p++) {
+			cumP += Pz_.getElem(p, iA);
+			if (u <= cumP) {
+				z_[iA] = p;
+				break;
+			}
+		}
+	}
+	hierInd_.back() = Index(z_);
 }
 
-void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &chain, vector<uint32_t> &treeLen){
-	/*
+void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &thetaChain, vector<double> &piChain, vector<uint32_t> &treeLen){
 	treeLen.clear();
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		for (auto &s : sampler_) {
 			treeLen.push_back(s->adapt());
 		}
+		updatePi_();
+		updatePz_();
 	}
-	*/
-	chain.clear();
+	thetaChain.clear();
+	piChain.clear();
 	for (uint32_t b = 0; b < Nsample; b++) {
-		/*
 		for (auto &s : sampler_) {
 			s->update();
 		}
 		for (auto &t : vTheta_) {
-			chain.push_back(t);
+			thetaChain.push_back(t);
 		}
 		for (auto &p : vISig_) {
-			chain.push_back(p);
+			thetaChain.push_back(p);
 		}
-		*/
+		updatePi_();
 		updatePz_();
 		for (auto &p : vPz_) {
-			chain.push_back(p);
+			piChain.push_back(p);
 		}
 	}
 }

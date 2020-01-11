@@ -271,7 +271,8 @@ Rcpp::List testLocSampler(const std::vector<double> &yVec, const std::vector<int
 		}
 		l1.push_back( static_cast<size_t>(lf-1) );
 	}
-	std::vector<double> chain;
+	std::vector<double> thetaChain;
+	std::vector<double> piChain;
 	std::vector<uint32_t> tree;
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
@@ -279,11 +280,11 @@ Rcpp::List testLocSampler(const std::vector<double> &yVec, const std::vector<int
 
 	try {
 		BayesicSpace::WrapMMM test(yVec, l1, Np, 2.0, 1e-8, 2.5, 1e-6);
-		test.runSampler(Na, Ns, chain, tree);
-		return Rcpp::List::create(Rcpp::Named("chain", chain), Rcpp::Named("tree", tree));
+		test.runSampler(Na, Ns, thetaChain, piChain, tree);
+		return Rcpp::List::create(Rcpp::Named("thetaChainchain", thetaChain), Rcpp::Named("piChainchain", piChain), Rcpp::Named("tree", tree));
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
 	}
-	return Rcpp::List::create(Rcpp::Named("chain", chain));
+	return Rcpp::List::create(Rcpp::Named("thetaChainchain", thetaChain), Rcpp::Named("piChainchain", piChain), Rcpp::Named("tree", tree));
 }
 
