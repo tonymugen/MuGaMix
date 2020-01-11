@@ -46,6 +46,13 @@ namespace BayesicSpace {
 	public:
 		/** \brief Default constructor */
 		Index() {};
+		/** \brief Group constructor
+		 *
+		 * Sets up empty groups.
+		 *
+		 * \param[in] Ngroups number of groups to set up
+		 */
+		Index(const size_t &Ngroups);
 		/** \brief Array constructor
 		 *
 		 * The input array has an element for each line, and the value of that element is the base-0 group ID (i.e., if line _n_ is in the first group, then `arr[n] == 0`).
@@ -63,7 +70,7 @@ namespace BayesicSpace {
 		Index(const vector<size_t> &vec);
 		/** \brief File read constructor
 		 *
-		 * The input file has an entry for each line (separated by white space), and the value of that entry is the base-0 group ID (i.e., if line _n_ is in the first group, then `arr[n] == 0`).
+		 * The input file has an entry for each line (separated by white space), and the value of that entry is the base-0 group ID.
 		 * If the file cannot be opened, throws "Cannot open file file_name". If a negative group value is detected, thorws "Negative group ID".
 		 *
 		 * \param[in] inFileName input file name
@@ -96,7 +103,7 @@ namespace BayesicSpace {
 		/** \brief Destructor */
 		~Index(){};
 
-		/** \brief `const` vector subscript operator
+		/** \brief Vector subscript operator
 		 *
 		 * Returns the index of group _i_.
 		 *
@@ -105,26 +112,43 @@ namespace BayesicSpace {
 		 */
 		const vector<size_t> & operator[] (const size_t &i) const { return index_[i]; };
 
-		/** \brief `const` group size
+		/** \brief Group size
 		 *
 		 * \param[in] i group index
 		 * \return size of the _i_th group
 		 */
 		size_t groupSize(const size_t &i) const {return index_[i].size(); };
 
-		/** \brief `const` total sample size
+		/** \brief Total sample size
 		 *
 		 * \return total sample size
 		 */
 		size_t size() const {return groupVal_.size(); };
 
-		/** \brief `const` number of groups
+		/** \brief Number of groups
 		 *
 		 * \return number of groups
 		 */
 		size_t groupNumber() const {return index_.size(); };
 
+		/** \brief Group ID
+		 *
+		 * Returns the group ID for a given individual.
+		 *
+		 * \param[in] ind index of an individual
+		 *
+		 * \return group ID
+		 */
 		size_t groupID(const size_t &ind) const {return groupVal_[ind]; };
+
+		/** \brief Update the index
+		 *
+		 * Updates the groups with a new index. If a group is not present in the new vector, it is left empty but still exists.
+		 *
+		 * \param[in] newVec new vector of group IDs
+		 *
+		 */
+		void update(const vector<size_t> &newVec);
 
 	private:
 		/** \brief Vector of index vectors

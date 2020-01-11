@@ -641,18 +641,19 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	pi_.resize(Npop, 0.0);
 	Dmn_.resize(Npop, 0.0);
 	// Initialize the line to population index
-	/*
 	for (size_t iA = 0; iA < hierInd_[0].groupNumber(); iA++) {
 		z_.push_back(rng_.sampleInt(Npop)); // the max value is not included
 	}
-	*/
 	// deterministic assignment to true populations for now to test
+	/*
 	for (size_t k = 0; k < Npop; k++) {
 		for (size_t i = 0; i < hierInd_[0].groupNumber()/Npop; i++) {
 			z_.push_back(k);
 		}
 	}
-	hierInd_.push_back(Index(z_));
+	*/
+	hierInd_.push_back(Index(Npop));
+	hierInd_.back().update(z_);
 	updatePi_();
 	// TODO: take out after debugging is done
 	if (hierInd_[0].groupNumber() != hierInd_[1].size()) {
@@ -854,7 +855,10 @@ void WrapMMM::updatePz_(){
 			}
 		}
 	}
-	hierInd_.back() = Index(z_);
+	hierInd_.back().update(z_);
+	if ( hierInd_.back().groupNumber() != 3 ) {
+		throw string("Lost a population");
+	}
 }
 
 void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &thetaChain, vector<double> &piChain, vector<uint32_t> &treeLen){

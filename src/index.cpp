@@ -43,6 +43,10 @@ using namespace BayesicSpace;
  * Index methods
  */
 
+Index::Index(const size_t &Ngroups){
+	index_.resize(Ngroups);
+}
+
 Index::Index(const size_t *arr, const size_t &N) {
 	for (size_t elInd = 0; elInd < N; elInd++) {
 		groupVal_.push_back(arr[elInd]);
@@ -136,5 +140,19 @@ Index & Index::operator=(Index &&in){
 	groupVal_ = move(in.groupVal_);
 
 	return *this;
+}
+
+void Index::update(const vector<size_t> &newVec){
+	for (auto &vec : index_) {
+		vec.clear();
+	}
+	for (size_t elInd = 0; elInd < newVec.size(); elInd++) {
+		if (newVec[elInd] >= index_.size()) {
+			throw string("ERROR: updating vector has an extra group ID in Index::update()");
+		} else {
+			index_[newVec[elInd]].push_back(elInd);
+		}
+	}
+	groupVal_ = newVec;
 }
 
