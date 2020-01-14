@@ -119,7 +119,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	// make L matrices
 	expandISvec_();
 	const size_t Nln  = (*hierInd_)[0].groupNumber();
-	const size_t Npop = (*hierInd_)[1].groupNumber();
+	const size_t Npop = hierInd_->back().groupNumber();
 	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
 	MatrixViewConst A(&theta, 0, Nln, Y_.getNcols() );
 	MatrixViewConst Mp(&theta, Nln*Y_.getNcols(), Npop, Y_.getNcols() );
@@ -151,7 +151,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	vResid.clear();
 	vResid.resize(A.getNrows()*A.getNcols(), 0.0);
 	mResid = MatrixView(&vResid, 0, A.getNrows(), A.getNcols());
-	Mp.colExpand((*hierInd_)[1], mResid);
+	Mp.colExpand(hierInd_->back(), mResid);
 	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
 			double diff =  A.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
@@ -192,7 +192,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	grad.clear();
 	grad.resize(theta.size(), 0.0);
 	const size_t Nln  = (*hierInd_)[0].groupNumber();
-	const size_t Npop = (*hierInd_)[1].groupNumber();
+	const size_t Npop = hierInd_->back().groupNumber();
 	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
 	const size_t Adim = Nln*Y_.getNcols();
 	MatrixViewConst A(&theta, 0, Nln, Y_.getNcols() );
@@ -253,7 +253,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// Calculate the residual A - Z[p]M[p]
 	vector<double> vAMresid(Adim, 0.0);
 	MatrixView mAMresid(&vAMresid, 0, A.getNrows(), A.getNcols());
-	Mp.colExpand((*hierInd_)[1], mAMresid); // Z[p]M[p]
+	Mp.colExpand(hierInd_->back(), mAMresid); // Z[p]M[p]
 	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
 			double diff =  A.getElem(iRow, jCol) - mAMresid.getElem(iRow, jCol);
@@ -275,7 +275,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 		}
 	}
 	// Z[p]^T(A - Z[p]M[p])Sig[A]^-1
-	mAMresISA.colSums((*hierInd_)[1], gMp);
+	mAMresISA.colSums(hierInd_->back(), gMp);
 	// make tau_p
 	vector<double> tauP;
 	for (size_t k = fTpInd_; k < iSigTheta_->size(); k++) {
@@ -318,10 +318,10 @@ MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, con
 	}
 	Y_ = MatrixViewConst(yVec, 0, N, d);
 	const size_t Nln = (*hierInd_)[0].groupNumber();
-	if ((*hierInd_)[1].size() != Nln) {
+	if (hierInd_->back().size() != Nln) {
 		throw string("MumiISig constructor ERROR: number of elements in the population factor not the same as the number of lines in the line factor");
 	}
-	const size_t Npop = (*hierInd_)[1].groupNumber();
+	const size_t Npop = hierInd_->back().groupNumber();
 	A_  = MatrixViewConst(vTheta, 0, Nln, d);
 	Mp_ = MatrixViewConst(vTheta, Nln*d, Npop, d);
 	mu_ = MatrixViewConst(vTheta, (Nln+Npop)*d, 1, d);
@@ -436,7 +436,7 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	vResid.clear();
 	vResid.resize(A_.getNrows()*A_.getNcols(), 0.0);
 	mResid = MatrixView(&vResid, 0, A_.getNrows(), A_.getNcols());
-	Mp_.colExpand((*hierInd_)[1], mResid);
+	Mp_.colExpand(hierInd_->back(), mResid);
 	for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A_.getNrows(); ++iRow) {
 			double diff =  A_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
@@ -568,7 +568,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	// Start with caclulating the residual, replacing the old one
 	vResid.resize(A_.getNcols()*A_.getNrows(), 0.0);
 	mResid = MatrixView(&vResid, 0, A_.getNrows(), A_.getNcols());
-	Mp_.colExpand((*hierInd_)[1], mResid); // Z_pM_p
+	Mp_.colExpand(hierInd_->back(), mResid); // Z_pM_p
 	for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A_.getNrows(); ++ iRow) {
 			double diff =  A_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
@@ -672,7 +672,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	hierInd_.back().update(z_);
 	updatePi_();
 	// TODO: take out after debugging is done
-	if (hierInd_[0].groupNumber() != hierInd_[1].size()) {
+	if (hierInd_[0].groupNumber() != hierInd_.back().size()) {
 		throw string("WrapMMM constructor ERROR: the line and population hierarchical indexes do not match");
 	}
 	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0) );
@@ -697,7 +697,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	Pz_ = MatrixView(&vPz_, 0, Npop, Nln);
 
 	Y.colMeans(hierInd_[0], A_);    //  means to get A starting values
-	A_.colMeans(hierInd_[1], Mp_);    // A means to get population mean starting values
+	A_.colMeans(hierInd_.back(), Mp_);    // A means to get population mean starting values
 	vector<double> tmpMu;
 	Mp_.colMeans(tmpMu);
 	for (size_t k = 0; k < d; k++) {
@@ -752,7 +752,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	// A precision matrix
 	vZA.resize(Nln*d);
 	MatrixView ZpMp(&vZA, 0, Nln, d);
-	Mp_.colExpand(hierInd_[1], ZpMp);
+	Mp_.colExpand(hierInd_.back(), ZpMp);
 	for (size_t jCol = 0; jCol < d ; jCol++) {
 		for (size_t iRow = 0; iRow < Nln ; iRow++) {
 			double diff = A_.getElem(iRow, jCol) - ZpMp.getElem(iRow, jCol);
@@ -877,11 +877,10 @@ void WrapMMM::updatePz_(){
 	}
 }
 
-void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector<double> &thetaChain, vector<double> &piChain, vector<uint32_t> &treeLen){
-	treeLen.clear();
+void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain){
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		for (auto &s : sampler_) {
-			treeLen.push_back(s->adapt());
+			s->adapt();
 		}
 		updatePi_();
 		updatePz_();
@@ -892,16 +891,18 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, vector
 		for (auto &s : sampler_) {
 			s->update();
 		}
-		for (auto &t : vTheta_) {
-			thetaChain.push_back(t);
-		}
-		for (auto &p : vISig_) {
-			thetaChain.push_back(p);
-		}
 		updatePi_();
 		updatePz_();
-		for (auto &p : vPz_) {
-			piChain.push_back(p);
+		if (Nsample%Nthin) {
+			for (auto &t : vTheta_) {
+				thetaChain.push_back(t);
+			}
+			for (auto &p : vISig_) {
+				thetaChain.push_back(p);
+			}
+			for (auto &p : vPz_) {
+				piChain.push_back(p);
+			}
 		}
 	}
 }

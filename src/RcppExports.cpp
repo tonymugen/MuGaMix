@@ -5,133 +5,25 @@
 
 using namespace Rcpp;
 
-// lpTestL
-double lpTestL(const std::vector<double>& yVec, const std::vector<double>& iSigVec, const std::vector<int32_t>& repFac, const std::vector<int32_t>& lnFac, const std::vector<double>& paramValues, const int32_t& d);
-RcppExport SEXP _MuGaMix_lpTestL(SEXP yVecSEXP, SEXP iSigVecSEXP, SEXP repFacSEXP, SEXP lnFacSEXP, SEXP paramValuesSEXP, SEXP dSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type iSigVec(iSigVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type repFac(repFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type paramValues(paramValuesSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    rcpp_result_gen = Rcpp::wrap(lpTestL(yVec, iSigVec, repFac, lnFac, paramValues, d));
-    return rcpp_result_gen;
-END_RCPP
-}
-// lpTestLI
-Rcpp::List lpTestLI(const std::vector<double>& yVec, const std::vector<double>& iSigVec, const std::vector<int32_t>& repFac, const std::vector<int32_t>& lnFac, const std::vector<double>& paramValues, const int32_t& i, const int32_t& d, const double& mar);
-RcppExport SEXP _MuGaMix_lpTestLI(SEXP yVecSEXP, SEXP iSigVecSEXP, SEXP repFacSEXP, SEXP lnFacSEXP, SEXP paramValuesSEXP, SEXP iSEXP, SEXP dSEXP, SEXP marSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type iSigVec(iSigVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type repFac(repFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type paramValues(paramValuesSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type i(iSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    Rcpp::traits::input_parameter< const double& >::type mar(marSEXP);
-    rcpp_result_gen = Rcpp::wrap(lpTestLI(yVec, iSigVec, repFac, lnFac, paramValues, i, d, mar));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gradTestL
-double gradTestL(const std::vector<double>& yVec, const std::vector<double>& iSigVec, const std::vector<int32_t>& repFac, const std::vector<int32_t>& lnFac, const std::vector<double>& paramValues, const int32_t& d, const int32_t& idx);
-RcppExport SEXP _MuGaMix_gradTestL(SEXP yVecSEXP, SEXP iSigVecSEXP, SEXP repFacSEXP, SEXP lnFacSEXP, SEXP paramValuesSEXP, SEXP dSEXP, SEXP idxSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type iSigVec(iSigVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type repFac(repFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type paramValues(paramValuesSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type idx(idxSEXP);
-    rcpp_result_gen = Rcpp::wrap(gradTestL(yVec, iSigVec, repFac, lnFac, paramValues, d, idx));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gradTestLI
-Rcpp::List gradTestLI(const std::vector<double>& yVec, const std::vector<double>& iSigVec, const std::vector<int32_t>& repFac, const std::vector<int32_t>& lnFac, const std::vector<double>& paramValues, const int32_t& d, const int32_t& idx, const double& mar);
-RcppExport SEXP _MuGaMix_gradTestLI(SEXP yVecSEXP, SEXP iSigVecSEXP, SEXP repFacSEXP, SEXP lnFacSEXP, SEXP paramValuesSEXP, SEXP dSEXP, SEXP idxSEXP, SEXP marSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type iSigVec(iSigVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type repFac(repFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type paramValues(paramValuesSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type idx(idxSEXP);
-    Rcpp::traits::input_parameter< const double& >::type mar(marSEXP);
-    rcpp_result_gen = Rcpp::wrap(gradTestLI(yVec, iSigVec, repFac, lnFac, paramValues, d, idx, mar));
-    return rcpp_result_gen;
-END_RCPP
-}
-// lpTestS
-double lpTestS(const std::vector<double>& yVec, const std::vector<double>& iSigVec, const std::vector<int32_t>& repFac, const std::vector<int32_t>& lnFac, const std::vector<double>& paramValues, const int32_t& d);
-RcppExport SEXP _MuGaMix_lpTestS(SEXP yVecSEXP, SEXP iSigVecSEXP, SEXP repFacSEXP, SEXP lnFacSEXP, SEXP paramValuesSEXP, SEXP dSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type iSigVec(iSigVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type repFac(repFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type paramValues(paramValuesSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    rcpp_result_gen = Rcpp::wrap(lpTestS(yVec, iSigVec, repFac, lnFac, paramValues, d));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gradTestS
-double gradTestS(const std::vector<double>& yVec, const std::vector<double>& iSigVec, const std::vector<int32_t>& repFac, const std::vector<int32_t>& lnFac, const std::vector<double>& paramValues, const int32_t& d, const int32_t& idx);
-RcppExport SEXP _MuGaMix_gradTestS(SEXP yVecSEXP, SEXP iSigVecSEXP, SEXP repFacSEXP, SEXP lnFacSEXP, SEXP paramValuesSEXP, SEXP dSEXP, SEXP idxSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type iSigVec(iSigVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type repFac(repFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type paramValues(paramValuesSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type idx(idxSEXP);
-    rcpp_result_gen = Rcpp::wrap(gradTestS(yVec, iSigVec, repFac, lnFac, paramValues, d, idx));
-    return rcpp_result_gen;
-END_RCPP
-}
-// testLocSampler
-Rcpp::List testLocSampler(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const int32_t& Npop, const int32_t& d, const int32_t& Nadapt, const int32_t& Nsamp);
-RcppExport SEXP _MuGaMix_testLocSampler(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP NpopSEXP, SEXP dSEXP, SEXP NadaptSEXP, SEXP NsampSEXP) {
+// runSampler
+Rcpp::List runSampler(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const int32_t& Npop, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin);
+RcppExport SEXP _MuGaMix_runSampler(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP NpopSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
     Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nadapt(NadaptSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nsamp(NsampSEXP);
-    rcpp_result_gen = Rcpp::wrap(testLocSampler(yVec, lnFac, Npop, d, Nadapt, Nsamp));
+    Rcpp::traits::input_parameter< const int32_t& >::type Nthin(NthinSEXP);
+    rcpp_result_gen = Rcpp::wrap(runSampler(yVec, lnFac, Npop, Nadapt, Nsamp, Nthin));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_MuGaMix_lpTestL", (DL_FUNC) &_MuGaMix_lpTestL, 6},
-    {"_MuGaMix_lpTestLI", (DL_FUNC) &_MuGaMix_lpTestLI, 8},
-    {"_MuGaMix_gradTestL", (DL_FUNC) &_MuGaMix_gradTestL, 7},
-    {"_MuGaMix_gradTestLI", (DL_FUNC) &_MuGaMix_gradTestLI, 8},
-    {"_MuGaMix_lpTestS", (DL_FUNC) &_MuGaMix_lpTestS, 6},
-    {"_MuGaMix_gradTestS", (DL_FUNC) &_MuGaMix_gradTestS, 7},
-    {"_MuGaMix_testLocSampler", (DL_FUNC) &_MuGaMix_testLocSampler, 6},
+    {"_MuGaMix_runSampler", (DL_FUNC) &_MuGaMix_runSampler, 6},
     {NULL, NULL, 0}
 };
 
