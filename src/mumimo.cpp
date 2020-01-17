@@ -885,8 +885,6 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		updatePi_();
 		updatePz_();
 	}
-	thetaChain.clear();
-	piChain.clear();
 	for (uint32_t b = 0; b < Nsample; b++) {
 		for (auto &s : sampler_) {
 			s->update();

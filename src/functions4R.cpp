@@ -48,7 +48,7 @@
 //' @param Nthin thinning number
 //'
 //[[Rcpp::export(name="runSampler")]]
-Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin){
+Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
 	if (yVec.size()%lnFac.size()) {
 		Rcpp::stop("ERROR: line factor length implies a non-integer number of traits in the data vector");
 	}
@@ -60,6 +60,9 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 	}
 	if (Nsamp < 0) {
 		Rcpp::stop("ERROR: Number of sampling steps must be non-negative");
+	}
+	if (Nchains <= 0) {
+		Rcpp::stop("ERROR: Number of chains must be positive")
 	}
 	size_t d = yVec.size()/lnFac.size();
 	std::vector<size_t> l1;
@@ -78,7 +81,9 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 
 	try {
 		BayesicSpace::WrapMMM modelObj(yVec, l1, Np, 2.0, 1e-8, 2.5, 1e-6);
-		modelObj.runSampler(Na, Ns, Nt, thetaChain, piChain);
+		for (uint32_t i = 0; i < Nchains; i++) {
+			modelObj.runSampler(Na, Ns, Nt, thetaChain, piChain);
+		}
 		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain));
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
