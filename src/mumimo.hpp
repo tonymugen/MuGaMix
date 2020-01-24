@@ -372,7 +372,16 @@ namespace BayesicSpace {
 		void expandLa_();
 		/** \brief Update \f$ p_{ij} \f$ */
 		void updatePz_();
-
+		/** \brief K-means clustering
+		 *
+		 * Performs k-means clustering on a matrix of values. Each row of the input matrix is an item with observed values in columns.
+		 *
+		 * \param[in] X matrix of observations to be clustered
+		 * \param[in] Kclust number of clusters
+		 * \param[out] s vector of cluster assignments
+		 * \param[out] M matrix of cluster means (clusters in rows)
+		 */
+		void kMeans_(const MatrixView &X, const size_t &Kclust, vector<size_t> &s, MatrixView &M);
 	};
 }
 #endif /* lme_hpp */

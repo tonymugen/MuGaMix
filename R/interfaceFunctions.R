@@ -31,7 +31,7 @@
 #' @param n.sampling number of sampling steps
 #' @param n.thin thinning number (if, e.g., set to five then every fifth chain sample is saved)
 #' @param n.chains number of chains
-#' @return list that contains matrix of parameter chains (named \code{parChains}, each chain a column) and a matrix population assignments (named \code{popChains})
+#' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{parChains}, each chain a column) and a matrix population assignments (named \code{popChains})
 #'
 #' @export
 fitModel(data, trait.colums, factor.column, n.pop, n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5){
@@ -45,6 +45,8 @@ fitModel(data, trait.colums, factor.column, n.pop, n.burnin = 5000, n.sampling =
 	}
 	res <- runSampler(yVec, lnFac, n.pop, n.burnin, n.sampling, n.thin, n.chains)
 	res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
-	res$piChain <- matrix(res$piChain, ncol=n.chains)
+	res$piChain    <- matrix(res$piChain, ncol=n.chains)
+	attr(res, class = "mugamix")
+	return(res)
 }
 
