@@ -372,16 +372,26 @@ namespace BayesicSpace {
 		void expandLa_();
 		/** \brief Update \f$ p_{ij} \f$ */
 		void updatePz_();
+		/** \brief Euclidean distance between matrix rows
+		 *
+		 * \param[in] m1 first matrix
+		 * \param[in] row1 index of the first matrix row
+		 * \param[in] m2 second matrix
+		 * \param[in] row2 index of the second matrix row
+		 * \return euclidean distance between the rows
+		 */
+		double rowDist_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2);
 		/** \brief K-means clustering
 		 *
 		 * Performs k-means clustering on a matrix of values. Each row of the input matrix is an item with observed values in columns.
 		 *
 		 * \param[in] X matrix of observations to be clustered
 		 * \param[in] Kclust number of clusters
-		 * \param[out] s vector of cluster assignments
+		 * \param[in] maxIt maximum number of iterations
+		 * \param[out] x2m `Index` relating clusters to values
 		 * \param[out] M matrix of cluster means (clusters in rows)
 		 */
-		void kMeans_(const MatrixView &X, const size_t &Kclust, vector<size_t> &s, MatrixView &M);
+		void kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M);
 	};
 }
 #endif /* lme_hpp */

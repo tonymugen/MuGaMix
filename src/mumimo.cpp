@@ -877,6 +877,55 @@ void WrapMMM::updatePz_(){
 	}
 }
 
+double WrapMMM::rowDist_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){
+#ifndef PKG_DEBUG_OFF
+	if ( m1.getNcols() != m2.getNcols() ) {
+		throw string("ERROR: m1 and m2 matrices must have the same number of columns in WrapMMM::rowDist_()");
+	}
+	if ( row1+1 > m1.getNrows() ) {
+		throw string("ERROR: row1  index out of bounds in WrapMMM::rowDist_()");
+	}
+	if ( row2+1 > m2.getNrows() ) {
+		throw string("ERROR: row2  index out of bounds in WrapMMM::rowDist_()");
+	}
+#endif
+	double dist = 0.0;
+	for (size_t jCol = 0; jCol < m1.getNcols(); jCol++) {
+		double diff = m1.getElem(row1, jCol) - m2.getElem(row2, jCol);
+		dist += diff*diff;
+	}
+	return sqrt(dist);
+}
+
+void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M){
+#ifndef PKG_DEBUG_OFF
+	if (M.getNrows() != Kclust) {
+		throw string("ERROR: Matrix of means must have one row per cluster in WrapMMM::kMeans_()");
+	}
+	if ( X.getNcols() != M.getNcols() ) {
+		throw string("ERROR: Matrix of oservations must have the same number of cloumns as the matrix of means in WrapMMM::kMeans_()");
+	}
+#endif
+	// initialize M with a random pick of X rows (the MacQueen 1967 method)
+	size_t curXind = 0;
+	size_t curMind = 0;
+	double N       = static_cast<double>( X.getNrows() ); // # of remaining rows
+	double n       = static_cast<double>(Kclust);         // # of clusters to be picked
+	while(n != 0.0){
+		curXind += rng_.vitter(n, N);
+		for (size_t jCol = 0; jCol < X.getNcols(); jCol++) {
+			M.setElem( curMind, jCol, X.getElem(curXind, jCol) );
+		}
+		n = n - 1.0;
+		N = N - static_cast<double>(curXind);
+		curMind++;
+	}
+	// Iterate the k-means algorithm 
+	for (uint32_t i = 0; i < maxIt; i++) {
+		
+	}
+}
+
 void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain){
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		for (auto &s : sampler_) {

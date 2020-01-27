@@ -264,7 +264,7 @@ namespace BayesicSpace {
 		uint64_t sampleInt(const uint64_t &min, const uint64_t &max) const;
 		/** \brief Draw non-negative intergers in random order
 		 *
-		 * Uses Fisher-Yates-Durstenfeld algorithm to produce a random shuffle of integers in \f$ [0, N) \f$.
+		 * Uses the Fisher-Yates-Durstenfeld algorithm to produce a random shuffle of integers in \f$ [0, N) \f$.
 		 *
 		 * \param[in] Nmax the upper bound of the integer sequence
 		 *
