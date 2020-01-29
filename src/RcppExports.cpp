@@ -6,8 +6,8 @@
 using namespace Rcpp;
 
 // runSampler
-Rcpp::List runSampler(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const int32_t& Npop, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin);
-RcppExport SEXP _MuGaMix_runSampler(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP NpopSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP) {
+Rcpp::List runSampler(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const int32_t& Npop, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin, const int32_t& Nchains);
+RcppExport SEXP _MuGaMix_runSampler(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP NpopSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP, SEXP NchainsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -17,13 +17,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const int32_t& >::type Nadapt(NadaptSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nsamp(NsampSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nthin(NthinSEXP);
-    rcpp_result_gen = Rcpp::wrap(runSampler(yVec, lnFac, Npop, Nadapt, Nsamp, Nthin));
+    Rcpp::traits::input_parameter< const int32_t& >::type Nchains(NchainsSEXP);
+    rcpp_result_gen = Rcpp::wrap(runSampler(yVec, lnFac, Npop, Nadapt, Nsamp, Nthin, Nchains));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_MuGaMix_runSampler", (DL_FUNC) &_MuGaMix_runSampler, 6},
+    {"_MuGaMix_runSampler", (DL_FUNC) &_MuGaMix_runSampler, 7},
     {NULL, NULL, 0}
 };
 

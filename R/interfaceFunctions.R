@@ -34,7 +34,7 @@
 #' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{parChains}, each chain a column) and a matrix population assignments (named \code{popChains})
 #'
 #' @export
-fitModel(data, trait.colums, factor.column, n.pop, n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5){
+fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5){
 	yVec <- as.double(unlist(data[, trait.colums]))
 	if (sum(is.na(yVec))) {
 		stop("No missing trait data allowed at present")

@@ -656,24 +656,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	alpha_.resize(Npop, alphaPr);
 	pi_.resize(Npop, 0.0);
 	Dmn_.resize(Npop, 0.0);
-	// deterministic assignment to make sure the index contains the full number of populations
-	/*
-	for (size_t k = 0; k < Npop; k++) {
-		for (size_t i = 0; i < hierInd_[0].groupNumber()/Npop; i++) {
-			z_.push_back(k);
-		}
-	}
-	*/
+	// Just establish the correct number of populations, will fill in below
 	hierInd_.push_back(Index(Npop));
-	//hierInd_.back().update(z_);
-	//updatePi_();
-#ifndef PKG_DEBUG_OFF
-	if (hierInd_[0].groupNumber() != hierInd_.back().size()) {
-		throw string("WrapMMM constructor ERROR: the line and population hierarchical indexes do not match");
-	}
-#endif
-	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0) );
-	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq) );
 	const size_t N = hierInd_[0].size();
 	if (vY.size()%N) {
 		throw string("WrapMMM constructor ERROR: length of response vector not divisible by data point number");
@@ -692,9 +676,11 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	Mp_ = MatrixView(&vTheta_, Adim, Npop, d);
 	MatrixView mu(&vTheta_, Adim+Mpdim, 1, d);
 	Pz_ = MatrixView(&vPz_, 0, Npop, Nln);
+	z_.resize(Nln, 0);
 
-	Y.colMeans(hierInd_[0], A_);                  //  means to get A starting values
-	kMeans_(A_, Npop, 100, hierInd_.back(), Mp_); // use k-means for population assignment and means staring values
+	Y.colMeans(hierInd_[0], A_);                 //  means to get A starting values
+	kMeans_(A_, Npop, 50, hierInd_.back(), Mp_); // use k-means for population assignment and means staring values
+
 	vector<double> tmpMu;
 	Mp_.colMeans(tmpMu);
 	for (size_t k = 0; k < d; k++) {
@@ -787,6 +773,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	expandLa_();
 	vAresid_.resize(Adim, 0.0);
 	Aresid_ = MatrixView(&vAresid_, 0, Nln, d);
+	updatePi_();
+	updatePz_();
 	// add noise
 	for (auto &t : vTheta_) {
 		t += 0.5*rng_.rnorm();
@@ -794,6 +782,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	for (auto &s : vISig_) {
 		s += 0.5*rng_.rnorm();
 	}
+	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0) );
+	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq) );
 	sampler_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	sampler_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 }
@@ -809,7 +799,7 @@ WrapMMM::~WrapMMM(){
 
 void WrapMMM::updatePi_(){
 	for (size_t k = 0; k < Dmn_.size(); k++) {
-		Dmn_[k] = alpha_[k] + static_cast<double>( hierInd_.back().groupSize(k) ); // the cline (accession) to population index always the last one in the vector
+		Dmn_[k] = alpha_[k] + static_cast<double>( hierInd_.back().groupSize(k) ); // the line (accession) to population index always the last one in the vector
 	}
 	rng_.rdirichlet(Dmn_, pi_);
 }
@@ -869,9 +859,11 @@ void WrapMMM::updatePz_(){
 		}
 	}
 	hierInd_.back().update(z_);
-	if ( hierInd_.back().groupNumber() != 3 ) {
+#ifndef PKG_DEBUG_OFF
+	if ( hierInd_.back().groupNumber() != Mp_.getNrows() ) {
 		throw string("Lost a population");
 	}
+#endif
 }
 
 double WrapMMM::rowDist_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){
@@ -902,9 +894,6 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 	if ( X.getNcols() != M.getNcols() ) {
 		throw string("ERROR: Matrix of oservations must have the same number of cloumns as the matrix of means in WrapMMM::kMeans_()");
 	}
-	if ( X.getNrows() != x2m.size() ) {
-		throw string("ERROR: observation to cluster index must be the same size as the number of observations in WrapMMM::kMeans_()");
-	}
 	if ( M.getNrows() != x2m.groupNumber() ) {
 		throw string("ERROR: observation to cluster index must be the same number of groups as the number of populations in WrapMMM::kMeans_()");
 	}
@@ -914,13 +903,13 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 	size_t curMind = 0;
 	double N       = static_cast<double>( X.getNrows() ); // # of remaining rows
 	double n       = static_cast<double>(Kclust);         // # of clusters to be picked
-	while(n != 0.0){
+	while( curMind < M.getNrows() ){
 		curXind += rng_.vitter(n, N);
 		for (size_t jCol = 0; jCol < X.getNcols(); jCol++) {
 			M.setElem( curMind, jCol, X.getElem(curXind, jCol) );
 		}
 		n = n - 1.0;
-		N = N - static_cast<double>(curXind);
+		N = N - static_cast<double>(curXind) + 1.0;
 		curMind++;
 	}
 	// Iterate the k-means algorithm
@@ -931,7 +920,7 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 		sPrevious = sNew;
 		// assign cluster IDs according to minimal diistance
 		for (size_t iRow = 0; iRow < X.getNrows(); iRow++) {
-			sNew[iRow] = 0;
+			sNew[iRow]  = 0;
 			double dist = rowDist_(X, iRow, M, 0);
 			for (size_t iCl = 1; iCl < M.getNrows(); iCl++) {
 				double curDist = rowDist_(X, iRow, M, iCl);
@@ -951,13 +940,16 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 				nDiff++;
 			}
 		}
-		if ( (nDiff/N) <= 0.1 ) { // fewer than 10% of assignments changed
+		if ( (nDiff/static_cast<double>( X.getNrows() )) <= 0.1 ) { // fewer than 10% of assignments changed
 			break;
 		}
 	}
 }
 
 void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain){
+	for (auto &p : vPz_) {
+		piChain.push_back(p);
+	}
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		for (auto &s : sampler_) {
 			s->adapt();
@@ -971,7 +963,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		}
 		updatePi_();
 		updatePz_();
-		if (Nsample%Nthin) {
+		if ( (Nsample%Nthin) == 0) {
 			for (auto &t : vTheta_) {
 				thetaChain.push_back(t);
 			}

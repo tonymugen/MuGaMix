@@ -62,7 +62,7 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 		Rcpp::stop("ERROR: Number of sampling steps must be non-negative");
 	}
 	if (Nchains <= 0) {
-		Rcpp::stop("ERROR: Number of chains must be positive")
+		Rcpp::stop("ERROR: Number of chains must be positive");
 	}
 	size_t d = yVec.size()/lnFac.size();
 	std::vector<size_t> l1;
@@ -80,8 +80,8 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 	const uint32_t Np = static_cast<uint32_t>(Npop);
 
 	try {
-		BayesicSpace::WrapMMM modelObj(yVec, l1, Np, 2.0, 1e-8, 2.5, 1e-6);
 		for (uint32_t i = 0; i < Nchains; i++) {
+			BayesicSpace::WrapMMM modelObj(yVec, l1, Np, 2.0, 1e-8, 2.5, 1e-6);
 			modelObj.runSampler(Na, Ns, Nt, thetaChain, piChain);
 		}
 		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain));

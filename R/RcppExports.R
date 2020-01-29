@@ -12,7 +12,7 @@
 #' @param Nsamp number of sampling steps
 #' @param Nthin thinning number
 #'
-runSampler <- function(yVec, lnFac, Npop, Nadapt, Nsamp, Nthin) {
-    .Call(`_MuGaMix_runSampler`, yVec, lnFac, Npop, Nadapt, Nsamp, Nthin)
+runSampler <- function(yVec, lnFac, Npop, Nadapt, Nsamp, Nthin, Nchains) {
+    .Call(`_MuGaMix_runSampler`, yVec, lnFac, Npop, Nadapt, Nsamp, Nthin, Nchains)
 }
 
