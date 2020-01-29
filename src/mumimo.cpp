@@ -656,11 +656,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	alpha_.resize(Npop, alphaPr);
 	pi_.resize(Npop, 0.0);
 	Dmn_.resize(Npop, 0.0);
-	// Initialize the line to population index
-	for (size_t iA = 0; iA < hierInd_[0].groupNumber(); iA++) {
-		z_.push_back(rng_.sampleInt(Npop)); // the max value is not included
-	}
-	// deterministic assignment to true populations for now to test
+	// deterministic assignment to make sure the index contains the full number of populations
 	/*
 	for (size_t k = 0; k < Npop; k++) {
 		for (size_t i = 0; i < hierInd_[0].groupNumber()/Npop; i++) {
@@ -669,12 +665,13 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	}
 	*/
 	hierInd_.push_back(Index(Npop));
-	hierInd_.back().update(z_);
-	updatePi_();
-	// TODO: take out after debugging is done
+	//hierInd_.back().update(z_);
+	//updatePi_();
+#ifndef PKG_DEBUG_OFF
 	if (hierInd_[0].groupNumber() != hierInd_.back().size()) {
 		throw string("WrapMMM constructor ERROR: the line and population hierarchical indexes do not match");
 	}
+#endif
 	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0) );
 	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq) );
 	const size_t N = hierInd_[0].size();
@@ -696,8 +693,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	MatrixView mu(&vTheta_, Adim+Mpdim, 1, d);
 	Pz_ = MatrixView(&vPz_, 0, Npop, Nln);
 
-	Y.colMeans(hierInd_[0], A_);    //  means to get A starting values
-	A_.colMeans(hierInd_.back(), Mp_);    // A means to get population mean starting values
+	Y.colMeans(hierInd_[0], A_);                  //  means to get A starting values
+	kMeans_(A_, Npop, 100, hierInd_.back(), Mp_); // use k-means for population assignment and means staring values
 	vector<double> tmpMu;
 	Mp_.colMeans(tmpMu);
 	for (size_t k = 0; k < d; k++) {
@@ -905,6 +902,12 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 	if ( X.getNcols() != M.getNcols() ) {
 		throw string("ERROR: Matrix of oservations must have the same number of cloumns as the matrix of means in WrapMMM::kMeans_()");
 	}
+	if ( X.getNrows() != x2m.size() ) {
+		throw string("ERROR: observation to cluster index must be the same size as the number of observations in WrapMMM::kMeans_()");
+	}
+	if ( M.getNrows() != x2m.groupNumber() ) {
+		throw string("ERROR: observation to cluster index must be the same number of groups as the number of populations in WrapMMM::kMeans_()");
+	}
 #endif
 	// initialize M with a random pick of X rows (the MacQueen 1967 method)
 	size_t curXind = 0;
@@ -920,9 +923,37 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 		N = N - static_cast<double>(curXind);
 		curMind++;
 	}
-	// Iterate the k-means algorithm 
+	// Iterate the k-means algorithm
+	vector<size_t> sPrevious;             // previous cluster assignment vector
+	vector<size_t> sNew(X.getNrows(), 0); // new cluster assigment vector
 	for (uint32_t i = 0; i < maxIt; i++) {
-		
+		// save the previous S vector
+		sPrevious = sNew;
+		// assign cluster IDs according to minimal diistance
+		for (size_t iRow = 0; iRow < X.getNrows(); iRow++) {
+			sNew[iRow] = 0;
+			double dist = rowDist_(X, iRow, M, 0);
+			for (size_t iCl = 1; iCl < M.getNrows(); iCl++) {
+				double curDist = rowDist_(X, iRow, M, iCl);
+				if (dist > curDist) {
+					sNew[iRow] = iCl;
+					dist       = curDist;
+				}
+			}
+		}
+		x2m.update(sNew);
+		// recalculate cluster means
+		X.colMeans(x2m, M);
+		// claclulate the magnitude of cluster assignment change
+		double nDiff = 0.0;
+		for (size_t i = 0; i < sNew.size(); i++) {
+			if (sNew[i] != sPrevious[i] ) {
+				nDiff++;
+			}
+		}
+		if ( (nDiff/N) <= 0.1 ) { // fewer than 10% of assignments changed
+			break;
+		}
 	}
 }
 
