@@ -947,9 +947,6 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 }
 
 void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain){
-	for (auto &p : vPz_) {
-		piChain.push_back(p);
-	}
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		for (auto &s : sampler_) {
 			s->adapt();
