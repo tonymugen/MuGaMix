@@ -748,6 +748,13 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		double diag = Sig.getElem(k, k) + 1e-4;
 		Sig.setElem(k, k, diag);
 	}
+	// Estimate PC1 for projection re-ordering
+	const size_t nPC = 1;
+	pc1_.resize(d, 0);
+	MatrixView U(&pc1_, 0, d, nPC);
+	vector<double> lam(nPC, 0.0);
+	Sig.eigenSafe('l', 1, U, lam);
+
 	Sig.chol();
 	Sig.cholInv();
 	for (size_t k = 0; k < d; k++) {
@@ -804,21 +811,6 @@ void WrapMMM::updatePi_(){
 	rng_.rdirichlet(Dmn_, pi_);
 }
 
-void WrapMMM::expandLa_(){
-	vector <double> Ta;
-	for (size_t k = fTaInd_; k < fTaInd_ + La_.getNcols(); k++) {
-		Ta.push_back( exp(0.5*vISig_[k]) );
-	}
-	size_t aInd = fLaInd_;                                             // index of the La lower triangle in the input vector
-	for (size_t jCol = 0; jCol < La_.getNcols(); jCol++) {             // the last column is all 0, except the last element = Ta[d]
-		La_.setElem(jCol, jCol, Ta[jCol]);
-		for (size_t iRow = jCol + 1; iRow < La_.getNcols(); iRow++) {
-			La_.setElem(iRow, jCol, vISig_[aInd]*Ta[jCol]);
-			aInd++;
-		}
-	}
-}
-
 void WrapMMM::updatePz_(){
 	for (size_t p = 0; p < Mp_.getNrows(); p++) {             // for each population
 		for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
@@ -864,6 +856,21 @@ void WrapMMM::updatePz_(){
 		throw string("Lost a population");
 	}
 #endif
+}
+
+void WrapMMM::expandLa_(){
+	vector <double> Ta;
+	for (size_t k = fTaInd_; k < fTaInd_ + La_.getNcols(); k++) {
+		Ta.push_back( exp(0.5*vISig_[k]) );
+	}
+	size_t aInd = fLaInd_;                                             // index of the La lower triangle in the input vector
+	for (size_t jCol = 0; jCol < La_.getNcols(); jCol++) {             // the last column is all 0, except the last element = Ta[d]
+		La_.setElem(jCol, jCol, Ta[jCol]);
+		for (size_t iRow = jCol + 1; iRow < La_.getNcols(); iRow++) {
+			La_.setElem(iRow, jCol, vISig_[aInd]*Ta[jCol]);
+			aInd++;
+		}
+	}
 }
 
 double WrapMMM::rowDist_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){

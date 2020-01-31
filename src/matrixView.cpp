@@ -65,7 +65,6 @@ MatrixView::MatrixView(vector<double> *inVec, const size_t &idx, const size_t &n
 #endif
 };
 
-
 MatrixView::MatrixView(MatrixView &&inMat){
 	if (this != &inMat) {
 		data_ = inMat.data_;
@@ -590,10 +589,10 @@ void MatrixView::eigenSafe(const char &tri, const size_t &n, MatrixView &U, vect
 	}
 
 	vector<int> isuppz(2*M, 0);
-	vector<double> work(1, 0.0);        // workspace; size will be determined
-	int lwork = -1;          // to start; this lets us determine workspace size
-	vector<int> iwork(1, 0); // integer workspace; size to be calculated
-	int liwork = -1;         // to start; this lets us determine integer workspace size
+	vector<double> work(1, 0.0);  // workspace; size will be determined
+	int lwork = -1;               // to start; this lets us determine workspace size
+	vector<int> iwork(1, 0);      // integer workspace; size to be calculated
+	int liwork = -1;              // to start; this lets us determine integer workspace size
 	int info = 0;
 
 	double *dataCopy = new double[Nrow_ * Ncol_];
