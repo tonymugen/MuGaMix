@@ -48,59 +48,6 @@ namespace BayesicSpace {
 
 	class WrapMMM;
 
-	/** \brief Shell sort
-	 *
-	 * Sorts the provided vector in ascending order using Shell's method. Rather than move the elements themselves, save their indexes to the output vector. The first element of the index vector points to the smallest element of the input vector etc. The implementation is modified from code in Numerical Recipes in C++.
-	 * NOTE: This algorithm is too slow for vectors of \f$ > 50\f$ elements. I am using it for population projection ordering, where the number of populations will typically not exceed 10.
-	 *
-	 * \param[in] target vector to be sorted
-	 * \param[in] beg index of the first element
-	 * \param[in] end index of one past the last element to be included
-	 * \param[out] outIdx vector of indexes
-	 */
-	void shellSort(const vector<double> &target, const size_t &beg, const size_t &end, vector<size_t> &outIdx){
-#ifndef PKG_DEBUG_OFF
-		if (target.size() < end) {
-			throw string("Target vector size smaller than end index in shellSort()");
-		} else if (outIdx.size() < end) {
-			throw string("Output vector size smaller than end index in shellSort()");
-		} else if (end < beg) {
-			throw string("End index smaller than beginning index in shellSort()");
-		} else if (target.size() != outIdx.size()) {
-			throw string("Target and output vectors must be of the same size in shellSort()");
-		}
-#endif
-		// pick the initial increment
-		size_t inc = 1;
-		do {
-			inc = inc*3 + 1;
-		} while (inc <= end - beg);
-
-		// start the sort
-		do { // loop over partial sorts, decreasing the increment each time
-			inc /= 3;
-			const size_t bottom = beg + inc;
-			for (size_t iOuter = bottom; iOuter < end; iOuter++) { // outer loop of the insertion sort, going over the indexes
-				if (outIdx[iOuter] >= target.size()) {
-					throw string("outIdx value out of bounds for target vector in shellSort()");
-				}
-				const size_t curInd = outIdx[iOuter]; // save the current value of the index
-				size_t jInner       = iOuter;
-				while (target[ outIdx[jInner - inc] ] > target[ curInd ]) {  // Straight insertion inner loop; looking for a place to insert the current value
-					if (outIdx[jInner-inc] >= target.size()) {
-						throw string("outIdx value out of bounds for target vector in shellSort()");
-					}
-					outIdx[jInner] = outIdx[jInner-inc];
-					jInner        -= inc;
-					if (jInner < bottom) {
-						break;
-					}
-				}
-				outIdx[jInner] = curInd;
-			}
-		} while (inc > 1);
-	}
-
 	/** \brief Mixture model for location parameters
 	 *
 	 * Implements log-posterior and gradient for the location parameters of the mixture model.
@@ -174,7 +121,7 @@ namespace BayesicSpace {
 		 * Points to `vLx_`.
 		 */
 		mutable MatrixView La_;
-		/** \brief Expanded _L_ matrices
+		/** \brief Expanded \f$ \boldsymbol{L} \f$ matrices
 		 *
 		 * Vectorized error and line unity triangular matrices (\f$\boldsymbol{L}_X\f$ in the model description).
 		 */
@@ -287,7 +234,7 @@ namespace BayesicSpace {
 		 * Points to `vLx_`.
 		 */
 		mutable MatrixView La_;
-		/** \brief Expanded _L_ matrices
+		/** \brief Expanded \f$ \boldsymbol{L} \f$ matrices
 		 *
 		 * Vectorized error and line unity triangular matrices (\f$\boldsymbol{L}_X\f$ in the model description).
 		 */
@@ -388,11 +335,11 @@ namespace BayesicSpace {
 		size_t fLaInd_;
 		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
 		size_t fTaInd_;
-		/** \brief Expanded vectorized \f$ L_A \f$ matrix */
+		/** \brief Expanded vectorized \f$ \boldsymbol{L}_A \f$ matrix */
 		vector<double> vLa_;
-		/** \brief Matrix view of the \f$ L_A \f$ matrix */
+		/** \brief Matrix view of the \f$ \boldsymbol{L}_A \f$ matrix */
 		MatrixView La_;
-		/** \brief Vectorized \f$ A - m_{i\cdot} \f$ residual */
+		/** \brief Vectorized \f$ \boldsymbol{A} - \boldsybol{\mu}_{i\cdot} \f$ residual */
 		vector<double> vAresid_;
 		/** \brief Matrix view of the residual */
 		MatrixView Aresid_;
@@ -426,12 +373,12 @@ namespace BayesicSpace {
 		void updatePz_();
 		/** \brief Sort the populations
 		 *
-		 * Populations are sorted using a projection on the first PC of the initial line covariance matrix (`pc1_`). The rows in the population are then re-arranged accordingly (in order of increase).
+		 * Populations are sorted using a projection on the first PC of the initial line covariance matrix (`pc1_`). The rows in the population matrix `Mp_` are then re-arranged accordingly (in order of increase). The elements of the `pi_` mixture proportion vector are also rearranged.
 		 */
 		void sortPops_();
-		/** \brief Expand lower triangle of the \f$ L_A \f$ matrix
+		/** \brief Expand lower triangle of the \f$ \boldsymbol{L}_A \f$ matrix
 		 *
-		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix and multiplies its columns by the square root of \f$ T_A \f$. The input vector `vISig_` stores only the non-zero elements of these matrices.
+		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix and multiplies its columns by the square root of \f$ \boldsymbol{T}_A \f$. The input vector `vISig_` stores only the non-zero elements of these matrices.
 		 *
 		 */
 		void expandLa_();
@@ -443,7 +390,7 @@ namespace BayesicSpace {
 		 * \param[in] row2 index of the second matrix row
 		 * \return euclidean distance between the rows
 		 */
-		double rowDist_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2);
+		double rowDistance_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2);
 		/** \brief K-means clustering
 		 *
 		 * Performs k-means clustering on a matrix of values. Each row of the input matrix is an item with observed values in columns.

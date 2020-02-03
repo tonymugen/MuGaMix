@@ -50,6 +50,7 @@ const double SamplerNUTS::t0_       = 10.0;
 const double SamplerNUTS::gamma_    = 0.05;
 const double SamplerNUTS::negKappa_ = -0.75;
 const uint64_t SamplerNUTS::mask_   = static_cast<uint64_t>(0x01);
+
 /** \brief Vector self-dot-product
  *
  * \param[in] v vector
@@ -78,7 +79,6 @@ double dotProd(const vector<double> &v1, const vector<double> &v2){
 	}
 	return dotProd;
 }
-
 /** \brief Weighted mean update function
  *
  * Takes the current weighted mean and updates using the new data point and weight. The formula is

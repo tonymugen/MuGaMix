@@ -43,6 +43,56 @@ using std::vector;
 using std::string;
 using namespace BayesicSpace;
 
+/** \brief Shell sort
+ *
+ * Sorts the provided vector in ascending order using Shell's method. Rather than move the elements themselves, save their indexes to the output vector. The first element of the index vector points to the smallest element of the input vector etc. The implementation is modified from code in Numerical Recipes in C++.
+ * NOTE: This algorithm is too slow for vectors of \f$ > 50\f$ elements. I am using it for population projection ordering, where the number of populations will typically not exceed 10.
+ *
+ * \param[in] target vector to be sorted
+ * \param[out] outIdx vector of indexes
+ */
+void sort(const vector<double> &target, vector<size_t> &outIdx){
+	if ( outIdx.size() ) {
+		outIdx.clear();
+	}
+	for (size_t i = 0; i < target.size(); i++) {
+		outIdx.push_back(i);
+	}
+	// pick the initial increment
+	size_t inc = 1;
+	do {
+		inc = inc*3 + 1;
+	} while ( inc <= target.size() );
+
+	// start the sort
+	do { // loop over partial sorts, decreasing the increment each time
+		inc /= 3;
+		const size_t bottom = inc;
+		for (size_t iOuter = bottom; iOuter < target.size(); iOuter++) { // outer loop of the insertion sort, going over the indexes
+#ifndef PKG_DEBUG_OFF
+			if (outIdx[iOuter] >= target.size()) {
+				throw string("outIdx value out of bounds for target vector in shellSort()");
+			}
+#endif
+			const size_t curInd = outIdx[iOuter]; // save the current value of the index
+			size_t jInner       = iOuter;
+			while (target[ outIdx[jInner - inc] ] > target[curInd]) {  // Straight insertion inner loop; looking for a place to insert the current value
+#ifndef PKG_DEBUG_OFF
+				if (outIdx[jInner-inc] >= target.size()) {
+					throw string("outIdx value out of bounds for target vector in shellSort()");
+				}
+#endif
+				outIdx[jInner] = outIdx[jInner-inc];
+				jInner        -= inc;
+				if (jInner < bottom) {
+					break;
+				}
+			}
+			outIdx[jInner] = curInd;
+		}
+	} while (inc > 1);
+}
+
 // MumiLoc methods
 MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec} {
 	const size_t n = (*hierInd_)[0].size();
@@ -780,6 +830,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	expandLa_();
 	vAresid_.resize(Adim, 0.0);
 	Aresid_ = MatrixView(&vAresid_, 0, Nln, d);
+	sortPops_();
 	updatePi_();
 	updatePz_();
 	// add noise
@@ -873,7 +924,39 @@ void WrapMMM::expandLa_(){
 	}
 }
 
-double WrapMMM::rowDist_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){
+void WrapMMM::sortPops_(){
+	// Calculate the projection of population means on PC1
+	const size_t nPC = 1;
+	MatrixView U(&pc1_, 0, Mp_.getNcols(), nPC);
+	vector<double> prj(Mp_.getNrows(), 0.0);
+	MatrixView Mprj(&prj, 0, Mp_.getNrows(), nPC);
+	U.gemm(false, 1.0, Mp_, false, 0.0, Mprj);
+
+	// sort the projection vector
+	vector<size_t> sIdx;
+	sort(prj, sIdx);
+
+	// rearrange the population means matrix
+	const size_t mDim = Mp_.getNrows()*Mp_.getNcols();
+	const size_t aDim = A_.getNrows()*A_.getNcols();
+	vector<double> tmpM(vTheta_.begin()+aDim, vTheta_.begin()+aDim+mDim);
+	MatrixView tmpMmat( &tmpM, 0, Mp_.getNrows(), Mp_.getNcols() );
+	for (size_t oldRow = 0; oldRow < Mp_.getNrows(); oldRow++) {
+		if (sIdx[oldRow] != oldRow) { // if the index did not change, do nothing
+			for (size_t jCol = 0; jCol < Mp_.getNcols(); jCol++) {
+				Mp_.setElem(sIdx[oldRow], jCol, tmpMmat.getElem(oldRow, jCol));
+			}
+		}
+	}
+
+	// rearrange the pi_ vector to match the population matrix rows
+	vector<double> tmpPi(pi_);
+	for (size_t oldInd = 0; oldInd < pi_.size(); oldInd++) {
+		pi_[sIdx[oldInd]] = tmpPi[oldInd];
+	}
+}
+
+double WrapMMM::rowDistance_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){
 #ifndef PKG_DEBUG_OFF
 	if ( m1.getNcols() != m2.getNcols() ) {
 		throw string("ERROR: m1 and m2 matrices must have the same number of columns in WrapMMM::rowDist_()");
@@ -928,9 +1011,9 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 		// assign cluster IDs according to minimal diistance
 		for (size_t iRow = 0; iRow < X.getNrows(); iRow++) {
 			sNew[iRow]  = 0;
-			double dist = rowDist_(X, iRow, M, 0);
+			double dist = rowDistance_(X, iRow, M, 0);
 			for (size_t iCl = 1; iCl < M.getNrows(); iCl++) {
-				double curDist = rowDist_(X, iRow, M, iCl);
+				double curDist = rowDistance_(X, iRow, M, iCl);
 				if (dist > curDist) {
 					sNew[iRow] = iCl;
 					dist       = curDist;
@@ -958,6 +1041,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		for (auto &s : sampler_) {
 			s->adapt();
 		}
+		sortPops_();
 		updatePi_();
 		updatePz_();
 	}
@@ -965,6 +1049,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		for (auto &s : sampler_) {
 			s->update();
 		}
+		sortPops_();
 		updatePi_();
 		updatePz_();
 		if ( (Nsample%Nthin) == 0) {
