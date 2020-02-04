@@ -131,6 +131,12 @@ namespace BayesicSpace {
 		 */
 		size_t groupNumber() const {return index_.size(); };
 
+		/** \brief Number of non-empty groups
+		 *
+		 * \return number of non-empty groups
+		 */
+		size_t neGroupNumber() const;
+
 		/** \brief Group ID
 		 *
 		 * Returns the group ID for a given individual.

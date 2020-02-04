@@ -46,6 +46,7 @@ fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, 
 	res <- runSampler(yVec, lnFac, n.pop, n.burnin, n.sampling, n.thin, n.chains)
 	res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
 	res$piChain    <- matrix(res$piChain, ncol=n.chains)
+	res$nPopsChain <- matrix(res$nPopsChain, ncol=n.chains)
 	class(res) <- "mugamix"
 	return(res)
 }

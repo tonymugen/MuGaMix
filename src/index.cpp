@@ -142,6 +142,16 @@ Index & Index::operator=(Index &&in){
 	return *this;
 }
 
+size_t Index::neGroupNumber() const {
+	size_t neGN = 0;
+	for (auto &g : index_) {
+		if ( g.size() ) {
+			neGN++;
+		}
+	}
+	return neGN;
+}
+
 void Index::update(const vector<size_t> &newVec){
 	for (auto &vec : index_) {
 		vec.clear();

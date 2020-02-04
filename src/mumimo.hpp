@@ -301,8 +301,9 @@ namespace BayesicSpace {
 		 * \param[in] Nthin thinning number
 		 * \param[out] thetaChain MCMC chain of model parameters
 		 * \param[out] piChain MCMC chain of \f$ p_{ij} \f$
+		 * \param[out] nPopsChain MCMC chain tracking the number of non-empty populations
 		 */
-		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain);
+		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain, vector<int32_t> &nPopsChain);
 	private:
 		/** \brief Vectorized data matrix
 		 *

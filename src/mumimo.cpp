@@ -178,11 +178,10 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	// Calculate the residual Y - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
 	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
-	A.colExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
-			double diff =  Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
-			mResid.setElem( iRow, jCol, diff); // Y - ZA
+			double diff =  Y_.getElem(iRow, jCol) - A.getElem( (*hierInd_)[0].groupID(iRow), jCol );
+			mResid.setElem(iRow, jCol, diff); // Y - ZA
 		}
 	}
 	// multiply by L_E
@@ -201,11 +200,10 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	vResid.clear();
 	vResid.resize(A.getNrows()*A.getNcols(), 0.0);
 	mResid = MatrixView(&vResid, 0, A.getNrows(), A.getNcols());
-	Mp.colExpand(hierInd_->back(), mResid);
 	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
-			double diff =  A.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
-			mResid.setElem( iRow, jCol, diff); // A - Z[p]M[p]
+			double diff =  A.getElem(iRow, jCol) - Mp.getElem(hierInd_->back().groupID(iRow), jCol);
+			mResid.setElem(iRow, jCol, diff); // A - Z[p]M[p]
 		}
 	}
 	mResid.trm('l', 'r', false, true, 1.0, La_);
@@ -221,11 +219,9 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	// M[p] crossproduct trace
 	double trM = 0.0;
 	for (size_t jCol = 0; jCol < Mp.getNcols(); ++jCol) {
-		for (size_t iRow = 0; iRow < Mp.getNrows(); ++iRow) {
-			if ((hierInd_->back().groupSize(iRow))) {
-				double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
-				trM += diff*exp((*iSigTheta_)[fTpInd_ + jCol])*diff;
-			}
+		for (size_t iRow = 0; iRow < Mp.getNrows(); ++iRow) { // even if the population is empty; the prior rules in that case
+			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
+			trM += diff*exp((*iSigTheta_)[fTpInd_ + jCol])*diff;
 		}
 	}
 	double trP = 0.0;
@@ -257,11 +253,10 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// Calculate the residual Y - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
 	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
-	A.colExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
-			double diff =  Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
-			mResid.setElem( iRow, jCol, diff); // Y - ZA
+			double diff =  Y_.getElem(iRow, jCol) - A.getElem( (*hierInd_)[0].groupID(iRow), jCol);
+			mResid.setElem(iRow, jCol, diff); // Y - ZA
 		}
 	}
 
@@ -303,10 +298,9 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// Calculate the residual A - Z[p]M[p]
 	vector<double> vAMresid(Adim, 0.0);
 	MatrixView mAMresid(&vAMresid, 0, A.getNrows(), A.getNcols());
-	Mp.colExpand(hierInd_->back(), mAMresid); // Z[p]M[p]
 	for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
-			double diff =  A.getElem(iRow, jCol) - mAMresid.getElem(iRow, jCol);
+			double diff =  A.getElem(iRow, jCol) - Mp.getElem(hierInd_->back().groupID(iRow), jCol);
 			mAMresid.setElem(iRow, jCol, diff); // A - Z[p]M[p]
 		}
 	}
@@ -336,7 +330,9 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 		for (size_t iRow = 0; iRow < Mp.getNrows(); ++iRow) {
 			if (hierInd_->back().groupSize(iRow)) {
 				double diff =  gMp.getElem(iRow, jCol) - (Mp.getElem(iRow, jCol) - mu.getElem(0, jCol))*tauP[jCol];
-				gMp.setElem( iRow, jCol, diff); // Z[p]^T(A - Z[p]M[p])Sig[A]^-1 - (M[p] - mu)tau[p]
+				gMp.setElem(iRow, jCol, diff); // Z[p]^T(A - Z[p]M[p])Sig[A]^-1 - (M[p] - mu)tau[p]
+			} else {
+				gMp.setElem(iRow, jCol, ( mu.getElem(0, jCol) - Mp.getElem(iRow, jCol) )*tauP[jCol]);
 			}
 		}
 	}
@@ -463,11 +459,10 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	// Calculate the Y residuals
 	vector<double> vResid(Y_.getNcols()*Y_.getNrows(), 0.0);
 	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
-	A_.colExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
-			double diff = Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
-			mResid.setElem( iRow, jCol, diff); // Y - ZA
+			double diff = Y_.getElem(iRow, jCol) - A_.getElem( (*hierInd_)[0].groupID(iRow), jCol);
+			mResid.setElem(iRow, jCol, diff); // Y - ZA
 		}
 	}
 	// multiply by L_E
@@ -486,11 +481,10 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	vResid.clear();
 	vResid.resize(A_.getNrows()*A_.getNcols(), 0.0);
 	mResid = MatrixView(&vResid, 0, A_.getNrows(), A_.getNcols());
-	Mp_.colExpand(hierInd_->back(), mResid);
 	for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A_.getNrows(); ++iRow) {
-			double diff =  A_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
-			mResid.setElem( iRow, jCol, diff); // A - Z[p]M[p]
+			double diff =  A_.getElem(iRow, jCol) - Mp_.getElem(hierInd_->back().groupID(iRow), jCol);
+			mResid.setElem(iRow, jCol, diff); // A - Z[p]M[p]
 		}
 	}
 	mResid.trm('l', 'r', false, true, 1.0, La_);
@@ -506,11 +500,9 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	// Mp trace
 	double trM = 0.0;
 	for (size_t jCol = 0; jCol < Mp_.getNcols(); ++jCol) {
-		for (size_t iRow = 0; iRow < Mp_.getNrows(); ++iRow) {
-			if (hierInd_->back().groupSize(iRow)) {
-				double diff = Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol);
-				trM += diff*exp(viSig[fTpInd_ + jCol])*diff;
-			}
+		for (size_t iRow = 0; iRow < Mp_.getNrows(); ++iRow) { // even if the population is empty; prior rules if it is
+			double diff = Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol);
+			trM += diff*exp(viSig[fTpInd_ + jCol])*diff;
 		}
 	}
 	// Sum of log-determinants
@@ -551,11 +543,10 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	// Calculate the Y residuals
 	vector<double> vResid(Y_.getNcols()*Y_.getNrows(), 0.0);
 	MatrixView mResid(&vResid, 0, Y_.getNrows(), Y_.getNcols());
-	A_.colExpand((*hierInd_)[0], mResid); // ZA
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
-			double diff =  Y_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
-			mResid.setElem( iRow, jCol, diff); // Y - ZA
+			double diff =  Y_.getElem(iRow, jCol) - A_.getElem( (*hierInd_)[0].groupID(iRow), jCol );
+			mResid.setElem(iRow, jCol, diff); // Y - ZA
 		}
 	}
 	vector<double> vRtR(Y_.getNcols()*Y_.getNcols(), 0.0);
@@ -618,11 +609,10 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	// Start with caclulating the residual, replacing the old one
 	vResid.resize(A_.getNcols()*A_.getNrows(), 0.0);
 	mResid = MatrixView(&vResid, 0, A_.getNrows(), A_.getNcols());
-	Mp_.colExpand(hierInd_->back(), mResid); // Z_pM_p
 	for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < A_.getNrows(); ++ iRow) {
-			double diff =  A_.getElem(iRow, jCol) - mResid.getElem(iRow, jCol);
-			mResid.setElem( iRow, jCol, diff); // A - Z_pM_p
+			double diff =  A_.getElem(iRow, jCol) - Mp_.getElem(hierInd_->back().groupID(iRow), jCol);
+			mResid.setElem(iRow, jCol, diff); // A - Z_pM_p
 		}
 	}
 	// Calculate the crossproduct and multiply by L_A
@@ -674,15 +664,11 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 		grad[fTaInd_ + k] = 0.5*(NAnd_ - mRtRLT.getElem(k, k) - nxnd_*Tx[k]/weights[k]);
 	}
 	// The T_P gradient
-	// Start with caclulating the residual, replacing the old one
+	// Start with calculating the residual, replacing the old one
 	vResid.clear();
 	for (size_t jCol = 0; jCol < Mp_.getNcols(); jCol++) {
-		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) {
-			if (hierInd_->back().groupSize(iRow)) {
-				vResid.push_back(Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol));
-			} else {
-				vResid.push_back(-mu_.getElem(0, jCol));
-			}
+		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) { // even if the population is empty; prior still has an effect
+			vResid.push_back(Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol));
 		}
 	}
 	mResid = MatrixView(&vResid, 0, Mp_.getNrows(), Mp_.getNcols());
@@ -1023,7 +1009,7 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 		x2m.update(sNew);
 		// recalculate cluster means
 		X.colMeans(x2m, M);
-		// claclulate the magnitude of cluster assignment change
+		// calculate the magnitude of cluster assignment change
 		double nDiff = 0.0;
 		for (size_t i = 0; i < sNew.size(); i++) {
 			if (sNew[i] != sPrevious[i] ) {
@@ -1036,7 +1022,7 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 	}
 }
 
-void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain){
+void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain, vector<int32_t> &nPopsChain){
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		for (auto &s : sampler_) {
 			s->adapt();
@@ -1062,6 +1048,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			for (auto &p : vPz_) {
 				piChain.push_back(p);
 			}
+			nPopsChain.push_back( hierInd_.back().neGroupNumber() );
 		}
 	}
 }
