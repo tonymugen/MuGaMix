@@ -1053,4 +1053,11 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 	}
 }
 
+// WrapMMMmiss methods
+WrapMMMmiss::WrapMMMmiss(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq, const vector<int32_t> &missIDs) : WrapMMM(vY, y2line, Npop, alphaPr, tau0, nu0, invAsq) {
+
+
+}
+
+
 
