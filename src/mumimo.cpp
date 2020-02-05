@@ -387,7 +387,7 @@ MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, con
 	Nnd_         = static_cast<double>(Y_.getNrows()) + nu0_ + 2.0*static_cast<double>(d);
 	NAnd_        = static_cast<double>(Nln) + nu0_ + 2.0*static_cast<double>(d);
 	NPnd_        = static_cast<double>(Npop) + nu0_ + 2.0*static_cast<double>(d);
-};
+}
 
 MumiISig::MumiISig(MumiISig &&in) {
 	if (this != &in) {
@@ -412,7 +412,7 @@ MumiISig::MumiISig(MumiISig &&in) {
 
 		in.hierInd_ = nullptr;
 	}
-};
+}
 
 MumiISig& MumiISig::operator=(MumiISig &&in){
 	if (this != &in) {

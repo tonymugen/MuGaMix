@@ -31,7 +31,7 @@
 #' @param n.sampling number of sampling steps
 #' @param n.thin thinning number (if, e.g., set to five then every fifth chain sample is saved)
 #' @param n.chains number of chains
-#' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{parChains}, each chain a column) and a matrix population assignments (named \code{popChains})
+#' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{parChains}, each chain a column), a matrix of population assignments (named \code{popChains}), and a matrix of population numbers (named \code{nPopsChain})
 #'
 #' @export
 fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5){
@@ -39,7 +39,11 @@ fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, 
 	if (sum(is.na(yVec))) {
 		stop("No missing trait data allowed at present")
 	}
-	lnFac <- as.integer(as.factor(data[, factor.column]))
+	if (is.factor(data[, factor.column])) {
+		lnFac <- data[, factor.column]
+	} else {
+		lnFac <- as.integer(factor(data[, factor.column], levels=unique(data[, factor.column])))
+	}
 	if (n.pop < 2) {
 		stop("Must specify more than one population")
 	}
