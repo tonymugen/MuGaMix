@@ -21,7 +21,7 @@
 #'
 #' Fits a mixture model to the provided data, taking into account replication structure. Takes data on multiple traits and generates samples from posterior distributions of parameters, as well as probabilities that a line belongs to a given population. The fit is performed using a No-U-Turn Sampler (NUTS). The recommended burn-in, sampling, number of chains, and thinning are set as defaults.
 #'
-#' @note Currently exactly one level of replication is supported, with no missing data.
+#' @note Currently exactly one level of replication is supported.
 #'
 #' @param data data frame with the data
 #' @param trait.columns list of columns in \code{data} that contain trait values
@@ -36,22 +36,33 @@
 #' @export
 fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5){
 	yVec <- as.double(unlist(data[, trait.colums]))
-	if (sum(is.na(yVec))) {
-		stop("No missing trait data allowed at present")
-	}
 	if (is.factor(data[, factor.column])) {
-		lnFac <- data[, factor.column]
+		lnFac <- as.integer(data[, factor.column])
 	} else {
 		lnFac <- as.integer(factor(data[, factor.column], levels=unique(data[, factor.column])))
 	}
 	if (n.pop < 2) {
 		stop("Must specify more than one population")
 	}
-	res <- runSampler(yVec, lnFac, n.pop, n.burnin, n.sampling, n.thin, n.chains)
-	res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
-	res$piChain    <- matrix(res$piChain, ncol=n.chains)
-	res$nPopsChain <- matrix(res$nPopsChain, ncol=n.chains)
-	class(res) <- "mugamix"
-	return(res)
+	if (any(is.na(yVec))) {
+		missInd <- rep(0, times=length(yVec))
+		missInd[which(is.na(yVec))] <- 1
+		yVec[which(missInd == 1)]   <- 0.0 # lazy imputation; the right thing will be done by the model
+		res            <- runSamplerMiss(yVec, lnFac, as.integer(missInd), n.pop, n.burnin, n.sampling, n.thin, n.chains)
+		res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
+		res$piChain    <- matrix(res$piChain, ncol=n.chains)
+		res$nPopsChain <- matrix(res$nPopsChain, ncol=n.chains)
+		res$lineFactor <- lnFac
+		class(res)     <- "mugamix"
+		return(res)
+	} else {
+		res            <- runSampler(yVec, lnFac, n.pop, n.burnin, n.sampling, n.thin, n.chains)
+		res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
+		res$piChain    <- matrix(res$piChain, ncol=n.chains)
+		res$nPopsChain <- matrix(res$nPopsChain, ncol=n.chains)
+		res$lineFactor <- lnFac
+		class(res)     <- "mugamix"
+		return(res)
+	}
 }
 

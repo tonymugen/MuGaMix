@@ -832,6 +832,16 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	sampler_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 }
 
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : WrapMMM(vY, y2line, Npop, alphaPr, tau0, nu0, invAsq) {
+	for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
+		for (size_t iRow = 0; iRow < hierInd_[0].size(); iRow++) {
+			if (missIDs[jCol*hierInd_[0].size() + iRow]) {
+				missInd_[iRow].push_back(jCol); // if the iRow element does not yet exist, it will be created
+			}
+		}
+	}
+}
+
 WrapMMM::~WrapMMM(){
 	for (auto &m : models_) {
 		delete m;
@@ -839,6 +849,10 @@ WrapMMM::~WrapMMM(){
 	for (auto &s : sampler_) {
 		delete s;
 	}
+}
+
+void WrapMMM::imputeMissing_(){
+
 }
 
 void WrapMMM::updatePi_(){
@@ -1054,10 +1068,6 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 }
 
 // WrapMMMmiss methods
-WrapMMMmiss::WrapMMMmiss(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq, const vector<int32_t> &missIDs) : WrapMMM(vY, y2line, Npop, alphaPr, tau0, nu0, invAsq) {
-
-
-}
 
 
 

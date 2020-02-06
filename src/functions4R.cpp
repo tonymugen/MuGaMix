@@ -91,3 +91,60 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 	return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("nPopsChain", npChain));
 }
 
+//' Run the sampler with missing data
+//'
+//' Runs the sampler on the data assuming no fixed effects, but allowing for missing phenotype data, and one replication level.
+//' The missingness indicator should have 1 for missing data points and 0 otherwise, however any non-0 value is treated as 1.
+//'
+//' @param yVec vectorized data matrix
+//' @param lnFac factor relating data points to lines
+//' @param missIDs vectorized matrix (same dimensions as data) with 1 where a data point is missing and 0 otherwise
+//' @param Npop number of populations
+//' @param Nadapt number of adaptation (burn-in) steps
+//' @param Nsamp number of sampling steps
+//' @param Nthin thinning number
+//'
+//[[Rcpp::export(name="runSamplerMiss")]]
+Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const vector<int32_t> &missIDs, const int32_t &Npop, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
+	if (yVec.size()%lnFac.size()) {
+		Rcpp::stop("ERROR: line factor length implies a non-integer number of traits in the data vector");
+	}
+	if (Npop <= 1) {
+		Rcpp::stop("ERROR: there must be at least two populations");
+	}
+	if (Nadapt < 0) {
+		Rcpp::stop("ERROR: Number of adaptation (burn-in) steps must be non-negative");
+	}
+	if (Nsamp < 0) {
+		Rcpp::stop("ERROR: Number of sampling steps must be non-negative");
+	}
+	if (Nchains <= 0) {
+		Rcpp::stop("ERROR: Number of chains must be positive");
+	}
+	std::vector<size_t> l1;
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(lf-1) );
+	}
+	std::vector<double> thetaChain;
+	std::vector<double> piChain;
+	std::vector<int32_t> npChain;
+	const uint32_t Na = static_cast<uint32_t>(Nadapt);
+	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
+	const uint32_t Nt = static_cast<uint32_t>(Nthin);
+	const uint32_t Np = static_cast<uint32_t>(Npop);
+
+	try {
+		for (int32_t i = 0; i < Nchains; i++) {
+			BayesicSpace::WrapMMM modelObj(yVec, l1, missIDs, Np, 2.0, 1e-8, 2.5, 1e-6);
+			modelObj.runSampler(Na, Ns, Nt, thetaChain, piChain, npChain);
+		}
+		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("nPopsChain", npChain));
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("nPopsChain", npChain));
+}
+

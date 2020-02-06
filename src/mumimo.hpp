@@ -49,7 +49,6 @@ namespace BayesicSpace {
 	class MumiISig;
 
 	class WrapMMM;
-	class WrapMMMmiss;
 
 	/** \brief Mixture model for location parameters
 	 *
@@ -276,6 +275,20 @@ namespace BayesicSpace {
 	public:
 		/** \brief Default constructor */
 		WrapMMM() {};
+		/** \brief Constructor for a one-level hierarchical model with missing data
+		 *
+		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
+		 *
+		 * \param[in] vY vectorized data matrix
+		 * \param[in] y2line factor connecting data to lines (accessions)
+		 * \param[in] missIDs vecotized matrix (same dimenstions as `vY`) with 1 corresponding to a missing data point and 0 otherwise
+		 * \param[in] Npop number of populations
+		 * \param[in] alphaPr prior on mixture proporions (prior proportions are assumed equal)
+		 * \param[in] tau0 prior precision for the "fixed" effects
+		 * \param[in] nu0 prior degrees of freedom for precision matrices
+		 * \param[in] invAsq prior inverse variance for precision matrices
+		 */
+		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Constructor for a one-level hierarchical model
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
@@ -359,6 +372,11 @@ namespace BayesicSpace {
 		vector<double> pc1_;
 		/** \brief Matrix view of the probability vector */
 		MatrixView Pz_;
+		/** \brief Missingness index
+		 *
+		 * The key values are indexes of rows that have missing data, the mapped value is a vector with indexes of missing phenotypes for that row.
+		 */
+		unordered_map<size_t, vector<size_t> > missInd_;
 		/** \brief Models
 		 *
 		 * The location parameter model first, then the inverse-covariance model.
@@ -371,6 +389,8 @@ namespace BayesicSpace {
 		vector<Sampler*> sampler_;
 		/** \brief Random number generator */
 		RanDraw rng_;
+		/** \brief Impute missing phenotype data */
+		void imputeMissing_();
 		/** \brief Update mixture proportions */
 		void updatePi_();
 		/** \brief Update \f$ p_{ij} \f$ */
@@ -406,54 +426,6 @@ namespace BayesicSpace {
 		 * \param[out] M matrix of cluster means (clusters in rows)
 		 */
 		void kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M);
-	};
-
-	/** \brief Replicated mixture model analysis with missing data
-	 *
-	 * Builds a daNUTS within Gibbs sampler to fit a Gaussian mixture model for replicated data on multiple traits. Takes the data and factors for paramaters, sets the initial values, and performs the sampling. Implements missing phenotype data imputation.
-	 */
-	class WrapMMMmiss : public WrapMMM {
-	public:
-		/** \brief Default constructor */
-		WrapMMMmiss() : WrapMMM() {};
-		/** \brief Constructor for a one-level hierarchical model
-		 *
-		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
-		 *
-		 * \param[in] vY vectorized data matrix
-		 * \param[in] y2line factor connecting data to lines (accessions)
-		 * \param[in] Npop number of populations
-		 * \param[in] alphaPr prior on mixture proporions (prior proportions are assumed equal)
-		 * \param[in] tau0 prior precision for the "fixed" effects
-		 * \param[in] nu0 prior degrees of freedom for precision matrices
-		 * \param[in] invAsq prior inverse variance for precision matrices
-		 * \param[in] missIDs vectorized matrix (same dimesions as \f$\boldsymbol{Y}\f$) with 1 where a value is missing and 0 otherwise
-		 */
-		WrapMMMmiss(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq, const vector<int32_t> &missIDs);
-		/** \brief Copy constructor (deleted) */
-		WrapMMMmiss(WrapMMMmiss &in) = delete;
-		/** \brief Move constructor (deleted) */
-		WrapMMMmiss(WrapMMMmiss &&in) = delete;
-		/** \brief Destructor */
-		~WrapMMMmiss() {};
-		/** \brief Sampler
-		 *
-		 * Runs the chosen sampler with given parameters and outputs the chain.
-		 *
-		 * \param[in] Nadapt number of adaptation (burn-in) steps
-		 * \param[in] Nsample number of sampling steps
-		 * \param[in] Nthin thinning number
-		 * \param[out] thetaChain MCMC chain of model parameters
-		 * \param[out] piChain MCMC chain of \f$ p_{ij} \f$
-		 * \param[out] nPopsChain MCMC chain tracking the number of non-empty populations
-		 */
-		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain, vector<int32_t> &nPopsChain);
-	protected:
-		/** \brief Missingness index
-		 *
-		 * The key values are indexes of rows that have missing data, the mapped value is a vector with indexes of missing phenotypes for that row.
-		 */
-		unordered_map<size_t, vector<size_t> > missInd_;
 	};
 }
 #endif /* lme_hpp */
