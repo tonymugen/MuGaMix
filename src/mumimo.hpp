@@ -348,6 +348,8 @@ namespace BayesicSpace {
 		MatrixView A_;
 		/** \brief Matrix view of population means */
 		MatrixView Mp_;
+		/** \brief Index of the first \f$\boldsymbol{T}_E\f$ element */
+		size_t fTeInd_;
 		/** \brief Index of the first \f$\boldsymbol{L}_A\f$ element */
 		size_t fLaInd_;
 		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */

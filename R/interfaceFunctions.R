@@ -37,18 +37,36 @@
 fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5){
 	yVec <- as.double(unlist(data[, trait.colums]))
 	if (is.factor(data[, factor.column])) {
-		lnFac <- as.integer(data[, factor.column])
+		lnFac <- data[, factor.column]
+		lnInd <- as.integer(lnFac)
 	} else {
-		lnFac <- as.integer(factor(data[, factor.column], levels=unique(data[, factor.column])))
+		lnFac <- factor(data[, factor.column], levels=unique(data[, factor.column]))
+		lnInd <- as.integer(lnFac)
 	}
 	if (n.pop < 2) {
 		stop("Must specify more than one population")
 	}
 	if (any(is.na(yVec))) {
+		missRowCount <- apply(data[,trait.colums], 1, function(vec){sum(is.na(vec))})
+		d            <- length(trait.colums)
+		if (any(missRowCount == d)) {
+			warning("WARNING: sime rows have only missing data; deleting them. This may result in loss of some lines")
+			data <- data[-which(missRowCount == d),]
+			# re-define the line factor, since there is no guarantee every line has data
+			if (is.factor(data[, factor.column])) {
+				oldLev <- levels(data[, factor.column]) # want to preserve the user's level order
+				lnFac  <- as.character(data[, factor.column])
+				lnFac  <- factor(lnFac, levels=oldLev[oldLev %in% unique(lnFac)])
+				lnInd  <- as.integer(lnFac)
+			} else {
+				lnFac <- factor(data[, factor.column], levels=unique(data[, factor.column]))
+				lnInd <- as.integer(lnFac)
+			}
+		}
 		missInd <- rep(0, times=length(yVec))
 		missInd[which(is.na(yVec))] <- 1
 		yVec[which(missInd == 1)]   <- 0.0 # lazy imputation; the right thing will be done by the model
-		res            <- runSamplerMiss(yVec, lnFac, as.integer(missInd), n.pop, n.burnin, n.sampling, n.thin, n.chains)
+		res            <- runSamplerMiss(yVec, lnInd, as.integer(missInd), n.pop, n.burnin, n.sampling, n.thin, n.chains)
 		res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
 		res$piChain    <- matrix(res$piChain, ncol=n.chains)
 		res$nPopsChain <- matrix(res$nPopsChain, ncol=n.chains)
@@ -56,7 +74,7 @@ fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, 
 		class(res)     <- "mugamix"
 		return(res)
 	} else {
-		res            <- runSampler(yVec, lnFac, n.pop, n.burnin, n.sampling, n.thin, n.chains)
+		res            <- runSampler(yVec, lnInd, n.pop, n.burnin, n.sampling, n.thin, n.chains)
 		res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
 		res$piChain    <- matrix(res$piChain, ncol=n.chains)
 		res$nPopsChain <- matrix(res$nPopsChain, ncol=n.chains)

@@ -31,6 +31,8 @@
 #include <string>
 #include <cmath>
 
+#include <fstream>
+
 #include "index.hpp"
 #include "random.hpp"
 #include "model.hpp"
@@ -726,6 +728,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	// Calculate starting precision matrix values; do that before adding noise to theta
 	//
 	size_t trLen     = d*(d-1)/2;
+	fTeInd_          = trLen;
 	fLaInd_          = trLen + d;
 	fTaInd_          = fLaInd_ + trLen;
 	const double n   = 1.0/static_cast<double>(N-1);
@@ -840,6 +843,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const v
 			}
 		}
 	}
+	imputeMissing_();
 }
 
 WrapMMM::~WrapMMM(){
@@ -852,7 +856,73 @@ WrapMMM::~WrapMMM(){
 }
 
 void WrapMMM::imputeMissing_(){
-
+	if (missInd_.size()) { // impute only of there are missing data
+		// start by making Sigma_e^{-1}
+		vector<double> Te;
+		// convert log-tau to tau
+		for (size_t p = fTeInd_; p < fLaInd_; p++) {
+			Te.push_back(exp(vISig_[p]));
+		}
+		vector<double> vSig(A_.getNcols()*A_.getNcols(), 0.0);
+		MatrixView Sig( &vSig, 0, A_.getNcols(), A_.getNcols() );
+		// fill out the matrix; the Le lower triangle is the first [0,fTeInd_) elements on vISig_
+		// there may be room for optimization here: we are working by row, while the matrix is stored by column, precluding vectorization
+		// first row and column are trivial because l_11 == 1.0 and all other row elements are 0.0
+		vSig[0] = Te[0];
+		for (size_t i = 1; i < Sig.getNcols(); i++) {
+			double prd = Te[0]*vISig_[i-1];
+			Sig.setElem(0, i, prd);
+			Sig.setElem(i, 0, prd);
+		}
+		size_t dPr = Sig.getNcols() - 1;
+		for (size_t jCol = 1; jCol < Sig.getNcols(); jCol++) {
+			double diagVal = Te[jCol];
+			size_t ind     = jCol - 1;
+			for (size_t k = 0; k < jCol; k++) {
+				diagVal += Te[k]*vISig_[ind]*vISig_[ind];
+				ind     += dPr - k - 1;
+			}
+			Sig.setElem(jCol, jCol, diagVal);
+			for (size_t iRow = jCol + 1; iRow < Sig.getNrows(); iRow++) {
+				double val  = 0.0;
+				size_t cInd = jCol - 1; // the column (L^T) index
+				size_t rInd = iRow - 1; // the row (L) index
+				for (size_t k = 0; k < jCol; k++) { // stopping at jCol because that is the shorter non-0 run
+					val  += Te[k]*vISig_[rInd]*vISig_[cInd];
+					cInd += dPr - k -1;
+					rInd += dPr - k -1;
+				}
+				val += Te[jCol]*vISig_[rInd];
+				Sig.setElem(iRow, jCol, val);
+				Sig.setElem(jCol, iRow, val);
+			}
+		}
+		//make Sig_aa^-1 (corresponding to the absent traits)
+		vector<double> vSigAA(missInd_[16].size()*missInd_[16].size());
+		MatrixView SigAA(&vSigAA, 0, missInd_[16].size(), missInd_[16].size());
+		for (size_t jNew = 0; jNew < missInd_[16].size(); jNew++) {
+			for (size_t iNew = 0; iNew < missInd_[16].size(); iNew++) {
+				SigAA.setElem(iNew, jNew, Sig.getElem(missInd_[16][iNew], missInd_[16][jNew]));
+			}
+		}
+		std::fstream tstOut;
+		tstOut.open("tst.txt", std::ios::out|std::ios::trunc);
+		tstOut << "Sig: " << std::endl;
+		for (size_t jCol = 0; jCol < Sig.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Sig.getNrows(); iRow++) {
+				tstOut << Sig.getElem(iRow, jCol) << " " << std::flush;
+			}
+			tstOut << std::endl;
+		}
+		tstOut << "SigAA: " << std::endl;
+		for (size_t jCol = 0; jCol < SigAA.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < SigAA.getNrows(); iRow++) {
+				tstOut << SigAA.getElem(iRow, jCol) << " " << std::flush;
+			}
+			tstOut << std::endl;
+		}
+		tstOut.close();
+	}
 }
 
 void WrapMMM::updatePi_(){
@@ -1066,8 +1136,6 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		}
 	}
 }
-
-// WrapMMMmiss methods
 
 
 

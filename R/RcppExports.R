@@ -16,3 +16,20 @@ runSampler <- function(yVec, lnFac, Npop, Nadapt, Nsamp, Nthin, Nchains) {
     .Call(`_MuGaMix_runSampler`, yVec, lnFac, Npop, Nadapt, Nsamp, Nthin, Nchains)
 }
 
+#' Run the sampler with missing data
+#'
+#' Runs the sampler on the data assuming no fixed effects, but allowing for missing phenotype data, and one replication level.
+#' The missingness indicator should have 1 for missing data points and 0 otherwise, however any non-0 value is treated as 1.
+#'
+#' @param yVec vectorized data matrix
+#' @param lnFac factor relating data points to lines
+#' @param missIDs vectorized matrix (same dimensions as data) with 1 where a data point is missing and 0 otherwise
+#' @param Npop number of populations
+#' @param Nadapt number of adaptation (burn-in) steps
+#' @param Nsamp number of sampling steps
+#' @param Nthin thinning number
+#'
+runSamplerMiss <- function(yVec, lnFac, missIDs, Npop, Nadapt, Nsamp, Nthin, Nchains) {
+    .Call(`_MuGaMix_runSamplerMiss`, yVec, lnFac, missIDs, Npop, Nadapt, Nsamp, Nthin, Nchains)
+}
+

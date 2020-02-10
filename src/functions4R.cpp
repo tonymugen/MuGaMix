@@ -105,7 +105,7 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 //' @param Nthin thinning number
 //'
 //[[Rcpp::export(name="runSamplerMiss")]]
-Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const vector<int32_t> &missIDs, const int32_t &Npop, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
+Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const std::vector<int32_t> &missIDs, const int32_t &Npop, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
 	if (yVec.size()%lnFac.size()) {
 		Rcpp::stop("ERROR: line factor length implies a non-integer number of traits in the data vector");
 	}
