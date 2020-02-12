@@ -31,7 +31,7 @@
 
 #include <vector>
 #include <cmath>
-#include <unordered_map>
+#include <map>
 
 #include "index.hpp"
 #include "random.hpp"
@@ -41,7 +41,7 @@
 #include "matrixView.hpp"
 
 using std::vector;
-using std::unordered_map;
+using std::map;
 
 namespace BayesicSpace {
 	// forward declarations
@@ -326,6 +326,11 @@ namespace BayesicSpace {
 		 * Vectorized matrix of responses.
 		 */
 		vector<double> vY_;
+		/** \brief Data matrix view
+		 *
+		 * Points to `vY_`.
+		 */
+		MatrixView Y_;
 		/** \brief Vector of indexes connecting hierarchy levels
 		 *
 		 * First element connects replicates (data) to line means, second connects lines to populations. The second index is updated as part of the mixture model.
@@ -378,7 +383,7 @@ namespace BayesicSpace {
 		 *
 		 * The key values are indexes of rows that have missing data, the mapped value is a vector with indexes of missing phenotypes for that row.
 		 */
-		unordered_map<size_t, vector<size_t> > missInd_;
+		map<size_t, vector<size_t> > missInd_;
 		/** \brief Models
 		 *
 		 * The location parameter model first, then the inverse-covariance model.
