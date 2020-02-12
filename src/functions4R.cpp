@@ -131,6 +131,8 @@ Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int
 	std::vector<double> thetaChain;
 	std::vector<double> piChain;
 	std::vector<int32_t> npChain;
+	std::vector<double> yImpChain;
+
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
 	const uint32_t Nt = static_cast<uint32_t>(Nthin);
@@ -139,12 +141,12 @@ Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int
 	try {
 		for (int32_t i = 0; i < Nchains; i++) {
 			BayesicSpace::WrapMMM modelObj(yVec, l1, missIDs, Np, 2.0, 1e-8, 2.5, 1e-6);
-			modelObj.runSampler(Na, Ns, Nt, thetaChain, piChain, npChain);
+			modelObj.runSampler(Na, Ns, Nt, thetaChain, piChain, npChain, yImpChain);
 		}
-		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("nPopsChain", npChain));
+		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("nPopsChain", npChain), Rcpp::Named("imputed", yImpChain));
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
 	}
-	return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("nPopsChain", npChain));
+	return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("nPopsChain", npChain), Rcpp::Named("imputed", yImpChain));
 }
 

@@ -919,13 +919,13 @@ void WrapMMM::imputeMissing_(){
 			vector<double> vSigAP;
 			size_t missIDcol = 0;
 			for (size_t jCol = 0; jCol < Sig.getNcols(); jCol++) {
-				if (jCol == missRow.second[missIDcol]) { // skip any column corresponding to a missing trait
+				if ( ( missIDcol < missRow.second.size() ) && (jCol == missRow.second[missIDcol]) ) { // skip any column corresponding to a missing trait
 					missIDcol++;
 					continue;
 				}
 				size_t missIDrow = 0;
-				for (size_t iRow = 0; iRow < Sig.getNcols(); iRow++) {
-					if (iRow == missRow.second[missIDrow]) { // row with missing data
+				for (size_t iRow = 0; iRow < Sig.getNrows(); iRow++) {
+					if ( ( missIDrow < missRow.second.size() ) && (iRow == missRow.second[missIDrow]) ) { // row with missing data
 						vSigAP.push_back( Sig.getElem(iRow, jCol) );
 						missIDrow++;
 					} else {
@@ -942,7 +942,7 @@ void WrapMMM::imputeMissing_(){
 			vector<double> diffMuP; // a - mu_p (difference vector corresponding to the present values)
 			missIDcol = 0;
 			for (size_t k = 0; k < Y_.getNcols(); k++) {
-				if (k == missRow.second[missIDcol]) {
+				if ( ( missIDcol < missRow.second.size() ) && (k == missRow.second[missIDcol]) ) {
 					muA.push_back( A_.getElem(hierInd_[0].groupID(missRow.first), k) );
 					missIDcol++;
 				} else {
@@ -968,62 +968,6 @@ void WrapMMM::imputeMissing_(){
 				missIDcol++;
 			}
 		}
-		/*
-		std::fstream tstOut;
-		tstOut.open("tst.txt", std::ios::out|std::ios::trunc);
-		tstOut << "SigAA: " << std::endl;
-		for (size_t iRow = 0; iRow < SigAA.getNrows(); iRow++) {
-			for (size_t jCol = 0; jCol < SigAA.getNcols(); jCol++) {
-				tstOut << SigAA.getElem(iRow, jCol) << " " << std::flush;
-			}
-			tstOut << std::endl;
-		}
-		tstOut << "Sig: " << std::endl;
-		for (size_t iRow = 0; iRow < Sig.getNrows(); iRow++) {
-			for (size_t jCol = 0; jCol < Sig.getNcols(); jCol++) {
-				tstOut << Sig.getElem(iRow, jCol) << " " << std::flush;
-			}
-			tstOut << std::endl;
-		}
-		tstOut << "SigAP: " << std::endl;
-		for (size_t iRow = 0; iRow < SigAP.getNrows(); iRow++) {
-			for (size_t jCol = 0; jCol < SigAP.getNcols(); jCol++) {
-				tstOut << SigAP.getElem(iRow, jCol) << " " << std::flush;
-			}
-			tstOut << std::endl;
-		}
-		tstOut << "SigPP: " << std::endl;
-		for (size_t iRow = 0; iRow < SigPP.getNrows(); iRow++) {
-			for (size_t jCol = 0; jCol < SigPP.getNcols(); jCol++) {
-				tstOut << SigPP.getElem(iRow, jCol) << " " << std::flush;
-			}
-			tstOut << std::endl;
-		}
-		tstOut << "mu_a: " << std::flush;
-		for (auto &ma : muA) {
-			tstOut << ma << " " << std::flush;
-		}
-		tstOut << std::endl;
-		tstOut << "a - mu_p: " << std::flush;
-		for (auto &mp : diffMuP) {
-			tstOut << mp << " " << std::flush;
-		}
-		tstOut << std::endl;
-		tstOut << "Y_[27]: " << std::flush;
-		for (size_t k = 0; k < Y_.getNcols(); k++) {
-			tstOut << Y_.getElem(27, k) << " " << std::flush;
-		}
-		tstOut << std::endl;
-		tstOut << "missInd_: " << std::endl;
-		for (auto &i : missInd_) {
-			tstOut << i.first << ": " << std::flush;
-			for (auto &j : i.second) {
-				tstOut << j << " " << std::flush;
-			}
-			tstOut << std::endl;
-		}
-		tstOut.close();
-		*/
 	}
 }
 
@@ -1216,6 +1160,37 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		sortPops_();
 		updatePi_();
 		updatePz_();
+	}
+	for (uint32_t b = 0; b < Nsample; b++) {
+		for (auto &s : sampler_) {
+			s->update();
+		}
+		sortPops_();
+		updatePi_();
+		updatePz_();
+		if ( (Nsample%Nthin) == 0) {
+			for (auto &t : vTheta_) {
+				thetaChain.push_back(t);
+			}
+			for (auto &p : vISig_) {
+				thetaChain.push_back(p);
+			}
+			for (auto &p : vPz_) {
+				piChain.push_back(p);
+			}
+			nPopsChain.push_back( hierInd_.back().neGroupNumber() );
+		}
+	}
+}
+
+void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain, vector<int32_t> &nPopsChain, vector<double> &impYchain){
+	for (uint32_t a = 0; a < Nadapt; a++) {
+		for (auto &s : sampler_) {
+			s->adapt();
+		}
+		sortPops_();
+		updatePi_();
+		updatePz_();
 		imputeMissing_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
@@ -1237,9 +1212,13 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 				piChain.push_back(p);
 			}
 			nPopsChain.push_back( hierInd_.back().neGroupNumber() );
+			for (auto &m : missInd_) {
+				for (auto &k : m.second) {
+					impYchain.push_back( Y_.getElem(m.first, k) );
+				}
+			}
 		}
 	}
 }
-
 
 

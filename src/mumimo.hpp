@@ -320,6 +320,20 @@ namespace BayesicSpace {
 		 * \param[out] nPopsChain MCMC chain tracking the number of non-empty populations
 		 */
 		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain, vector<int32_t> &nPopsChain);
+		/** \brief Sampler with missing data
+		 *
+		 * Runs the sampler with given parameters, imputes missing data, and outputs chains. Imputed values for the missing data points are in the `impYchain` variable.
+		 * The imputed data are arranged by row first, then by trait index within the row.
+		 *
+		 * \param[in] Nadapt number of adaptation (burn-in) steps
+		 * \param[in] Nsample number of sampling steps
+		 * \param[in] Nthin thinning number
+		 * \param[out] thetaChain MCMC chain of model parameters
+		 * \param[out] piChain MCMC chain of \f$ p_{ij} \f$
+		 * \param[out] nPopsChain MCMC chain tracking the number of non-empty populations
+		 * \param[out] impYchain MCMC chain tracking imputed data
+		 */
+		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain, vector<int32_t> &nPopsChain, vector<double> &impYchain);
 	protected:
 		/** \brief Vectorized data matrix
 		 *

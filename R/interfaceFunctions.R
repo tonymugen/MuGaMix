@@ -31,7 +31,7 @@
 #' @param n.sampling number of sampling steps
 #' @param n.thin thinning number (if, e.g., set to five then every fifth chain sample is saved)
 #' @param n.chains number of chains
-#' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{parChains}, each chain a column), a matrix of population assignments (named \code{popChains}), and a matrix of population numbers (named \code{nPopsChain})
+#' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{parChains}, each chain a column), a matrix of population assignments (named \code{popChains}), a matrix of population numbers (named \code{nPopsChain}), and a matrix of imputed missing data (if any; named \code{imputed})
 #'
 #' @export
 fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5){
@@ -70,6 +70,7 @@ fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, 
 		res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
 		res$piChain    <- matrix(res$piChain, ncol=n.chains)
 		res$nPopsChain <- matrix(res$nPopsChain, ncol=n.chains)
+		res$imputed    <- matrix(res$imputed, ncol=n.chains)
 		res$lineFactor <- lnFac
 		class(res)     <- "mugamix"
 		return(res)
@@ -78,6 +79,7 @@ fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, 
 		res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
 		res$piChain    <- matrix(res$piChain, ncol=n.chains)
 		res$nPopsChain <- matrix(res$nPopsChain, ncol=n.chains)
+		res$imputed    <- NULL
 		res$lineFactor <- lnFac
 		class(res)     <- "mugamix"
 		return(res)

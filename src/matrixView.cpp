@@ -163,11 +163,11 @@ void MatrixView::chol(MatrixView &out) const {
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
-#endif
-
-	if ((Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+	if ( (Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
 		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky decomposition");
 	}
+#endif
+
 	memcpy(out.data_->data() + out.idx_, data_->data() + idx_, (Nrow_ * Ncol_)*sizeof(double));
 
 	int info = 0;
@@ -219,11 +219,11 @@ void MatrixView::cholInv(MatrixView &out) const {
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
-#endif
-
-	if ((Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_)) {
+	if ( (Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
 		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky inversion");
 	}
+#endif
+
 	memcpy(out.data_->data() + out.idx_, data_->data() + idx_, (Nrow_ * Ncol_)*sizeof(double));
 
 	int info = 0;
