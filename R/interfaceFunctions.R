@@ -21,6 +21,8 @@
 #'
 #' Fits a mixture model to the provided data, taking into account replication structure. Takes data on multiple traits and generates samples from posterior distributions of parameters, as well as probabilities that a line belongs to a given population. The fit is performed using a No-U-Turn Sampler (NUTS). The recommended burn-in, sampling, number of chains, and thinning are set as defaults.
 #'
+#' Missing phenotype data are allowed. It is recommended that rows with all trait data missing are eliminated before running the function. If such rows are present, they will be eliminated by the function and a warning is issued. If all data for a given line are missing, this line is also dropped from consideration. The function does its best to retain the user provided factor level ordering, however such behavior may not be desired by some users, hence the warning. The (potentially modified) line factor is returned by the function to aid in trouble shooting.
+#'
 #' @note Currently exactly one level of replication is supported.
 #'
 #' @param data data frame with the data
@@ -31,7 +33,7 @@
 #' @param n.sampling number of sampling steps
 #' @param n.thin thinning number (if, e.g., set to five then every fifth chain sample is saved)
 #' @param n.chains number of chains
-#' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{parChains}, each chain a column), a matrix of population assignments (named \code{popChains}), a matrix of population numbers (named \code{nPopsChain}), and a matrix of imputed missing data (if any; named \code{imputed})
+#' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{parChains}, each chain a column), a matrix of population assignments (named \code{popChains}), a matrix of population numbers (named \code{nPopsChain}), a matrix of imputed missing data (if any; named \code{imputed}), and the line factor used in model fitting (possibly modified from the user's input if missing rows are eliminated; named \code{lineFactor})
 #'
 #' @export
 fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5){

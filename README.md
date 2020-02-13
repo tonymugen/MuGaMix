@@ -1,11 +1,9 @@
 This is an R package to assign individuals to populations based on phenotypic data from multiple traits. It uses Bayesian inference and Hamiltonian Monte Carlo to fit the model. Goodness of fit is assessed using Bayes factors which allow to choose the most likely number of populations.
 
-The package is still in development. Basic model fitting with one level of replication, no missing phenotype data, and no covariates, is functional. The following functionality is in development:
+The package is still in development. Basic model fitting with one level of replication and no covariates is functional. The following functionality is in development:
 
  - Bayes factors to assess goodness of fit and reasonable population number
  - Functions to summarize results and provide convergence diagnostics
- - Disambiguation of population labels
- - Support for missing phenotype data
  - Support for covariates
  - Arbitrary replication levels (including no replication)
 

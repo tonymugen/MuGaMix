@@ -1168,7 +1168,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		sortPops_();
 		updatePi_();
 		updatePz_();
-		if ( (Nsample%Nthin) == 0) {
+		if ( (b%Nthin) == 0) {
 			for (auto &t : vTheta_) {
 				thetaChain.push_back(t);
 			}
@@ -1201,7 +1201,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		updatePi_();
 		updatePz_();
 		imputeMissing_();
-		if ( (Nsample%Nthin) == 0) {
+		if ( (b%Nthin) == 0) {
 			for (auto &t : vTheta_) {
 				thetaChain.push_back(t);
 			}
