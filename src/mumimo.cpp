@@ -716,8 +716,24 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	Pz_ = MatrixView(&vPz_, 0, Npop, Nln);
 	z_.resize(Nln, 0);
 
-	Y_.colMeans(hierInd_[0], A_);                //  means to get A starting values
-	kMeans_(A_, Npop, 50, hierInd_.back(), Mp_); // use k-means for population assignment and means staring values
+	Y_.colMeans(hierInd_[0], A_);  //  means to get A starting values
+	// Calculate PC1 for projection sorting of populations; must be done here so that all chains have the same PC1
+	vector<double> vSig(d*d, 0.0);
+	MatrixView Sig(&vSig, 0, d, d);
+	vector<double> aMean(d, 0.0);
+	vector<double> vAtmp(vTheta_.begin(), vTheta_.begin()+Adim);
+	MatrixView Atmp(&vAtmp, 0, Nln, d);
+	Atmp.colMeans(aMean);
+	Atmp.rowSub(aMean); // centering the A matrix in place
+	Atmp.syrk('l', 1.0, 0.0, Sig);
+	const size_t nPC = 1;
+	pc1_.resize(d, 0);
+	MatrixView U(&pc1_, 0, d, nPC);
+	vector<double> lam(nPC, 0.0);
+	Sig.eigen('l', 1, U, lam);
+
+	// use k-means for population assignment and starting values
+	kMeans_(A_, Npop, 50, hierInd_.back(), Mp_);
 
 	vector<double> tmpMu;
 	Mp_.colMeans(tmpMu);
@@ -736,8 +752,6 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	const double nP  = static_cast<double>(Npop-1); // not reciprocal on purpose
 	vLa_.resize(d*d, 0.0);
 	La_ = MatrixView(&vLa_, 0, d, d);
-	vector<double> vSig(d*d, 0.0);
-	MatrixView Sig(&vSig, 0, d, d);
 
 	// Y residual
 	vector<double> vZA(N*d, 0.0);
@@ -787,12 +801,6 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		double diag = Sig.getElem(k, k) + 1e-4;
 		Sig.setElem(k, k, diag);
 	}
-	// Estimate PC1 for projection re-ordering
-	const size_t nPC = 1;
-	pc1_.resize(d, 0);
-	MatrixView U(&pc1_, 0, d, nPC);
-	vector<double> lam(nPC, 0.0);
-	Sig.eigenSafe('l', 1, U, lam);
 
 	Sig.chol();
 	Sig.cholInv();

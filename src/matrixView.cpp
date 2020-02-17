@@ -63,7 +63,7 @@ MatrixView::MatrixView(vector<double> *inVec, const size_t &idx, const size_t &n
 		throw string("MatrixView indexes extend past vector end");
 	}
 #endif
-};
+}
 
 MatrixView::MatrixView(MatrixView &&inMat){
 	if (this != &inMat) {
