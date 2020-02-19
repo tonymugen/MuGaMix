@@ -9,3 +9,5 @@ The package is still in development. Basic model fitting with one level of repli
 
 To install, make sure you have the `devtools` package on your system, and then run `install_github("tonymugen/MuGaMix")`. It should work under any Unix-like system, but has not been tested under Windows.
 
+To fit the model, run the `fitModel` function (`?fitModel` for help). There is a plot method for the object returned by this function, which shows population assignment probabilities for each line, similar to the plots that are used with `STRUCTURE`.
+
