@@ -8,6 +8,7 @@ Maintainer: Tony Greenberg <info@bayesicresearch.org>
 Description: Bayesian inference of Gaussian mixture models to probabilistically assign individuals to populations. Given a number of populations and (possibly replicated) data on multiple traits, the model assigns individuals to populations. Model fit is assessed via Bayes factors that help decide on the most likely number of undelying populations.
 License: BSD_3_Clause
 Imports: Rcpp (>= 1.0.0)
+Suggests: ggplot2, data.table
 LinkingTo: Rcpp
 ByteCompile: yes
 NeedsCompilation: yes

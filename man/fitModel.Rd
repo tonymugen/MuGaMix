@@ -33,7 +33,7 @@ fitModel(
 \item{trait.columns}{list of columns in \code{data} that contain trait values}
 }
 \value{
-S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{parChains}, each chain a column), a matrix of population assignments (named \code{popChains}), a matrix of population numbers (named \code{nPopsChain}), a matrix of imputed missing data (if any; named \code{imputed}), the line factor used in model fitting (possibly modified from the user's input if missing rows are eliminated; named \code{lineFactor}), and the number of retained samples per chain (named \code{n.samples})
+S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{parChains}, each chain a column), a matrix of population assignments (named \code{popChains}), a matrix of population numbers (named \code{nPopsChain}), a matrix of imputed missing data (if any; named \code{imputed}), the list of lines used in model fitting (ordered the same as in the output and possibly modified from the user's input if missing rows are eliminated; named \code{lineIDs}), the number of retained samples per chain (named \code{n.samples})
 }
 \description{
 Fits a mixture model to the provided data, taking into account replication structure. Takes data on multiple traits and generates samples from posterior distributions of parameters, as well as probabilities that a line belongs to a given population. The fit is performed using a No-U-Turn Sampler (NUTS). The recommended burn-in, sampling, number of chains, and thinning are set as defaults.
