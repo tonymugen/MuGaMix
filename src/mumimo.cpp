@@ -896,8 +896,8 @@ void WrapMMM::imputeMissing_(){
 				size_t rInd = iRow - 1; // the row (L) index
 				for (size_t k = 0; k < jCol; k++) { // stopping at jCol because that is the shorter non-0 run
 					val  += Te[k]*vISig_[rInd]*vISig_[cInd];
-					cInd += dPr - k -1;
-					rInd += dPr - k -1;
+					cInd += dPr - k - 1;
+					rInd += dPr - k - 1;
 				}
 				val += Te[jCol]*vISig_[rInd];
 				SigI.setElem(iRow, jCol, val); // only need the lower triangle for chol()

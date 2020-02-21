@@ -98,7 +98,7 @@ MatrixView& MatrixView::operator=(MatrixView &&inMat){
 double MatrixView::getElem(const size_t& iRow, const size_t &jCol) const{
 #ifndef PKG_DEBUG_OFF
 	if ((iRow >= Nrow_) || (jCol >= Ncol_)) {
-		throw string("ERROR: element out of range in getElem()");
+		throw string("ERROR: element out of range in MatrixView::getElem()");
 	}
 #endif
 
@@ -108,7 +108,7 @@ double MatrixView::getElem(const size_t& iRow, const size_t &jCol) const{
 void MatrixView::setElem(const size_t& iRow, const size_t &jCol, const double &input){
 #ifndef PKG_DEBUG_OFF
 	if ((iRow >= Nrow_) || (jCol >= Ncol_)) {
-		throw string("ERROR: element out of range in setElem()");
+		throw string("ERROR: element out of range in MatrixView::setElem()");
 	}
 #endif
 
@@ -119,10 +119,10 @@ void MatrixView::setElem(const size_t& iRow, const size_t &jCol, const double &i
 void MatrixView::setCol(const size_t jCol, const vector<double> data){
 #ifndef PKG_DEBUG_OFF
 	if (jCol >= Ncol_) {
-		throw string("ERROR: column index out of range in setCol()");
+		throw string("ERROR: column index out of range in MatrixView::setCol()");
 	}
 	if (data.size() < Nrow_) {
-		throw string("ERROR: vector length smaller than the number of rows in setCol()");
+		throw string("ERROR: vector length smaller than the number of rows in MatrixView::setCol()");
 	}
 #endif
 	double *colBeg = data_->data() + idx_ + jCol*Nrow_;
@@ -131,15 +131,23 @@ void MatrixView::setCol(const size_t jCol, const vector<double> data){
 }
 
 void MatrixView::chol(){
+	// if there is only one element, do the scalar math
+	if ( (Nrow_ == 1) && (Ncol_ == 1) ) {
+		if ( (*data_)[idx_] <= 0.0) {
+			throw string("ERROR: one-element matrix with a non-positive element in MatrixView::chol()");
+		}
+		(*data_)[idx_] = sqrt((*data_)[idx_]);
+		return;
+	}
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be symmetric for Cholesky decomposition");
+		throw string("ERROR: matrix has to be symmetric MatrixView::chol()");
 	}
 	if (Nrow_ > INT_MAX) {
-		throw string("ERROR: matrix dimension too big to safely convert to int in in-place Cholesky decomposition");
+		throw string("ERROR: matrix dimension too big to safely convert to int in MatrixView::chol()");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::chol()");
 	}
 #endif
 	int info = 0;
@@ -148,9 +156,9 @@ void MatrixView::chol(){
 	int N = static_cast<int>(Nrow_); // conversion should be OK: magnitude of Nrow_ checked in the constructor
 	dpotrf_(&tri, &N, data_->data() + idx_, &N, &info);
 	if (info < 0) {
-		throw string("ERROR: illegal element in in-place Cholesky decomposition");
+		throw string("ERROR: illegal element in MatrixView::chol()");
 	} else if (info > 0) {
-		throw string("ERROR: matrix is not positive definite in in-place Cholesky decomposition");
+		throw string("ERROR: matrix is not positive definite in MatrixView::chol()");
 	}
 
 }
@@ -158,15 +166,24 @@ void MatrixView::chol(){
 void MatrixView::chol(MatrixView &out) const {
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be symmetric for Cholesky decomposition");
+		throw string("ERROR: matrix has to be symmetric in MatrixView::chol(MatrixView &out)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
 	if ( (Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
-		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky decomposition");
+		throw string("ERROR: wrong dimensions in output matrix in MatrixView::chol(MatrixView &out)");
 	}
 #endif
+
+	// if there is only one element, do the scalar math
+	if ( (Nrow_ == 1) && (Ncol_ == 1) ) {
+		if ( (*data_)[idx_] <= 0.0) {
+			throw string("ERROR: one-element matrix with a non-positive element in MatrixView::chol(MatrixView &out)");
+		}
+		(*out.data_)[idx_] = sqrt((*data_)[idx_]);
+		return;
+	}
 
 	memcpy(out.data_->data() + out.idx_, data_->data() + idx_, (Nrow_ * Ncol_)*sizeof(double));
 
@@ -176,20 +193,25 @@ void MatrixView::chol(MatrixView &out) const {
 	int N = static_cast<int>(Nrow_); // conversion should be safe: Nrow_ magnitude checked during construction
 	dpotrf_(&tri, &N, out.data_->data() + idx_, &N, &info);
 	if (info < 0) {
-		throw string("ERROR: illegal matrix element in copy Cholesky decomposition");
+		throw string("ERROR: illegal matrix element in MatrixView::chol(MatrixView &out)");
 	} else if (info > 0) {
-		throw string("ERROR: matrix is not positive definite in copy Cholesky decomposition");
+		throw string("ERROR: matrix is not positive definite in MatrixView::chol(MatrixView &out)");
 	}
 
 }
 
 void MatrixView::cholInv(){
+	// if there is only one element, do the scalar math
+	if ( (Nrow_ == 1) && (Ncol_ == 1) ) {
+		(*data_)[idx_] = 1.0/((*data_)[idx_]*(*data_)[idx_]);
+		return;
+	}
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be symmetric for Cholesky inversion");
+		throw string("ERROR: matrix has to be symmetric in MatrixView::cholInv()");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::cholInv()");
 	}
 #endif
 	int info = 0;
@@ -198,9 +220,9 @@ void MatrixView::cholInv(){
 	int N = static_cast<int>(Nrow_); // conversion should be safe: Nrow_ magnitude checked during construction
 	dpotri_(&tri, &N, data_->data() + idx_, &N, &info);
 	if (info < 0) {
-		throw string("ERROR: illegal matrix element in-place Cholesky inversion");
+		throw string("ERROR: illegal matrix element in MatrixView::cholInv()");
 	} else if (info > 0) {
-		throw string("ERROR: a diagonal element of the matrix is zero. Cannot complete in-place Cholesky inversion");
+		throw string("ERROR: a diagonal element of the matrix is zero in MatrixView::cholInv()");
 	}
 	// copying the lower triangle to the upper
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
@@ -214,16 +236,21 @@ void MatrixView::cholInv(){
 void MatrixView::cholInv(MatrixView &out) const {
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be square for Cholesky inversion");
+		throw string("ERROR: matrix has to be square in MatrixView::cholInv(MatrixView &out)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::cholInv(MatrixView &out)");
 	}
 	if ( (Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
-		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky inversion");
+		throw string("ERROR: wrong dimensions in output matrix in MatrixView::cholInv(MatrixView &out)");
 	}
 #endif
 
+	// if there is only one element, do the scalar math
+	if ( (Nrow_ == 1) && (Ncol_ == 1) ) {
+		(*out.data_)[idx_] = 1.0/((*data_)[idx_]*(*data_)[idx_]);
+		return;
+	}
 	memcpy(out.data_->data() + out.idx_, data_->data() + idx_, (Nrow_ * Ncol_)*sizeof(double));
 
 	int info = 0;
@@ -232,9 +259,9 @@ void MatrixView::cholInv(MatrixView &out) const {
 	int N = static_cast<int>(Nrow_); // safe to convert: Nrow_ checked at construction
 	dpotri_(&tri, &N, out.data_->data() + idx_, &N, &info);
 	if (info < 0) {
-		throw string("ERROR: illegal matrix element in copy Cholesky inversion");
+		throw string("ERROR: illegal matrix element in MatrixView::cholInv(MatrixView &out)");
 	} else if (info > 0) {
-		throw string("ERROR: a diagonal element of the matrix is zero. Cannot complete copy Cholesky inversion");
+		throw string("ERROR: a diagonal element of the matrix is zero in MatrixView::cholInv(MatrixView &out)");
 	}
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
 		for (size_t jCol = 0; jCol < iRow; jCol++) {
@@ -246,10 +273,10 @@ void MatrixView::cholInv(MatrixView &out) const {
 void MatrixView::svd(MatrixView &U, vector<double> &s){
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::svd(MatrixView &U, vector<double> &s)");
 	}
 	if ((Nrow_ != U.Nrow_) || (U.Nrow_ != U.Ncol_)) {
-		throw string("ERROR: wrong dimensions of the U matrix in svd()");
+		throw string("ERROR: wrong dimensions of the U matrix in MatrixView::svd(MatrixView &U, vector<double> &s)");
 	}
 #endif
 
@@ -274,9 +301,9 @@ void MatrixView::svd(MatrixView &U, vector<double> &s){
 	dgesvd_(&jobu, &jobvt, &Nr, &Nc, data_->data()+idx_, &Nr, s.data(), U.data_->data()+U.idx_, &Nr, vt.data(), &Nvt, workArr.data(), &Nw, &resSVD);
 	workArr.resize(0);
 	if (resSVD < 0) {
-		throw string("ERROR: illegal matrix element in SVD");
+		throw string("ERROR: illegal matrix element in MatrixView::svd(MatrixView &U, vector<double> &s)");
 	} else if (resSVD > 0){
-		throw string("ERROR: DBDSQR did not converge in SVD");
+		throw string("ERROR: DBDSQR did not converge in MatrixView::svd(MatrixView &U, vector<double> &s)");
 	}
 
 }
@@ -284,10 +311,10 @@ void MatrixView::svd(MatrixView &U, vector<double> &s){
 void MatrixView::svdSafe(MatrixView &U, vector<double> &s) const {
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::svdSafe(MatrixView &U, vector<double> &s)");
 	}
 	if ((Nrow_ != U.Nrow_) || (U.Nrow_ != U.Ncol_)) {
-		throw string("ERROR: wrong dimensions of the U matrix in svdSafe()");
+		throw string("ERROR: wrong dimensions of the U matrix in MatrixView::svdSafe(MatrixView &U, vector<double> &s)");
 	}
 #endif
 
@@ -315,9 +342,9 @@ void MatrixView::svdSafe(MatrixView &U, vector<double> &s) const {
 	dgesvd_(&jobu, &jobvt, &Nr, &Nc, dataCopy, &Nr, s.data(), U.data_->data()+U.idx_, &Nr, vt.data(), &Nvt, workArr.data(), &Nw, &resSVD);
 	workArr.resize(0);
 	if (resSVD < 0) {
-		throw string("ERROR: illegal matrix element in safe SVD");
+		throw string("ERROR: illegal matrix element in MatrixView::svdSafe(MatrixView &U, vector<double> &s)");
 	} else if (resSVD > 0){
-		throw string("ERROR: DBDSQR did not converge in safe SVD");
+		throw string("ERROR: DBDSQR did not converge in MatrixView::svdSafe(MatrixView &U, vector<double> &s)");
 	}
 	delete [] dataCopy;
 }
@@ -325,13 +352,13 @@ void MatrixView::svdSafe(MatrixView &U, vector<double> &s) const {
 void MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam){
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be at least square in eigen()");
+		throw string("ERROR: matrix has to be at least square in MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam)");
 	}
 	if ((Ncol_ > U.Nrow_) || (Ncol_ > U.Ncol_)) {
-		throw string("ERROR: wrong U matrix dimensions in eigen");
+		throw string("ERROR: wrong U matrix dimensions in MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam)");
 	}
 #endif
 
@@ -348,7 +375,7 @@ void MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam){
 	} else if (tri == 'l'){
 		uplo = 'L';
 	} else {
-		throw string("ERROR: unknown triangle indicator in eigen()");
+		throw string("ERROR: unknown triangle indicator in MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam)");
 	}
 	// the following casts are safe because Nrow_ magnitude is checked at construction
 	int N   = static_cast<int>(Nrow_);
@@ -393,13 +420,13 @@ void MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam){
 void MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam){
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be at least square in eigen()");
+		throw string("ERROR: matrix has to be at least square in MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam)");
 	}
 	if (Nrow_ < n) {
-		throw string("ERROR: the input number of eigenvalues greater than matrix dimensions");
+		throw string("ERROR: the input number of eigenvalues greater than matrix dimensions MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam)");
 	}
 #endif
 
@@ -417,7 +444,7 @@ void MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<d
 	} else if (tri == 'l'){
 		uplo = 'L';
 	} else {
-		throw string("ERROR: unknown triangle indicator in eigen()");
+		throw string("ERROR: unknown triangle indicator in MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam)");
 	}
 	int N   = static_cast<int>(Nrow_);
 	int lda = static_cast<int>(Nrow_);
@@ -434,7 +461,7 @@ void MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<d
 
 	// test the output size and adjust if necessary
 	if ((Nrow_ > U.Nrow_) || (static_cast<size_t>(M) > U.Ncol_)) {
-		throw string("ERROR: wrong U matrix dimensions in eigen()");
+		throw string("ERROR: wrong U matrix dimensions in MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam)");
 	}
 	if (static_cast<size_t>(M) > lam.size()) {
 		lam.resize(static_cast<size_t>(M), 0.0);
@@ -469,13 +496,13 @@ void MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<d
 void MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam) const{
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be at least square in eigen()");
+		throw string("ERROR: matrix has to be at least square in MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam)");
 	}
 	if ((Ncol_ > U.Nrow_) || (Ncol_ > U.Ncol_)) {
-		throw string("ERROR: wrong U matrix dimensions in eigenSafe()");
+		throw string("ERROR: wrong U matrix dimensions in MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam)");
 	}
 #endif
 
@@ -492,7 +519,7 @@ void MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam) 
 	} else if (tri == 'l'){
 		uplo = 'L';
 	} else {
-		throw string("ERROR: unknown triangle indicator in eigen()");
+		throw string("ERROR: unknown triangle indicator in MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam)");
 	}
 	int N   = static_cast<int>(Nrow_);
 	int lda = static_cast<int>(Nrow_);
@@ -1619,11 +1646,12 @@ void MatrixViewConst::chol(MatrixView &out) const {
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
-#endif
 
 	if ((Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_)) {
 		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky decomposition");
 	}
+#endif
+
 	memcpy(out.data_->data() + out.idx_, data_->data() + idx_, (Nrow_ * Ncol_)*sizeof(double));
 
 	int info = 0;
@@ -1647,11 +1675,11 @@ void MatrixViewConst::cholInv(MatrixView &out) const {
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
-#endif
-
 	if ((Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_)) {
 		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky inversion");
 	}
+#endif
+
 	memcpy(out.data_->data()+out.idx_, data_->data()+idx_, (Nrow_ * Ncol_)*sizeof(double));
 
 	int info = 0;

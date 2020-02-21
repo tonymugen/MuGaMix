@@ -156,6 +156,7 @@ namespace BayesicSpace {
 		 * \param[out] out object where the result is to be stored
 		 */
 		void cholInv(MatrixView &out) const;
+		void pseudoInv();
 		/** \brief Perform SVD
 		 *
 		 * Performs SVD and stores the \f$U\f$ vectors in a MatrixView object and singular values in a C++ vector. For now, only does the _DGESVD_ from LAPACK with no \f$V^{T}\f$ matrix. The data in the object are destroyed.
