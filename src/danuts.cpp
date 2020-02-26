@@ -29,7 +29,6 @@
 
 #include <vector>
 #include <string>
-#include <limits>
 #include <cmath>
 
 #include "danuts.hpp"
@@ -39,7 +38,6 @@ using namespace BayesicSpace;
 
 using std::vector;
 using std::string;
-using std::numeric_limits;
 using std::fpclassify;
 using std::signbit;
 

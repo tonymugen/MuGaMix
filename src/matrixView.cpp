@@ -40,7 +40,6 @@
 #include <R_ext/BLAS.h>
 
 #include "matrixView.hpp"
-#include "random.hpp"
 #include "index.hpp"
 
 using std::vector;
@@ -54,7 +53,8 @@ using std::move;
 
 using namespace BayesicSpace;
 
-
+// doubles smaller than this are considered zero
+static const double ZEROTOL =  100.0*numeric_limits<double>::epsilon();
 // MatrixView methods
 
 MatrixView::MatrixView(vector<double> *inVec, const size_t &idx, const size_t &nrow, const size_t &ncol) : data_{inVec}, idx_{idx}, Nrow_{nrow}, Ncol_{ncol} {
@@ -230,7 +230,6 @@ void MatrixView::cholInv(){
 			(*data_)[idx_ + Nrow_*iRow + jCol] = (*data_)[idx_ + Nrow_*jCol + iRow];
 		}
 	}
-
 }
 
 void MatrixView::cholInv(MatrixView &out) const{
@@ -263,6 +262,99 @@ void MatrixView::cholInv(MatrixView &out) const{
 	} else if (info > 0) {
 		throw string("ERROR: a diagonal element of the matrix is zero in MatrixView::cholInv(MatrixView &)");
 	}
+	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+		for (size_t jCol = 0; jCol < iRow; jCol++) {
+			(*out.data_)[out.idx_ + Nrow_*iRow + jCol] = (*out.data_)[out.idx_ + Nrow_*jCol + iRow];
+		}
+	}
+}
+
+void MatrixView::pseudoInv(){
+	// if there is only one element, do the scalar math
+	if ( (Nrow_ == 1) && (Ncol_ == 1) ) {
+		(*data_)[idx_] = 1.0/(*data_)[idx_];
+		return;
+	}
+#ifndef PKG_DEBUG_OFF
+	if (Nrow_ != Ncol_) {
+		throw string("ERROR: matrix has to be symmetric in MatrixView::pseudoInv()");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero in MatrixView::pseudoInv()");
+	}
+#endif
+	vector<double> vU(Nrow_*Ncol_, 0.0);
+	MatrixView U(&vU, 0, Nrow_, Ncol_);
+	vector<double> lam(Nrow_, 0.0);
+	this->eigen('l', U, lam);
+	size_t non0ind = 0; // index of the first non-0 eigenvalue
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		if (lam[jCol] <= ZEROTOL) {
+			non0ind++;
+			continue;
+		}
+		double inv = sqrt(lam[jCol]);
+		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+			vU[jCol*Nrow_ + iRow] /= inv;
+		}
+	}
+	if ( non0ind == lam.size() ) {
+		throw string("ERROR: no non-zero eigenvalues in MatrixView::pseudoInv()");
+	}
+	U.Ncol_  = U.Ncol_ - non0ind;
+	U.idx_  += U.Nrow_*non0ind;
+	U.tsyrk('l', 1.0, 0.0, *this);
+	// copying the lower triangle to the upper
+	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+		for (size_t jCol = 0; jCol < iRow; jCol++) {
+			(*data_)[idx_ + Nrow_*iRow + jCol] = (*data_)[idx_ + Nrow_*jCol + iRow];
+		}
+	}
+}
+
+void MatrixView::pseudoInv(MatrixView &out) const{
+#ifndef PKG_DEBUG_OFF
+	if (Nrow_ != Ncol_) {
+		throw string("ERROR: matrix has to be square in MatrixView::pseudoInv(MatrixView &)");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero in MatrixView::pseudoInv(MatrixView &)");
+	}
+	if ( (Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
+		throw string("ERROR: wrong dimensions in output matrix in MatrixView::pseudoInv(MatrixView &)");
+	}
+#endif
+
+	// if there is only one element, do the scalar math
+	if ( (Nrow_ == 1) && (Ncol_ == 1) ) {
+		(*out.data_)[idx_] = 1.0/(*data_)[idx_];
+		return;
+	}
+	vector<double> vU(Nrow_*Ncol_, 0.0);
+	MatrixView U(&vU, 0, Nrow_, Ncol_);
+	vector<double> lam(Nrow_, 0.0);
+	this->eigenSafe('l', U, lam);
+	size_t non0ind = 0; // index of the first non-0 eigenvalue
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		if (lam[jCol] <= ZEROTOL) {
+			non0ind++;
+			continue;
+		}
+		double inv = sqrt(lam[jCol]);
+		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+			vU[jCol*Nrow_ + iRow] /= inv;
+		}
+	}
+	if ( non0ind == lam.size() ) {
+		throw string("ERROR: no non-zero eigenvalues in MatrixView::pseudoInv(MatrixView &)");
+	}
+	if ( non0ind == lam.size() ) {
+		throw string("ERROR: no non-zero eigenvalues in MatrixView::pseudoInv()");
+	}
+	U.Ncol_  = U.Ncol_ - non0ind;
+	U.idx_  += U.Nrow_*non0ind;
+	U.tsyrk('l', 1.0, 0.0, out);
+	// Copying the lower triangle to the upper
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
 		for (size_t jCol = 0; jCol < iRow; jCol++) {
 			(*out.data_)[out.idx_ + Nrow_*iRow + jCol] = (*out.data_)[out.idx_ + Nrow_*jCol + iRow];
@@ -1692,6 +1784,57 @@ void MatrixViewConst::cholInv(MatrixView &out) const{
 	} else if (info > 0) {
 		throw string("ERROR: a diagonal element of the matrix is zero in MatrixViewConst::cholInv(MatrixView &)");
 	}
+	// Copy the lower triangle to the upper
+	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+		for (size_t jCol = 0; jCol < iRow; jCol++) {
+			(*out.data_)[out.idx_ + Nrow_*iRow + jCol] = (*out.data_)[out.idx_ + Nrow_*jCol + iRow];
+		}
+	}
+}
+
+void MatrixViewConst::pseudoInv(MatrixView &out) const{
+#ifndef PKG_DEBUG_OFF
+	if (Nrow_ != Ncol_) {
+		throw string("ERROR: matrix has to be square in MatrixViewConst::pseudoInv(MatrixView &)");
+	}
+	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
+		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::pseudoInv(MatrixView &)");
+	}
+	if ( (Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
+		throw string("ERROR: wrong dimensions in output matrix in MatrixViewConst::pseudoInv(MatrixView &)");
+	}
+#endif
+
+	// if there is only one element, do the scalar math
+	if ( (Nrow_ == 1) && (Ncol_ == 1) ) {
+		(*out.data_)[idx_] = 1.0/(*data_)[idx_];
+		return;
+	}
+	vector<double> vU(Nrow_*Ncol_, 0.0);
+	MatrixView U(&vU, 0, Nrow_, Ncol_);
+	vector<double> lam(Nrow_, 0.0);
+	this->eigenSafe('l', U, lam);
+	size_t non0ind = 0; // index of the first non-0 eigenvalue
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		if (lam[jCol] <= ZEROTOL) {
+			non0ind++;
+			continue;
+		}
+		double inv = sqrt(lam[jCol]);
+		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+			vU[jCol*Nrow_ + iRow] /= inv;
+		}
+	}
+	if ( non0ind == lam.size() ) {
+		throw string("ERROR: no non-zero eigenvalues in MatrixView::pseudoInv(MatrixView &)");
+	}
+	if ( non0ind == lam.size() ) {
+		throw string("ERROR: no non-zero eigenvalues in MatrixView::pseudoInv()");
+	}
+	U.Ncol_  = U.Ncol_ - non0ind;
+	U.idx_  += U.Nrow_*non0ind;
+	U.tsyrk('l', 1.0, 0.0, out);
+	// Copy the lower triangle to the upper
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
 		for (size_t jCol = 0; jCol < iRow; jCol++) {
 			(*out.data_)[out.idx_ + Nrow_*iRow + jCol] = (*out.data_)[out.idx_ + Nrow_*jCol + iRow];

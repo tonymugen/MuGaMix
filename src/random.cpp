@@ -39,7 +39,7 @@ using std::string;
 using namespace BayesicSpace;
 
 // GenerateHR methods
-uint64_t GenerateHR::ranInt() const {
+uint64_t GenerateHR::ranInt() const{
 	uint64_t rInt = 0;
 
 	unsigned char ok  = '\0';
@@ -101,7 +101,7 @@ GenerateMT::GenerateMT(){
 
 }
 
-uint64_t GenerateMT::ranInt() const {
+uint64_t GenerateMT::ranInt() const{
 
 	if (mti_ == n_) { // do we need to re-run the twister?
 		size_t i = 0;
@@ -278,7 +278,7 @@ RanDraw::RanDraw(){
 	}
 
 }
-uint64_t RanDraw::sampleInt(const uint64_t &min, const uint64_t &max) const {
+uint64_t RanDraw::sampleInt(const uint64_t &min, const uint64_t &max) const{
 	if (min >= max) {
 		throw string("Lower bound not smaller than upper bound");
 	}
@@ -301,7 +301,7 @@ vector<uint64_t> RanDraw::shuffleUint(const uint64_t &N){
 	}
 	return out; // relying on copy elision
 }
-double RanDraw::runifnz() const {
+double RanDraw::runifnz() const{
 	double rnz = 0.0;
 	do {
 		rnz = this->runif();
@@ -310,7 +310,7 @@ double RanDraw::runifnz() const {
 	return rnz;
 }
 
-double RanDraw::runifno() const {
+double RanDraw::runifno() const{
 	double rno = 0.0;
 	do {
 		rno = this->runif();
@@ -319,7 +319,7 @@ double RanDraw::runifno() const {
 	return rno;
 }
 
-double RanDraw::runifop() const {
+double RanDraw::runifop() const{
 	double rno = 0.0;
 	do {
 		rno = this->runif();
@@ -328,7 +328,7 @@ double RanDraw::runifop() const {
 	return rno;
 }
 
-double RanDraw::rnorm() const {
+double RanDraw::rnorm() const{
 	double x;
 	double sign;
 	uint64_t i;
@@ -362,7 +362,7 @@ double RanDraw::rnorm() const {
 	return sign*x;
 }
 
-double RanDraw::rgamma(const double &alpha) const {
+double RanDraw::rgamma(const double &alpha) const{
 	if (alpha <= 0.0) {
 		return nan("");
 	}
@@ -393,7 +393,7 @@ double RanDraw::rgamma(const double &alpha) const {
 	return d*v;
 }
 
-void RanDraw::rdirichlet(const vector<double> &alpha, vector<double> &p) const {
+void RanDraw::rdirichlet(const vector<double> &alpha, vector<double> &p) const{
 #ifndef PKG_DEBUG_OFF
 	if (alpha.size() != p.size()) {
 		throw string("ERROR: length of alpha vector not the same as length of p vector in RanDraw::rdirichlet()");
@@ -409,7 +409,7 @@ void RanDraw::rdirichlet(const vector<double> &alpha, vector<double> &p) const {
 	}
 }
 
-uint64_t RanDraw::vitterA(const double &n, const double &N) const {
+uint64_t RanDraw::vitterA(const double &n, const double &N) const{
 	// The notation follows Vitter's (1987) as closely as possible
 	// Note that my runif() is on [0,1] (Vitter assumes (0,1)), so I have to sometimes adjust accordingly
 	uint64_t S  = 0;
@@ -443,7 +443,7 @@ uint64_t RanDraw::vitterA(const double &n, const double &N) const {
 	return S;
 }
 
-uint64_t RanDraw::vitter(const double &n, const double &N) const {
+uint64_t RanDraw::vitter(const double &n, const double &N) const{
 	// The notation follows Vitter's (1987) as closely as possible
 	// Note that my runif() is on [0,1] (Vitter assumes (0,1)), so I have to sometimes adjust accordingly
 	uint64_t S = 0;

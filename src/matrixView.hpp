@@ -51,7 +51,6 @@ namespace BayesicSpace {
 	 * The matrix is column-major to comply with LAPACK and BLAS routines.
 	 * Columns and rows are base-0. Range checking is done unless the flag -DLMRG_CHECK_OFF is set at compile time.
 	 *
-	 * TODO: transpose
 	 *
 	 */
 	class MatrixView {
@@ -156,7 +155,19 @@ namespace BayesicSpace {
 		 * \param[out] out object where the result is to be stored
 		 */
 		void cholInv(MatrixView &out) const;
+		/** \brief In-place pseudoinverse
+		 *
+		 * Computes a pseudoinverse of a symmetric square matrix using eigendecomposition (using the LAPACK _DSYEVR_ routine). The matrix is replaced with its inverse. Only the lower triangle of the input matrix is addressed.
+		 *
+		 */
 		void pseudoInv();
+		/** \brief Copy pseudoinverse
+		 *
+		 * Computes a pseudoinverse of a symmetric square matrix using eigendecomposition (using the LAPACK _DSYEVR_ routine). The calling matrix is left intact and the result is copied to the output. Only the lower triangle of the input matrix is addressed.
+		 *
+		 * \param[out] out object where the result is to be stored
+		 */
+		void pseudoInv(MatrixView &out) const;
 		/** \brief Perform SVD
 		 *
 		 * Performs SVD and stores the \f$U\f$ vectors in a MatrixView object and singular values in a C++ vector. For now, only does the _DGESVD_ from LAPACK with no \f$V^{T}\f$ matrix. The data in the object are destroyed.
@@ -783,6 +794,13 @@ namespace BayesicSpace {
 		 * \param[out] out object where the result is to be stored
 		 */
 		void cholInv(MatrixView &out) const;
+		/** \brief Copy pseudoinverse
+		 *
+		 * Computes a pseudoinverse of a symmetric square matrix using eigendecomposition (using the LAPACK _DSYEVR_ routine). The calling matrix is left intact and the result is copied to the output. Only the lower triangle of the input matrix is addressed.
+		 *
+		 * \param[out] out object where the result is to be stored
+		 */
+		void pseudoInv(MatrixView &out) const;
 		/** \brief Perform "safe" SVD
 		 *
 		 * Performs SVD and stores the \f$U\f$ vectors in a MatrixView object and singular values in a C++ vector. For now, only does the _DGESVD_ from LAPACK with no \f$V^{T}\f$ matrix. The data in the object are preserved, leading to some loss of efficiency compared to svd().
