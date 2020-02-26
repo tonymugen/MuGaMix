@@ -60,7 +60,7 @@ using namespace BayesicSpace;
 MatrixView::MatrixView(vector<double> *inVec, const size_t &idx, const size_t &nrow, const size_t &ncol) : data_{inVec}, idx_{idx}, Nrow_{nrow}, Ncol_{ncol} {
 #ifndef PKG_DEBUG_OFF
 	if (data_->size() < idx_ + Nrow_*Ncol_) {
-		throw string("MatrixView indexes extend past vector end");
+		throw string("MatrixView indexes extend past vector end in MatrixView::MatrixView(vector<double> *, const size_t &, const size_t &, const size_t &)");
 	}
 #endif
 }
@@ -163,23 +163,23 @@ void MatrixView::chol(){
 
 }
 
-void MatrixView::chol(MatrixView &out) const {
+void MatrixView::chol(MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be symmetric in MatrixView::chol(MatrixView &out)");
+		throw string("ERROR: matrix has to be symmetric in MatrixView::chol(MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::chol(MatrixView &)");
 	}
 	if ( (Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
-		throw string("ERROR: wrong dimensions in output matrix in MatrixView::chol(MatrixView &out)");
+		throw string("ERROR: wrong dimensions in output matrix in MatrixView::chol(MatrixView &)");
 	}
 #endif
 
 	// if there is only one element, do the scalar math
 	if ( (Nrow_ == 1) && (Ncol_ == 1) ) {
 		if ( (*data_)[idx_] <= 0.0) {
-			throw string("ERROR: one-element matrix with a non-positive element in MatrixView::chol(MatrixView &out)");
+			throw string("ERROR: one-element matrix with a non-positive element in MatrixView::chol(MatrixView &)");
 		}
 		(*out.data_)[idx_] = sqrt((*data_)[idx_]);
 		return;
@@ -193,9 +193,9 @@ void MatrixView::chol(MatrixView &out) const {
 	int N = static_cast<int>(Nrow_); // conversion should be safe: Nrow_ magnitude checked during construction
 	dpotrf_(&tri, &N, out.data_->data() + idx_, &N, &info);
 	if (info < 0) {
-		throw string("ERROR: illegal matrix element in MatrixView::chol(MatrixView &out)");
+		throw string("ERROR: illegal matrix element in MatrixView::chol(MatrixView &)");
 	} else if (info > 0) {
-		throw string("ERROR: matrix is not positive definite in MatrixView::chol(MatrixView &out)");
+		throw string("ERROR: matrix is not positive definite in MatrixView::chol(MatrixView &)");
 	}
 
 }
@@ -233,16 +233,16 @@ void MatrixView::cholInv(){
 
 }
 
-void MatrixView::cholInv(MatrixView &out) const {
+void MatrixView::cholInv(MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be square in MatrixView::cholInv(MatrixView &out)");
+		throw string("ERROR: matrix has to be square in MatrixView::cholInv(MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero in MatrixView::cholInv(MatrixView &out)");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::cholInv(MatrixView &)");
 	}
 	if ( (Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
-		throw string("ERROR: wrong dimensions in output matrix in MatrixView::cholInv(MatrixView &out)");
+		throw string("ERROR: wrong dimensions in output matrix in MatrixView::cholInv(MatrixView &)");
 	}
 #endif
 
@@ -259,9 +259,9 @@ void MatrixView::cholInv(MatrixView &out) const {
 	int N = static_cast<int>(Nrow_); // safe to convert: Nrow_ checked at construction
 	dpotri_(&tri, &N, out.data_->data() + idx_, &N, &info);
 	if (info < 0) {
-		throw string("ERROR: illegal matrix element in MatrixView::cholInv(MatrixView &out)");
+		throw string("ERROR: illegal matrix element in MatrixView::cholInv(MatrixView &)");
 	} else if (info > 0) {
-		throw string("ERROR: a diagonal element of the matrix is zero in MatrixView::cholInv(MatrixView &out)");
+		throw string("ERROR: a diagonal element of the matrix is zero in MatrixView::cholInv(MatrixView &)");
 	}
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
 		for (size_t jCol = 0; jCol < iRow; jCol++) {
@@ -273,10 +273,10 @@ void MatrixView::cholInv(MatrixView &out) const {
 void MatrixView::svd(MatrixView &U, vector<double> &s){
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero in MatrixView::svd(MatrixView &U, vector<double> &s)");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::svd(MatrixView &, vector<double> &)");
 	}
 	if ((Nrow_ != U.Nrow_) || (U.Nrow_ != U.Ncol_)) {
-		throw string("ERROR: wrong dimensions of the U matrix in MatrixView::svd(MatrixView &U, vector<double> &s)");
+		throw string("ERROR: wrong dimensions of the U matrix in MatrixView::svd(MatrixView &, vector<double> &)");
 	}
 #endif
 
@@ -301,20 +301,20 @@ void MatrixView::svd(MatrixView &U, vector<double> &s){
 	dgesvd_(&jobu, &jobvt, &Nr, &Nc, data_->data()+idx_, &Nr, s.data(), U.data_->data()+U.idx_, &Nr, vt.data(), &Nvt, workArr.data(), &Nw, &resSVD);
 	workArr.resize(0);
 	if (resSVD < 0) {
-		throw string("ERROR: illegal matrix element in MatrixView::svd(MatrixView &U, vector<double> &s)");
+		throw string("ERROR: illegal matrix element in MatrixView::svd(MatrixView &, vector<double> &)");
 	} else if (resSVD > 0){
-		throw string("ERROR: DBDSQR did not converge in MatrixView::svd(MatrixView &U, vector<double> &s)");
+		throw string("ERROR: DBDSQR did not converge in MatrixView::svd(MatrixView &, vector<double> &)");
 	}
 
 }
 
-void MatrixView::svdSafe(MatrixView &U, vector<double> &s) const {
+void MatrixView::svdSafe(MatrixView &U, vector<double> &s) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero in MatrixView::svdSafe(MatrixView &U, vector<double> &s)");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::svdSafe(MatrixView &, vector<double> &)");
 	}
 	if ((Nrow_ != U.Nrow_) || (U.Nrow_ != U.Ncol_)) {
-		throw string("ERROR: wrong dimensions of the U matrix in MatrixView::svdSafe(MatrixView &U, vector<double> &s)");
+		throw string("ERROR: wrong dimensions of the U matrix in MatrixView::svdSafe(MatrixView &, vector<double> &)");
 	}
 #endif
 
@@ -342,9 +342,9 @@ void MatrixView::svdSafe(MatrixView &U, vector<double> &s) const {
 	dgesvd_(&jobu, &jobvt, &Nr, &Nc, dataCopy, &Nr, s.data(), U.data_->data()+U.idx_, &Nr, vt.data(), &Nvt, workArr.data(), &Nw, &resSVD);
 	workArr.resize(0);
 	if (resSVD < 0) {
-		throw string("ERROR: illegal matrix element in MatrixView::svdSafe(MatrixView &U, vector<double> &s)");
+		throw string("ERROR: illegal matrix element in MatrixView::svdSafe(MatrixView &, vector<double> &)");
 	} else if (resSVD > 0){
-		throw string("ERROR: DBDSQR did not converge in MatrixView::svdSafe(MatrixView &U, vector<double> &s)");
+		throw string("ERROR: DBDSQR did not converge in MatrixView::svdSafe(MatrixView &, vector<double> &)");
 	}
 	delete [] dataCopy;
 }
@@ -352,13 +352,13 @@ void MatrixView::svdSafe(MatrixView &U, vector<double> &s) const {
 void MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam){
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be at least square in MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: matrix has to be at least square in MatrixView::eigen(const char &, MatrixView &, vector<double> &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: one of the dimensions is zero MatrixView::eigen(const char &, MatrixView &, vector<double> &)");
 	}
 	if ((Ncol_ > U.Nrow_) || (Ncol_ > U.Ncol_)) {
-		throw string("ERROR: wrong U matrix dimensions in MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: wrong U matrix dimensions in MatrixView::eigen(const char &, MatrixView &, vector<double> &)");
 	}
 #endif
 
@@ -375,7 +375,7 @@ void MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam){
 	} else if (tri == 'l'){
 		uplo = 'L';
 	} else {
-		throw string("ERROR: unknown triangle indicator in MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: unknown triangle indicator in MatrixView::eigen(const char &, MatrixView &, vector<double> &)");
 	}
 	// the following casts are safe because Nrow_ magnitude is checked at construction
 	int N   = static_cast<int>(Nrow_);
@@ -420,13 +420,13 @@ void MatrixView::eigen(const char &tri, MatrixView &U, vector<double> &lam){
 void MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam){
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be at least square in MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: matrix has to be at least square in MatrixView::eigen(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	if (Nrow_ < n) {
-		throw string("ERROR: the input number of eigenvalues greater than matrix dimensions MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: the input number of eigenvalues greater than matrix dimensions MatrixView::eigen(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero in MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::eigen(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 #endif
 
@@ -444,7 +444,7 @@ void MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<d
 	} else if (tri == 'l'){
 		uplo = 'L';
 	} else {
-		throw string("ERROR: unknown triangle indicator in MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: unknown triangle indicator in MatrixView::eigen(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	int N   = static_cast<int>(Nrow_);
 	int lda = static_cast<int>(Nrow_);
@@ -461,7 +461,7 @@ void MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<d
 
 	// test the output size and adjust if necessary
 	if ((Nrow_ > U.Nrow_) || (static_cast<size_t>(M) > U.Ncol_)) {
-		throw string("ERROR: wrong U matrix dimensions in MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: wrong U matrix dimensions in MatrixView::eigen(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	if (static_cast<size_t>(M) > lam.size()) {
 		lam.resize(static_cast<size_t>(M), 0.0);
@@ -496,13 +496,13 @@ void MatrixView::eigen(const char &tri, const size_t &n, MatrixView &U, vector<d
 void MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam) const{
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be at least square in MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: matrix has to be at least square in MatrixView::eigenSafe(const char &, MatrixView &, vector<double> &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero in MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::eigenSafe(const char &, MatrixView &, vector<double> &)");
 	}
 	if ((Ncol_ > U.Nrow_) || (Ncol_ > U.Ncol_)) {
-		throw string("ERROR: wrong U matrix dimensions in MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: wrong U matrix dimensions in MatrixView::eigenSafe(const char &, MatrixView &, vector<double> &)");
 	}
 #endif
 
@@ -519,7 +519,7 @@ void MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam) 
 	} else if (tri == 'l'){
 		uplo = 'L';
 	} else {
-		throw string("ERROR: unknown triangle indicator in MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam)");
+		throw string("ERROR: unknown triangle indicator in MatrixView::eigenSafe(const char &, MatrixView &, vector<double> &)");
 	}
 	int N   = static_cast<int>(Nrow_);
 	int lda = static_cast<int>(Nrow_);
@@ -568,13 +568,13 @@ void MatrixView::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam) 
 void MatrixView::eigenSafe(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam) const{
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be at least square in eigen()");
+		throw string("ERROR: matrix has to be at least square in MatrixView::eigenSafe(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	if (Nrow_ < n) {
-		throw string("ERROR: the input number of eigenvalues greater than matrix dimensions");
+		throw string("ERROR: the input number of eigenvalues greater than matrix dimensions in MatrixView::eigenSafe(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::eigenSafe(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 #endif
 
@@ -592,7 +592,7 @@ void MatrixView::eigenSafe(const char &tri, const size_t &n, MatrixView &U, vect
 	} else if (tri == 'l'){
 		uplo = 'L';
 	} else {
-		throw string("ERROR: unknown triangle indicator in eigen()");
+		throw string("ERROR: unknown triangle indicator in MatrixView::eigenSafe(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	int N   = static_cast<int>(Nrow_);
 	int lda = static_cast<int>(Nrow_);
@@ -609,7 +609,7 @@ void MatrixView::eigenSafe(const char &tri, const size_t &n, MatrixView &U, vect
 
 	// test the output size and adjust if necessary
 	if ((Nrow_ > U.Nrow_) || (static_cast<size_t>(M) > U.Ncol_)) {
-		throw string("ERROR: wrong output matrix dimensions in eigenSafe()");
+		throw string("ERROR: wrong output matrix dimensions in MatrixView::eigenSafe(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	if (static_cast<size_t>(M) > lam.size()) {
 		lam.resize(static_cast<size_t>(M), 0.0);
@@ -646,16 +646,16 @@ void MatrixView::eigenSafe(const char &tri, const size_t &n, MatrixView &U, vect
 
 }
 
-void MatrixView::syrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
+void MatrixView::syrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in syrk()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::syrk(const char &, const double &, const double &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::syrk(const char &, const double &, const double &, MatrixView &)");
 	}
 	if ((C.getNrows() != Ncol_) || (C.getNcols() != Ncol_)) {
-		throw string("ERROR: wrong dimensions of the C matrix in syrk()");
+		throw string("ERROR: wrong dimensions of the C matrix in MatrixView::syrk(const char &, const double &, const double &, MatrixView &)");
 	}
 #endif
 
@@ -672,16 +672,16 @@ void MatrixView::syrk(const char &tri, const double &alpha, const double &beta, 
 
 }
 
-void MatrixView::tsyrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
+void MatrixView::tsyrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in tsyrk()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::tsyrk(const char &, const double &, const double &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::tsyrk(const char &, const double &, const double &, MatrixView &)");
 	}
 	if ((C.getNrows() != Nrow_) || (C.getNcols() != Nrow_)) {
-		throw string("ERROR: wrong C matrix dimensions in tsyrk()");
+		throw string("ERROR: wrong C matrix dimensions in MatrixView::tsyrk(const char &, const double &, const double &, MatrixView &)");
 	}
 #endif
 
@@ -700,26 +700,26 @@ void MatrixView::tsyrk(const char &tri, const double &alpha, const double &beta,
 void MatrixView::symm(const char &tri, const char &side, const double &alpha, const MatrixView &symA, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 	}
 	if (symA.getNrows() != symA.getNcols()) {
-		throw string("ERROR: symmetric matrix symA has to be square in symm()");
+		throw string("ERROR: symmetric matrix symA has to be square in MatrixView::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 	}
 	if (side == 'l') {
 		if ((Nrow_ > INT_MAX) || (symA.getNcols() > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 		}
 	} else if (side == 'r') {
 		if ((symA.getNrows() > INT_MAX) || (Ncol_ > INT_MAX)) {
-			throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 		}
 	}
 
 	if ((symA.getNcols() != Nrow_) && (side == 'l')) { // AB
-		throw string("ERROR: Incompatible dimensions between B and A in symm()");
+		throw string("ERROR: Incompatible dimensions between B and A in MatrixView::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 	}
 	if ((symA.getNrows() != Ncol_) && (side == 'r')) { // BA
-		throw string("ERROR: Incompatible dimensions between A and B in symm()");
+		throw string("ERROR: Incompatible dimensions between A and B in MatrixView::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 	}
 #endif
 
@@ -729,16 +729,16 @@ void MatrixView::symm(const char &tri, const char &side, const double &alpha, co
 		m = static_cast<int>(symA.getNrows());
 		n = static_cast<int>(Ncol_);
 		if ((C.getNrows() != symA.getNrows()) || (C.getNcols() != Ncol_)) {
-			throw string("ERROR: wrong C matrix dimensions in symm()");
+			throw string("ERROR: wrong C matrix dimensions in MatrixView::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 		}
 	} else if (side == 'r') { // BA
 		m = static_cast<int>(Nrow_);
 		n = static_cast<int>(symA.getNcols());
 		if ((C.getNrows() != Nrow_) || (C.getNcols() != symA.getNcols())) {
-			throw string("ERROR: wrong C matrix dimensions in symm()");
+			throw string("ERROR: wrong C matrix dimensions in MatrixView::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 		}
 	} else {
-		throw string("ERROR: unknown side indicator in symm()");
+		throw string("ERROR: unknown side indicator in MatrixView::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 	}
 
 	// final integer parameters
@@ -751,26 +751,26 @@ void MatrixView::symm(const char &tri, const char &side, const double &alpha, co
 void MatrixView::symm(const char &tri, const char &side, const double &alpha, const MatrixViewConst &symA, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixView::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 	}
 	if (symA.getNrows() != symA.getNcols()) {
-		throw string("ERROR: symmetric matrix symA has to be square in symm()");
+		throw string("ERROR: symmetric matrix symA has to be square in MatrixView::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 	}
 	if (side == 'l') {
 		if ((Nrow_ > INT_MAX) || (symA.getNcols() > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 		}
 	} else if (side == 'r') {
 		if ((symA.getNrows() > INT_MAX) || (Ncol_ > INT_MAX)) {
-			throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 		}
 	}
 
 	if ((symA.getNcols() != Nrow_) && (side == 'l')) { // AB
-		throw string("ERROR: Incompatible dimensions between B and A in symm()");
+		throw string("ERROR: Incompatible dimensions between B and A in MatrixView::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 	}
 	if ((symA.getNrows() != Ncol_) && (side == 'r')) { // BA
-		throw string("ERROR: Incompatible dimensions between A and B in symm()");
+		throw string("ERROR: Incompatible dimensions between A and B in MatrixView::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 	}
 #endif
 
@@ -780,16 +780,16 @@ void MatrixView::symm(const char &tri, const char &side, const double &alpha, co
 		m = static_cast<int>(symA.getNrows());
 		n = static_cast<int>(Ncol_);
 		if ((C.getNrows() != symA.getNrows()) || (C.getNcols() != Ncol_)) {
-			throw string("ERROR: wrong C matrix dimensions in symm()");
+			throw string("ERROR: wrong C matrix dimensions in MatrixView::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 		}
 	} else if (side == 'r') { // BA
 		m = static_cast<int>(Nrow_);
 		n = static_cast<int>(symA.getNcols());
 		if ((C.getNrows() != Nrow_) || (C.getNcols() != symA.getNcols())) {
-			throw string("ERROR: wrong C matrix dimensions in symm()");
+			throw string("ERROR: wrong C matrix dimensions in MatrixView::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 		}
 	} else {
-		throw string("ERROR: unknown side indicator in symm()");
+		throw string("ERROR: unknown side indicator in MatrixView::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 	}
 
 	// final integer parameters
@@ -803,19 +803,19 @@ void MatrixView::symm(const char &tri, const char &side, const double &alpha, co
 void MatrixView::symc(const char &tri, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::symc(const char &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 	if (Ncol_ != Nrow_) {
-		throw string("ERROR: symmetric matrix (current object) has to be square in symc()");
+		throw string("ERROR: symmetric matrix (current object) has to be square in MatrixView::symc(const char &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 	if ((Ncol_ > INT_MAX) || (X.getNrows() > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symc()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::symc(const char &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 	if (X.getNrows() != Ncol_) {
-		throw string("ERROR: Incompatible dimensions between A and X in symc()");
+		throw string("ERROR: Incompatible dimensions between A and X in MatrixView::symc(const char &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 	if (xCol >= X.getNcols()) {
-		throw string("ERROR: column index out of range for matrix X in symc()");
+		throw string("ERROR: column index out of range for matrix X in MatrixView::symc(const char &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 #endif
 	if (y.size() < Nrow_) {
@@ -836,19 +836,19 @@ void MatrixView::symc(const char &tri, const double &alpha, const MatrixView &X,
 void MatrixView::symc(const char &tri, const double &alpha, const MatrixViewConst &X, const size_t &xCol, const double &beta, vector<double> &y) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::symc(const char &, const double &, const MatrixViewConst &, const size_t &, const double &, vector<double> &)");
 	}
 	if (Ncol_ != Nrow_) {
-		throw string("ERROR: symmetric matrix (current object) has to be square in symc()");
+		throw string("ERROR: symmetric matrix (current object) has to be square in MatrixView::symc(const char &, const double &, const MatrixViewConst &, const size_t &, const double &, vector<double> &)");
 	}
 	if ((Ncol_ > INT_MAX) || (X.getNrows() > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symc()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::symc(const char &, const double &, const MatrixViewConst &, const size_t &, const double &, vector<double> &)");
 	}
 	if (X.getNrows() != Ncol_) {
-		throw string("ERROR: Incompatible dimensions between A and X in symc()");
+		throw string("ERROR: Incompatible dimensions between A and X in MatrixView::symc(const char &, const double &, const MatrixViewConst &, const size_t &, const double &, vector<double> &)");
 	}
 	if (xCol >= X.getNcols()) {
-		throw string("ERROR: column index out of range for matrix X in symc()");
+		throw string("ERROR: column index out of range for matrix X in MatrixView::symc(const char &, const double &, const MatrixViewConst &, const size_t &, const double &, vector<double> &)");
 	}
 #endif
 	if (y.size() < Nrow_) {
@@ -869,29 +869,29 @@ void MatrixView::symc(const char &tri, const double &alpha, const MatrixViewCons
 void MatrixView::trm(const char &tri, const char &side, const bool &transA, const bool &uDiag, const double &alpha, const MatrixView &trA){
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixView &)");
 	}
 	if (trA.getNrows() != trA.getNcols()) {
-		throw string("ERROR: triangular matrix trA has to be square in trm()");
+		throw string("ERROR: triangular matrix trA has to be square in MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixView &)");
 	}
 	if (side == 'l') {
 		if ((Nrow_ > INT_MAX) || (trA.getNcols() > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in trm()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixView &)");
 		}
 	} else if (side == 'r') {
 		if ((trA.getNrows() > INT_MAX) || (Ncol_ > INT_MAX)) {
-			throw string("ERROR: at least one matrix dimension too big to safely convert to int in trm()");
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixView &)");
 		}
 	}
 
 	if ((trA.getNcols() != Nrow_) && (side == 'l')) { // AB
-		throw string("ERROR: Incompatible dimensions between B and A in trm()");
+		throw string("ERROR: Incompatible dimensions between B and A in MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixView &)");
 	}
 	if ((trA.getNrows() != Ncol_) && (side == 'r')) { // BA
-		throw string("ERROR: Incompatible dimensions between A and B in trm()");
+		throw string("ERROR: Incompatible dimensions between A and B in MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixView &)");
 	}
 	if ((side != 'l') && (side != 'r')) {
-		throw string("ERROR: unknown side indicator in symm()");
+		throw string("ERROR: unknown side indicator in MatrixView::symm(const char &, const char &, const bool &, const bool &, const double &, const MatrixView &)");
 	}
 #endif
 
@@ -910,29 +910,29 @@ void MatrixView::trm(const char &tri, const char &side, const bool &transA, cons
 void MatrixView::trm(const char &tri, const char &side, const bool &transA, const bool &uDiag, const double &alpha, const MatrixViewConst &trA){
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixViewConst &)");
 	}
 	if (trA.getNrows() != trA.getNcols()) {
-		throw string("ERROR: triangular matrix trA has to be square in trm()");
+		throw string("ERROR: triangular matrix trA has to be square in MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixViewConst &)");
 	}
 	if (side == 'l') {
 		if ((Nrow_ > INT_MAX) || (trA.getNcols() > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in trm()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixViewConst &)");
 		}
 	} else if (side == 'r') {
 		if ((trA.getNrows() > INT_MAX) || (Ncol_ > INT_MAX)) {
-			throw string("ERROR: at least one matrix dimension too big to safely convert to int in trm()");
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixViewConst &)");
 		}
 	}
 
 	if ((trA.getNcols() != Nrow_) && (side == 'l')) { // AB
-		throw string("ERROR: Incompatible dimensions between B and A in trm()");
+		throw string("ERROR: Incompatible dimensions between B and A in MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixViewConst &)");
 	}
 	if ((trA.getNrows() != Ncol_) && (side == 'r')) { // BA
-		throw string("ERROR: Incompatible dimensions between A and B in trm()");
+		throw string("ERROR: Incompatible dimensions between A and B in MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixViewConst &)");
 	}
 	if ((side != 'l') && (side != 'r')) {
-		throw string("ERROR: unknown side indicator in symm()");
+		throw string("ERROR: unknown side indicator in MatrixView::trm(const char &, const char &, const bool &, const bool &, const double &, const MatrixViewConst &)");
 	}
 #endif
 
@@ -951,33 +951,33 @@ void MatrixView::trm(const char &tri, const char &side, const bool &transA, cons
 void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixView &A, const bool &transB, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 	}
 	if ((A.getNcols() > INT_MAX) || (A.getNrows() > INT_MAX)) {
-		throw string("ERROR: at least one A matrix dimension too big to safely convert to int in gemm()");
+		throw string("ERROR: at least one A matrix dimension too big to safely convert to int in MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 	}
 
 	if (transB) {
 		if (Nrow_ > INT_MAX) {
-			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		}
 	} else {
 		if (Ncol_ > INT_MAX) {
-			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		}
 	}
 	if (transA) {
 		if (transB && (A.getNrows() != Ncol_)) {
-			throw string("ERROR: Incompatible dimensions between A^T and B^T in gemm()");
+			throw string("ERROR: Incompatible dimensions between A^T and B^T in MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		} else if (!transB && (A.getNrows() != Nrow_)){
-			throw string("ERROR: Incompatible dimensions between A^T and B in gemm()");
+			throw string("ERROR: Incompatible dimensions between A^T and B in MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		}
 
 	} else {
 		if (transB && (A.getNcols() != Ncol_)) {
-			throw string("ERROR: Incompatible dimensions between A and B^T in gemm()");
+			throw string("ERROR: Incompatible dimensions between A and B^T in MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		} else if (!transB && (A.getNcols() != Nrow_)) {
-			throw string("ERROR: Incompatible dimensions between A and B in gemm()");
+			throw string("ERROR: Incompatible dimensions between A and B in MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		}
 	}
 #endif
@@ -996,13 +996,13 @@ void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixView 
 			tBtok = 't';
 			n     = static_cast<int>(Nrow_);
 			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Nrow_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 			}
 		} else {
 			tBtok = 'n';
 			n     = static_cast<int>(Ncol_);
 			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Ncol_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 			}
 		}
 	} else {
@@ -1013,13 +1013,13 @@ void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixView 
 			tBtok = 't';
 			n     = static_cast<int>(Nrow_);
 			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Nrow_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 			}
 		} else {
 			tBtok = 'n';
 			n     = static_cast<int>(Ncol_);
 			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Ncol_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixView::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 			}
 		}
 	}
@@ -1034,33 +1034,33 @@ void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixView 
 void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixViewConst &A, const bool &transB, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 	}
 	if ((A.getNcols() > INT_MAX) || (A.getNrows() > INT_MAX)) {
-		throw string("ERROR: at least one A matrix dimension too big to safely convert to int in gemm()");
+		throw string("ERROR: at least one A matrix dimension too big to safely convert to int in MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 	}
 
 	if (transB) {
 		if (Nrow_ > INT_MAX) {
-			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		}
 	} else {
 		if (Ncol_ > INT_MAX) {
-			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		}
 	}
 	if (transA) {
 		if (transB && (A.getNrows() != Ncol_)) {
-			throw string("ERROR: Incompatible dimensions between A^T and B^T in gemm()");
+			throw string("ERROR: Incompatible dimensions between A^T and B^T in MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		} else if (!transB && (A.getNrows() != Nrow_)){
-			throw string("ERROR: Incompatible dimensions between A^T and B in gemm()");
+			throw string("ERROR: Incompatible dimensions between A^T and B in MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		}
 
 	} else {
 		if (transB && (A.getNcols() != Ncol_)) {
-			throw string("ERROR: Incompatible dimensions between A and B^T in gemm()");
+			throw string("ERROR: Incompatible dimensions between A and B^T in MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		} else if (!transB && (A.getNcols() != Nrow_)) {
-			throw string("ERROR: Incompatible dimensions between A and B in gemm()");
+			throw string("ERROR: Incompatible dimensions between A and B in MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		}
 	}
 #endif
@@ -1079,13 +1079,13 @@ void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixViewC
 			tBtok = 't';
 			n     = static_cast<int>(Nrow_);
 			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Nrow_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 			}
 		} else {
 			tBtok = 'n';
 			n     = static_cast<int>(Ncol_);
 			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Ncol_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 			}
 		}
 	} else {
@@ -1096,13 +1096,13 @@ void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixViewC
 			tBtok = 't';
 			n     = static_cast<int>(Nrow_);
 			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Nrow_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 			}
 		} else {
 			tBtok = 'n';
 			n     = static_cast<int>(Ncol_);
 			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Ncol_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixView::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 			}
 		}
 	}
@@ -1113,30 +1113,30 @@ void MatrixView::gemm(const bool &transA, const double &alpha, const MatrixViewC
 
 	dgemm_(&tAtok, &tBtok, &m, &n, &k, &alpha, A.data_->data()+A.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
 }
-void MatrixView::gemc(const bool &trans, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const {
+void MatrixView::gemc(const bool &trans, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 	if (trans) {
 		if ((Nrow_ > INT_MAX) || (X.getNrows() > INT_MAX)) {
-			throw string("ERROR: at least one matrix dimension too big to safely convert to int in gemc()");
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 		}
 		if (Nrow_ != X.getNrows()) {
-			throw string("ERROR: Incompatible dimensions between A and X in gemc()");
+			throw string("ERROR: Incompatible dimensions between A and X in MatrixView::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 
 		}
 	} else {
 		if ((Ncol_ > INT_MAX) || (X.getNrows() > INT_MAX)) {
-			throw string("ERROR: at least one matrix dimension too big to safely convert to int in gemc()");
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixView::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 		}
 		if (Ncol_ != X.getNrows()) {
-			throw string("ERROR: Incompatible dimensions between A and X in gemc()");
+			throw string("ERROR: Incompatible dimensions between A and X in MatrixView::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 
 		}
 	}
 	if (xCol >= X.getNcols()) {
-		throw string("ERROR: column index out of range for matrix X in gemc()");
+		throw string("ERROR: column index out of range for matrix X in MatrixView::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 #endif
 
@@ -1194,13 +1194,13 @@ MatrixView& MatrixView::operator/=(const double &scal){
 void MatrixView::rowExpand(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.groupNumber() != Ncol_) {
-		throw string("ERROR: Number of Index groups not equal to number of columns in rowExpand()");
+		throw string("ERROR: Number of Index groups not equal to number of columns in MatrixView::rowExpand(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::rowExpand(const Index &, MatrixView &)");
 	}
 	if ((ind.size() != out.Ncol_) || (Nrow_ != out.Nrow_)) {
-		throw string("ERROR: Index size not equal to output number of rows in rowExpand()");
+		throw string("ERROR: Index size not equal to output number of rows in MatrixView::rowExpand(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -1228,13 +1228,13 @@ void MatrixView::rowSums(vector<double> &sums) const{
 void MatrixView::rowSums(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowSums()");
+		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixView::rowSums(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::rowSums(const Index &, MatrixView &)");
 	}
 	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
-		throw string("ERROR: Index group number does not equal output column number in rowSums()");
+		throw string("ERROR: Index group number does not equal output column number in MatrixView::rowSums(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
@@ -1265,13 +1265,13 @@ void MatrixView::rowMeans(vector<double> &means) const{
 void MatrixView::rowMeans(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowMeans()");
+		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixView::rowMeans(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::rowMeans(const Index &, MatrixView &)");
 	}
 	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
-		throw string("ERROR: Index group number does not equal output column number in rowMeans()");
+		throw string("ERROR: Index group number does not equal output column number in MatrixView::rowMeans(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
@@ -1291,16 +1291,16 @@ void MatrixView::rowMeans(const Index &ind, MatrixView &out) const{
 
 }
 
-void MatrixView::colExpand(const Index &ind, MatrixView &out) const {
+void MatrixView::colExpand(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.groupNumber() != Nrow_) {
-		throw string("ERROR: incorrect number of Index groups in colExpand()");
+		throw string("ERROR: incorrect number of Index groups in MatrixView::colExpand(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::colExpand(const Index &, MatrixView &)");
 	}
 	if ((ind.size() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: the output matrix has wrong dimensions in colExpand()");
+		throw string("ERROR: the output matrix has wrong dimensions in MatrixView::colExpand(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -1327,16 +1327,16 @@ void MatrixView::colSums(vector<double> &sums) const{
 		}
 	}
 }
-void MatrixView::colSums(const Index &ind, MatrixView &out) const {
+void MatrixView::colSums(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in colSums()");
+		throw string("ERROR: Wrong total length of Index in MatrixView::colSums(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::colSums(const Index &, MatrixView &)");
 	}
 	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: incorrect Index group number in colSums()");
+		throw string("ERROR: incorrect Index group number in MatrixView::colSums(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -1365,16 +1365,16 @@ void MatrixView::colMeans(vector<double> &means) const{
 		}
 	}
 }
-void MatrixView::colMeans(const Index &ind, MatrixView &out) const {
+void MatrixView::colMeans(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in colMeans()");
+		throw string("ERROR: Wrong total length of Index in MatrixView::colMeans(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixView::colMeans(const Index &, MatrixView &)");
 	}
 	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: incorrect Index group number in colMeans()");
+		throw string("ERROR: incorrect Index group number in MatrixView::colMeans(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -1396,7 +1396,7 @@ void MatrixView::colMeans(const Index &ind, MatrixView &out) const {
 void MatrixView::rowMultiply(const vector<double> &scalars){
 #ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Ncol_) {
-		throw string("ERROR: Vector of scalars has wrong length in rowMultiply(vector)");
+		throw string("ERROR: Vector of scalars has wrong length in MatrixView::rowMultiply(const vector<double> &)");
 	}
 #endif
 
@@ -1409,7 +1409,7 @@ void MatrixView::rowMultiply(const vector<double> &scalars){
 void MatrixView::rowMultiply(const double &scalar, const size_t &iRow){
 #ifndef PKG_DEBUG_OFF
 	if (iRow >= Nrow_) {
-		throw string("ERROR: Row index out of bounds in rowMultiply(scalar)");
+		throw string("ERROR: Row index out of bounds in MatrixView::rowMultiply(const double &, const size_t &)");
 	}
 #endif
 	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
@@ -1419,7 +1419,7 @@ void MatrixView::rowMultiply(const double &scalar, const size_t &iRow){
 void MatrixView::colMultiply(const vector<double> &scalars){
 #ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Nrow_) {
-		throw string("ERROR: Vector of scalars has wrong length in colMultiply(vector)");
+		throw string("ERROR: Vector of scalars has wrong length in MatrixView::colMultiply(const vector<double> &)");
 	}
 #endif
 
@@ -1432,7 +1432,7 @@ void MatrixView::colMultiply(const vector<double> &scalars){
 void MatrixView::colMultiply(const double &scalar, const size_t &jCol){
 #ifndef PKG_DEBUG_OFF
 	if (jCol >= Ncol_) {
-		throw string("ERROR: Column index out of bounds in colMultiply(scalar)");
+		throw string("ERROR: Column index out of bounds in MatrixView::colMultiply(const double &, const size_t &)");
 	}
 #endif
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
@@ -1442,7 +1442,7 @@ void MatrixView::colMultiply(const double &scalar, const size_t &jCol){
 void MatrixView::rowDivide(const vector<double> &scalars){
 #ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Ncol_) {
-		throw string("ERROR: Vector of scalars has wrong length in rowDivide(vector)");
+		throw string("ERROR: Vector of scalars has wrong length in MatrixView::rowDivide(const vector<double> &)");
 	}
 #endif
 
@@ -1455,7 +1455,7 @@ void MatrixView::rowDivide(const vector<double> &scalars){
 void MatrixView::rowDivide(const double &scalar, const size_t &iRow){
 #ifndef PKG_DEBUG_OFF
 	if (iRow >= Nrow_) {
-		throw string("ERROR: Row index out of bounds in rowDivide(scalar)");
+		throw string("ERROR: Row index out of bounds in MatrixView::rowDivide(const double &, const size_t &i)");
 	}
 #endif
 	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
@@ -1465,7 +1465,7 @@ void MatrixView::rowDivide(const double &scalar, const size_t &iRow){
 void MatrixView::colDivide(const vector<double> &scalars){
 #ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Nrow_) {
-		throw string("ERROR: Vector of scalars has wrong length in colDivide(vector)");
+		throw string("ERROR: Vector of scalars has wrong length in MatrixView::colDivide(const vector<double> &)");
 	}
 #endif
 
@@ -1478,7 +1478,7 @@ void MatrixView::colDivide(const vector<double> &scalars){
 void MatrixView::colDivide(const double &scalar, const size_t &jCol){
 #ifndef PKG_DEBUG_OFF
 	if (jCol >= Ncol_) {
-		throw string("ERROR: Column index out of bounds in colDivide(scalar)");
+		throw string("ERROR: Column index out of bounds in MatrixView::colDivide(const double &, const size_t &)");
 	}
 #endif
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
@@ -1488,7 +1488,7 @@ void MatrixView::colDivide(const double &scalar, const size_t &jCol){
 void MatrixView::rowAdd(const vector<double> &scalars){
 #ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Ncol_) {
-		throw string("ERROR: Vector of scalars has wrong length in rowAdd(vector)");
+		throw string("ERROR: Vector of scalars has wrong length in MatrixView::rowAdd(const vector<double> &)");
 	}
 #endif
 
@@ -1501,7 +1501,7 @@ void MatrixView::rowAdd(const vector<double> &scalars){
 void MatrixView::rowAdd(const double &scalar, const size_t &iRow){
 #ifndef PKG_DEBUG_OFF
 	if (iRow >= Nrow_) {
-		throw string("ERROR: Row index out of bounds in rowAdd(scalar)");
+		throw string("ERROR: Row index out of bounds in MatrixView::rowAdd(const double &, const size_t &)");
 	}
 #endif
 	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
@@ -1511,7 +1511,7 @@ void MatrixView::rowAdd(const double &scalar, const size_t &iRow){
 void MatrixView::colAdd(const vector<double> &scalars){
 #ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Nrow_) {
-		throw string("ERROR: Vector of scalars has wrong length in colAdd(vector)");
+		throw string("ERROR: Vector of scalars has wrong length in MatrixView::colAdd(const vector<double> &)");
 	}
 #endif
 
@@ -1524,7 +1524,7 @@ void MatrixView::colAdd(const vector<double> &scalars){
 void MatrixView::colAdd(const double &scalar, const size_t &jCol){
 #ifndef PKG_DEBUG_OFF
 	if (jCol >= Ncol_) {
-		throw string("ERROR: Column index out of bounds in colAdd(scalar)");
+		throw string("ERROR: Column index out of bounds in MatrixView::colAdd(const double &, const size_t &)");
 	}
 #endif
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
@@ -1534,7 +1534,7 @@ void MatrixView::colAdd(const double &scalar, const size_t &jCol){
 void MatrixView::rowSub(const vector<double> &scalars){
 #ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Ncol_) {
-		throw string("ERROR: Vector of scalars has wrong length in rowSub(vector)");
+		throw string("ERROR: Vector of scalars has wrong length in MatrixView::rowSub(const vector<double> &)");
 	}
 #endif
 
@@ -1547,7 +1547,7 @@ void MatrixView::rowSub(const vector<double> &scalars){
 void MatrixView::rowSub(const double &scalar, const size_t &iRow){
 #ifndef PKG_DEBUG_OFF
 	if (iRow >= Nrow_) {
-		throw string("ERROR: Row index out of bounds in rowSub(scalar)");
+		throw string("ERROR: Row index out of bounds in MatrixView::rowSub(const double &, const size_t &)");
 	}
 #endif
 	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
@@ -1557,7 +1557,7 @@ void MatrixView::rowSub(const double &scalar, const size_t &iRow){
 void MatrixView::colSub(const vector<double> &scalars){
 #ifndef PKG_DEBUG_OFF
 	if (scalars.size() != Nrow_) {
-		throw string("ERROR: Vector of scalars has wrong length in colSub(vector)");
+		throw string("ERROR: Vector of scalars has wrong length in MatrixView::colSub(const vector<double> &)");
 	}
 #endif
 
@@ -1570,7 +1570,7 @@ void MatrixView::colSub(const vector<double> &scalars){
 void MatrixView::colSub(const double &scalar, const size_t &jCol){
 #ifndef PKG_DEBUG_OFF
 	if (jCol >= Ncol_) {
-		throw string("ERROR: Column index out of bounds in colSub(scalar)");
+		throw string("ERROR: Column index out of bounds in MatrixView::colSub(const double &, const size_t &)");
 	}
 #endif
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
@@ -1628,27 +1628,27 @@ MatrixViewConst& MatrixViewConst::operator=(MatrixView &&inMat){
 	return *this;
 }
 
-double MatrixViewConst::getElem(const size_t& iRow, const size_t &jCol) const{
+double MatrixViewConst::getElem(const size_t &iRow, const size_t &jCol) const{
 #ifndef PKG_DEBUG_OFF
 	if ((iRow >= Nrow_) || (jCol >= Ncol_)) {
-		throw string("ERROR: element out of range in getElem()");
+		throw string("ERROR: element out of range in MatrixViewConst::getElem(const size_t &, const size_t &)");
 	}
 #endif
 
 	return data_->data()[idx_ + Nrow_*jCol + iRow];
 }
 
-void MatrixViewConst::chol(MatrixView &out) const {
+void MatrixViewConst::chol(MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be symmetric for Cholesky decomposition");
+		throw string("ERROR: matrix has to be symmetric in MatrixViewConst::chol(MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::chol(MatrixView &)");
 	}
 
 	if ((Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky decomposition");
+		throw string("ERROR: wrong dimensions in output matrix in MatrixViewConst::chol(MatrixView &)");
 	}
 #endif
 
@@ -1660,23 +1660,23 @@ void MatrixViewConst::chol(MatrixView &out) const {
 	int N = static_cast<int>(Nrow_); // conversion should be safe: Nrow_ magnitude checked during construction
 	dpotrf_(&tri, &N, out.data_->data() + idx_, &N, &info);
 	if (info < 0) {
-		throw string("ERROR: illegal matrix element in copy Cholesky decomposition");
+		throw string("ERROR: illegal matrix element in MatrixViewConst::chol(MatrixView &)");
 	} else if (info > 0) {
-		throw string("ERROR: matrix is not positive definite in copy Cholesky decomposition");
+		throw string("ERROR: matrix is not positive definite in MatrixViewConst::chol(MatrixView &)");
 	}
 
 }
 
-void MatrixViewConst::cholInv(MatrixView &out) const {
+void MatrixViewConst::cholInv(MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be square for Cholesky inversion");
+		throw string("ERROR: matrix has to be square in MatrixViewConst::cholInv(MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero");
 	}
 	if ((Nrow_ != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: wrong dimensions in output matrix in copy Cholesky inversion");
+		throw string("ERROR: wrong dimensions in output matrix in MatrixViewConst::cholInv(MatrixView &)");
 	}
 #endif
 
@@ -1688,9 +1688,9 @@ void MatrixViewConst::cholInv(MatrixView &out) const {
 	int N = static_cast<int>(Nrow_); // safe to convert: Nrow_ checked at construction
 	dpotri_(&tri, &N, out.data_->data() + idx_, &N, &info);
 	if (info < 0) {
-		throw string("ERROR: illegal matrix element in copy Cholesky inversion");
+		throw string("ERROR: illegal matrix element in MatrixViewConst::cholInv(MatrixView &)");
 	} else if (info > 0) {
-		throw string("ERROR: a diagonal element of the matrix is zero. Cannot complete copy Cholesky inversion");
+		throw string("ERROR: a diagonal element of the matrix is zero in MatrixViewConst::cholInv(MatrixView &)");
 	}
 	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
 		for (size_t jCol = 0; jCol < iRow; jCol++) {
@@ -1699,13 +1699,13 @@ void MatrixViewConst::cholInv(MatrixView &out) const {
 	}
 }
 
-void MatrixViewConst::svdSafe(MatrixView &U, vector<double> &s) const {
+void MatrixViewConst::svdSafe(MatrixView &U, vector<double> &s) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::svdSafe(MatrixView &, vector<double> &)");
 	}
 	if ((Nrow_ != U.Nrow_) || (U.Nrow_ != U.Ncol_)) {
-		throw string("ERROR: wrong dimensions of the U matrix in svdSafe()");
+		throw string("ERROR: wrong dimensions of the U matrix in MatrixViewConst::svdSafe(MatrixView &, vector<double> &)");
 	}
 #endif
 
@@ -1733,9 +1733,9 @@ void MatrixViewConst::svdSafe(MatrixView &U, vector<double> &s) const {
 	dgesvd_(&jobu, &jobvt, &Nr, &Nc, dataCopy, &Nr, s.data(), U.data_->data()+U.idx_, &Nr, vt.data(), &Nvt, workArr.data(), &Nw, &resSVD);
 	workArr.resize(0);
 	if (resSVD < 0) {
-		throw string("ERROR: illegal matrix element in safe SVD");
+		throw string("ERROR: illegal matrix element in MatrixViewConst::svdSafe(MatrixView &, vector<double> &)");
 	} else if (resSVD > 0){
-		throw string("ERROR: DBDSQR did not converge in safe SVD");
+		throw string("ERROR: DBDSQR did not converge in MatrixViewConst::svdSafe(MatrixView &, vector<double> &)");
 	}
 	delete [] dataCopy;
 }
@@ -1743,13 +1743,13 @@ void MatrixViewConst::svdSafe(MatrixView &U, vector<double> &s) const {
 void MatrixViewConst::eigenSafe(const char &tri, MatrixView &U, vector<double> &lam) const{
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be at least square in eigen()");
+		throw string("ERROR: matrix has to be at least square in MatrixViewConst::eigenSafe(const char &, MatrixView &, vector<double> &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::eigenSafe(const char &, MatrixView &, vector<double> &)");
 	}
 	if ((Ncol_ > U.Nrow_) || (Ncol_ > U.Ncol_)) {
-		throw string("ERROR: wrong U matrix dimensions in eigenSafe()");
+		throw string("ERROR: wrong U matrix dimensions in MatrixViewConst::eigenSafe(const char &, MatrixView &, vector<double> &)");
 	}
 #endif
 
@@ -1766,7 +1766,7 @@ void MatrixViewConst::eigenSafe(const char &tri, MatrixView &U, vector<double> &
 	} else if (tri == 'l'){
 		uplo = 'L';
 	} else {
-		throw string("ERROR: unknown triangle indicator in eigen()");
+		throw string("ERROR: unknown triangle indicator in MatrixViewConst::eigenSafe(const char &, MatrixView &, vector<double> &)");
 	}
 	int N   = static_cast<int>(Nrow_);
 	int lda = static_cast<int>(Nrow_);
@@ -1814,13 +1814,13 @@ void MatrixViewConst::eigenSafe(const char &tri, MatrixView &U, vector<double> &
 void MatrixViewConst::eigenSafe(const char &tri, const size_t &n, MatrixView &U, vector<double> &lam) const{
 #ifndef PKG_DEBUG_OFF
 	if (Nrow_ != Ncol_) {
-		throw string("ERROR: matrix has to be at least square in eigen()");
+		throw string("ERROR: matrix has to be at least square in MatrixViewConst::eigenSafe(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	if (Nrow_ < n) {
-		throw string("ERROR: the input number of eigenvalues greater than matrix dimensions");
+		throw string("ERROR: the input number of eigenvalues greater than matrix dimensions in MatrixViewConst::eigenSafe(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::eigenSafe(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 #endif
 
@@ -1838,7 +1838,7 @@ void MatrixViewConst::eigenSafe(const char &tri, const size_t &n, MatrixView &U,
 	} else if (tri == 'l'){
 		uplo = 'L';
 	} else {
-		throw string("ERROR: unknown triangle indicator in eigen()");
+		throw string("ERROR: unknown triangle indicator in MatrixViewConst::eigenSafe(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	int N   = static_cast<int>(Nrow_);
 	int lda = static_cast<int>(Nrow_);
@@ -1855,7 +1855,7 @@ void MatrixViewConst::eigenSafe(const char &tri, const size_t &n, MatrixView &U,
 
 	// test the output size and adjust if necessary
 	if ((Nrow_ > U.Nrow_) || (static_cast<size_t>(M) > U.Ncol_)) {
-		throw string("ERROR: wrong output matrix dimensions in eigenSafe()");
+		throw string("ERROR: wrong output matrix dimensions in MatrixViewConst::eigenSafe(const char &, const size_t &, MatrixView &, vector<double> &)");
 	}
 	if (static_cast<size_t>(M) > lam.size()) {
 		lam.resize(static_cast<size_t>(M), 0.0);
@@ -1891,16 +1891,16 @@ void MatrixViewConst::eigenSafe(const char &tri, const size_t &n, MatrixView &U,
 	}
 }
 
-void MatrixViewConst::syrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
+void MatrixViewConst::syrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in syrk()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixViewConst::syrk(const char &, const double &, const double &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::syrk(const char &, const double &, const double &, MatrixView &)");
 	}
 	if ((C.getNrows() != Ncol_) || (C.getNcols() != Ncol_)) {
-		throw string("ERROR: wrong dimensions of the C matrix in syrk()");
+		throw string("ERROR: wrong dimensions of the C matrix in MatrixViewConst::syrk(const char &, const double &, const double &, MatrixView &)");
 	}
 #endif
 
@@ -1916,16 +1916,16 @@ void MatrixViewConst::syrk(const char &tri, const double &alpha, const double &b
 	dsyrk_(&tri, &trans, &n, &k, &alpha, data_->data()+idx_, &lda, &beta, C.data_->data()+C.idx_, &ldc);
 }
 
-void MatrixViewConst::tsyrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const {
+void MatrixViewConst::tsyrk(const char &tri, const double &alpha, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ((Ncol_ > INT_MAX) || (Nrow_ > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in tsyrk()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixViewConst::tsyrk(const char &, const double &, const double &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::tsyrk(const char &, const double &, const double &, MatrixView &)");
 	}
 	if ((C.getNrows() != Nrow_) || (C.getNcols() != Nrow_)) {
-		throw string("ERROR: wrong C matrix dimensions in tsyrk()");
+		throw string("ERROR: wrong C matrix dimensions in MatrixViewConst::tsyrk(const char &, const double &, const double &, MatrixView &)");
 	}
 #endif
 
@@ -1944,26 +1944,26 @@ void MatrixViewConst::tsyrk(const char &tri, const double &alpha, const double &
 void MatrixViewConst::symm(const char &tri, const char &side, const double &alpha, const MatrixView &symA, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 	}
 	if (symA.getNrows() != symA.getNcols()) {
-		throw string("ERROR: symmetric matrix symA has to be square in symm()");
+		throw string("ERROR: symmetric matrix symA has to be square in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 	}
 	if (side == 'l') {
 		if ((Nrow_ > INT_MAX) || (symA.getNcols() > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 		}
 	} else if (side == 'r') {
 		if ((symA.getNrows() > INT_MAX) || (Ncol_ > INT_MAX)) {
-			throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 		}
 	}
 
 	if ((symA.getNcols() != Nrow_) && (side == 'l')) { // AB
-		throw string("ERROR: Incompatible dimensions between B and A in symm()");
+		throw string("ERROR: Incompatible dimensions between B and A in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 	}
 	if ((symA.getNrows() != Ncol_) && (side == 'r')) { // BA
-		throw string("ERROR: Incompatible dimensions between A and B in symm()");
+		throw string("ERROR: Incompatible dimensions between A and B in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 	}
 #endif
 
@@ -1973,16 +1973,16 @@ void MatrixViewConst::symm(const char &tri, const char &side, const double &alph
 		m = static_cast<int>(symA.getNrows());
 		n = static_cast<int>(Ncol_);
 		if ((C.getNrows() != symA.getNrows()) || (C.getNcols() != Ncol_)) {
-			throw string("ERROR: wrong C matrix dimensions in symm()");
+			throw string("ERROR: wrong C matrix dimensions in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 		}
 	} else if (side == 'r') { // BA
 		m = static_cast<int>(Nrow_);
 		n = static_cast<int>(symA.getNcols());
 		if ((C.getNrows() != Nrow_) || (C.getNcols() != symA.getNcols())) {
-			throw string("ERROR: wrong C matrix dimensions in symm()");
+			throw string("ERROR: wrong C matrix dimensions in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 		}
 	} else {
-		throw string("ERROR: unknown side indicator in symm()");
+		throw string("ERROR: unknown side indicator in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixView &, const double &, MatrixView &)");
 	}
 
 	// final integer parameters
@@ -1995,26 +1995,26 @@ void MatrixViewConst::symm(const char &tri, const char &side, const double &alph
 void MatrixViewConst::symm(const char &tri, const char &side, const double &alpha, const MatrixViewConst &symA, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 	}
 	if (symA.getNrows() != symA.getNcols()) {
-		throw string("ERROR: symmetric matrix symA has to be square in symm()");
+		throw string("ERROR: symmetric matrix symA has to be square in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 	}
 	if (side == 'l') {
 		if ((Nrow_ > INT_MAX) || (symA.getNcols() > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 		}
 	} else if (side == 'r') {
 		if ((symA.getNrows() > INT_MAX) || (Ncol_ > INT_MAX)) {
-			throw string("ERROR: at least one matrix dimension too big to safely convert to int in symm()");
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 		}
 	}
 
 	if ((symA.getNcols() != Nrow_) && (side == 'l')) { // AB
-		throw string("ERROR: Incompatible dimensions between B and A in symm()");
+		throw string("ERROR: Incompatible dimensions between B and A in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 	}
 	if ((symA.getNrows() != Ncol_) && (side == 'r')) { // BA
-		throw string("ERROR: Incompatible dimensions between A and B in symm()");
+		throw string("ERROR: Incompatible dimensions between A and B in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 	}
 #endif
 
@@ -2024,16 +2024,16 @@ void MatrixViewConst::symm(const char &tri, const char &side, const double &alph
 		m = static_cast<int>(symA.getNrows());
 		n = static_cast<int>(Ncol_);
 		if ((C.getNrows() != symA.getNrows()) || (C.getNcols() != Ncol_)) {
-			throw string("ERROR: wrong C matrix dimensions in symm()");
+			throw string("ERROR: wrong C matrix dimensions in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 		}
 	} else if (side == 'r') { // BA
 		m = static_cast<int>(Nrow_);
 		n = static_cast<int>(symA.getNcols());
 		if ((C.getNrows() != Nrow_) || (C.getNcols() != symA.getNcols())) {
-			throw string("ERROR: wrong C matrix dimensions in symm()");
+			throw string("ERROR: wrong C matrix dimensions in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 		}
 	} else {
-		throw string("ERROR: unknown side indicator in symm()");
+		throw string("ERROR: unknown side indicator in MatrixViewConst::symm(const char &, const char &, const double &, const MatrixViewConst &, const double &, MatrixView &)");
 	}
 
 	// final integer parameters
@@ -2047,19 +2047,19 @@ void MatrixViewConst::symm(const char &tri, const char &side, const double &alph
 void MatrixViewConst::symc(const char &tri, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::symc(const char &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 	if (Ncol_ != Nrow_) {
-		throw string("ERROR: symmetric matrix (current object) has to be square in symc()");
+		throw string("ERROR: symmetric matrix (current object) has to be square in MatrixViewConst::symc(const char &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 	if ((Ncol_ > INT_MAX) || (X.getNrows() > INT_MAX)) {
-		throw string("ERROR: at least one matrix dimension too big to safely convert to int in symc()");
+		throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixViewConst::symc(const char &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 	if (X.getNrows() != Ncol_) {
-		throw string("ERROR: Incompatible dimensions between A and X in symc()");
+		throw string("ERROR: Incompatible dimensions between A and X in MatrixViewConst::symc(const char &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 	if (xCol >= X.getNcols()) {
-		throw string("ERROR: column index out of range for matrix X in symc()");
+		throw string("ERROR: column index out of range for matrix X in MatrixViewConst::symc(const char &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 #endif
 	if (y.size() < Nrow_) {
@@ -2080,33 +2080,33 @@ void MatrixViewConst::symc(const char &tri, const double &alpha, const MatrixVie
 void MatrixViewConst::gemm(const bool &transA, const double &alpha, const MatrixView &A, const bool &transB, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 	}
 	if ((A.getNcols() > INT_MAX) || (A.getNrows() > INT_MAX)) {
-		throw string("ERROR: at least one A matrix dimension too big to safely convert to int in gemm()");
+		throw string("ERROR: at least one A matrix dimension too big to safely convert to int in MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 	}
 
 	if (transB) {
 		if (Nrow_ > INT_MAX) {
-			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		}
 	} else {
 		if (Ncol_ > INT_MAX) {
-			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		}
 	}
 	if (transA) {
 		if (transB && (A.getNrows() != Ncol_)) {
-			throw string("ERROR: Incompatible dimensions between A^T and B^T in gemm()");
+			throw string("ERROR: Incompatible dimensions between A^T and B^T in MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		} else if (!transB && (A.getNrows() != Nrow_)){
-			throw string("ERROR: Incompatible dimensions between A^T and B in gemm()");
+			throw string("ERROR: Incompatible dimensions between A^T and B in MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		}
 
 	} else {
 		if (transB && (A.getNcols() != Ncol_)) {
-			throw string("ERROR: Incompatible dimensions between A and B^T in gemm()");
+			throw string("ERROR: Incompatible dimensions between A and B^T in MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		} else if (!transB && (A.getNcols() != Nrow_)) {
-			throw string("ERROR: Incompatible dimensions between A and B in gemm()");
+			throw string("ERROR: Incompatible dimensions between A and B in MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 		}
 	}
 #endif
@@ -2125,13 +2125,13 @@ void MatrixViewConst::gemm(const bool &transA, const double &alpha, const Matrix
 			tBtok = 't';
 			n     = static_cast<int>(Nrow_);
 			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Nrow_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 			}
 		} else {
 			tBtok = 'n';
 			n     = static_cast<int>(Ncol_);
 			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Ncol_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 			}
 		}
 	} else {
@@ -2142,13 +2142,13 @@ void MatrixViewConst::gemm(const bool &transA, const double &alpha, const Matrix
 			tBtok = 't';
 			n     = static_cast<int>(Nrow_);
 			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Nrow_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 			}
 		} else {
 			tBtok = 'n';
 			n     = static_cast<int>(Ncol_);
 			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Ncol_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixViewConst::gemm(const bool &, const double &, const MatrixView &, const bool &, const double &, MatrixView &)");
 			}
 		}
 	}
@@ -2162,33 +2162,33 @@ void MatrixViewConst::gemm(const bool &transA, const double &alpha, const Matrix
 void MatrixViewConst::gemm(const bool &transA, const double &alpha, const MatrixViewConst &A, const bool &transB, const double &beta, MatrixView &C) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 	}
 	if ((A.getNcols() > INT_MAX) || (A.getNrows() > INT_MAX)) {
-		throw string("ERROR: at least one A matrix dimension too big to safely convert to int in gemm()");
+		throw string("ERROR: at least one A matrix dimension too big to safely convert to int in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 	}
 
 	if (transB) {
 		if (Nrow_ > INT_MAX) {
-			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		}
 	} else {
 		if (Ncol_ > INT_MAX) {
-			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in gemm()");
+			throw string("ERROR: at least one B matrix dimension too big to safely convert to int in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		}
 	}
 	if (transA) {
 		if (transB && (A.getNrows() != Ncol_)) {
-			throw string("ERROR: Incompatible dimensions between A^T and B^T in gemm()");
+			throw string("ERROR: Incompatible dimensions between A^T and B^T in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		} else if (!transB && (A.getNrows() != Nrow_)){
-			throw string("ERROR: Incompatible dimensions between A^T and B in gemm()");
+			throw string("ERROR: Incompatible dimensions between A^T and B in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		}
 
 	} else {
 		if (transB && (A.getNcols() != Ncol_)) {
-			throw string("ERROR: Incompatible dimensions between A and B^T in gemm()");
+			throw string("ERROR: Incompatible dimensions between A and B^T in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		} else if (!transB && (A.getNcols() != Nrow_)) {
-			throw string("ERROR: Incompatible dimensions between A and B in gemm()");
+			throw string("ERROR: Incompatible dimensions between A and B in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 		}
 	}
 #endif
@@ -2207,13 +2207,13 @@ void MatrixViewConst::gemm(const bool &transA, const double &alpha, const Matrix
 			tBtok = 't';
 			n     = static_cast<int>(Nrow_);
 			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Nrow_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 			}
 		} else {
 			tBtok = 'n';
 			n     = static_cast<int>(Ncol_);
 			if ((C.getNrows() != A.getNcols()) || (C.getNcols() != Ncol_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 			}
 		}
 	} else {
@@ -2224,13 +2224,13 @@ void MatrixViewConst::gemm(const bool &transA, const double &alpha, const Matrix
 			tBtok = 't';
 			n     = static_cast<int>(Nrow_);
 			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Nrow_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 			}
 		} else {
 			tBtok = 'n';
 			n     = static_cast<int>(Ncol_);
 			if ((C.getNrows() != A.getNrows()) || (C.getNcols() != Ncol_)) {
-				throw string("ERROR: incompatible C matrix dimensions in gemm()");
+				throw string("ERROR: incompatible C matrix dimensions in MatrixViewConst::gemm(const bool &, const double &, const MatrixViewConst &, const bool &, const double &, MatrixView &)");
 			}
 		}
 	}
@@ -2241,30 +2241,30 @@ void MatrixViewConst::gemm(const bool &transA, const double &alpha, const Matrix
 
 	dgemm_(&tAtok, &tBtok, &m, &n, &k, &alpha, A.data_->data()+A.idx_, &lda, data_->data()+idx_, &ldb, &beta, C.data_->data()+C.idx_, &ldc);
 }
-void MatrixViewConst::gemc(const bool &trans, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const {
+void MatrixViewConst::gemc(const bool &trans, const double &alpha, const MatrixView &X, const size_t &xCol, const double &beta, vector<double> &y) const{
 #ifndef PKG_DEBUG_OFF
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 	if (trans) {
 		if ((Nrow_ > INT_MAX) || (X.getNrows() > INT_MAX)) {
-			throw string("ERROR: at least one matrix dimension too big to safely convert to int in gemc()");
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixViewConst::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 		}
 		if (Nrow_ != X.getNrows()) {
-			throw string("ERROR: Incompatible dimensions between A and X in gemc()");
+			throw string("ERROR: Incompatible dimensions between A and X in MatrixViewConst::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 
 		}
 	} else {
 		if ((Ncol_ > INT_MAX) || (X.getNrows() > INT_MAX)) {
-			throw string("ERROR: at least one matrix dimension too big to safely convert to int in gemc()");
+			throw string("ERROR: at least one matrix dimension too big to safely convert to int in MatrixViewConst::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 		}
 		if (Ncol_ != X.getNrows()) {
-			throw string("ERROR: Incompatible dimensions between A and X in gemc()");
+			throw string("ERROR: Incompatible dimensions between A and X in MatrixViewConst::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 
 		}
 	}
 	if (xCol >= X.getNcols()) {
-		throw string("ERROR: column index out of range for matrix X in gemc()");
+		throw string("ERROR: column index out of range for matrix X in MatrixViewConst::gemc(const bool &, const double &, const MatrixView &, const size_t &, const double &, vector<double> &)");
 	}
 #endif
 
@@ -2290,13 +2290,13 @@ void MatrixViewConst::gemc(const bool &trans, const double &alpha, const MatrixV
 void MatrixViewConst::rowExpand(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.groupNumber() != Ncol_) {
-		throw string("ERROR: Number of Index groups not equal to number of columns in rowExpand()");
+		throw string("ERROR: Number of Index groups not equal to number of columns in MatrixViewConst::rowExpand(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::rowExpand(const Index &, MatrixView &)");
 	}
 	if ((ind.size() != out.Ncol_) || (Nrow_ != out.Nrow_)) {
-		throw string("ERROR: Index size not equal to output number of rows in rowExpand()");
+		throw string("ERROR: Index size not equal to output number of rows in MatrixViewConst::rowExpand(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -2324,13 +2324,13 @@ void MatrixViewConst::rowSums(vector<double> &sums) const{
 void MatrixViewConst::rowSums(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowSums()");
+		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixViewConst::rowSums(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::rowSums(const Index &, MatrixView &)");
 	}
 	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
-		throw string("ERROR: Index group number does not equal output column number in rowSums()");
+		throw string("ERROR: Index group number does not equal output column number in MatrixViewConst::rowSums(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
@@ -2361,13 +2361,13 @@ void MatrixViewConst::rowMeans(vector<double> &means) const{
 void MatrixViewConst::rowMeans(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in rowMeans()");
+		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixViewConst::rowMeans(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::rowMeans(const Index &, MatrixView &)");
 	}
 	if ((ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_)) {
-		throw string("ERROR: Index group number does not equal output column number in rowMeans()");
+		throw string("ERROR: Index group number does not equal output column number in MatrixViewConst::rowMeans(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_*out.Nrow_), 0.0);
@@ -2387,16 +2387,16 @@ void MatrixViewConst::rowMeans(const Index &ind, MatrixView &out) const{
 
 }
 
-void MatrixViewConst::colExpand(const Index &ind, MatrixView &out) const {
+void MatrixViewConst::colExpand(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.groupNumber() != Nrow_) {
-		throw string("ERROR: incorrect number of Index groups in colExpand()");
+		throw string("ERROR: incorrect number of Index groups in MatrixViewConst::colExpand(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::colExpand(const Index &, MatrixView &)");
 	}
 	if ((ind.size() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: the output matrix has wrong dimensions in colExpand()");
+		throw string("ERROR: the output matrix has wrong dimensions in MatrixViewConst::colExpand(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -2423,16 +2423,16 @@ void MatrixViewConst::colSums(vector<double> &sums) const{
 		}
 	}
 }
-void MatrixViewConst::colSums(const Index &ind, MatrixView &out) const {
+void MatrixViewConst::colSums(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in colSums()");
+		throw string("ERROR: Wrong total length of Index in MatrixViewConst::colSums(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::colSums(const Index &, MatrixView &)");
 	}
 	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: incorrect Index group number in colSums()");
+		throw string("ERROR: incorrect Index group number in MatrixViewConst::colSums(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -2461,16 +2461,16 @@ void MatrixViewConst::colMeans(vector<double> &means) const{
 		}
 	}
 }
-void MatrixViewConst::colMeans(const Index &ind, MatrixView &out) const {
+void MatrixViewConst::colMeans(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in colMeans()");
+		throw string("ERROR: Wrong total length of Index in MatrixViewConst::colMeans(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero");
+		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::colMeans(const Index &, MatrixView &)");
 	}
 	if ((ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_)) {
-		throw string("ERROR: incorrect Index group number in colMeans()");
+		throw string("ERROR: incorrect Index group number in MatrixViewConst::colMeans(const Index &, MatrixView &)");
 	}
 #endif
 
