@@ -87,7 +87,7 @@ namespace BayesicSpace {
 	 * Generates random deviates from a number of distributions, using hardware random numbers (_RDRAND_ processor instruction). Health of the RDRAND generator is tested every time a new number is required. Throws a `string` object "RDRAND_failed" if the test fails.
 	 * The implementation of random 64-bit integer generation follows [Intel's suggestions](https://software.intel.com/en-us/articles/intel-digital-random-number-generator-drng-software-implementation-guide ).
 	 */
-	class GenerateHR : public Generate {
+	class GenerateHR final : public Generate {
 	public:
 		/** \brief Default constructor */
 		GenerateHR(){};
@@ -120,7 +120,7 @@ namespace BayesicSpace {
 		 *
 		 * \return digital random 64-bit unsigned integer
 		 */
-		uint64_t ranInt() const;
+		uint64_t ranInt() const override;
 	protected:
 		// no protected members
 	};
@@ -129,7 +129,7 @@ namespace BayesicSpace {
 	 *
 	 * An implementaiton of the 64-bit MT19937 ("Mersenne Twister")  \cite matsumoto98a pseudo-random number generator (PRNG). The constructor automatically seeds the PRNG. The implementation was guided by the reference code [posted by the authors](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt64.html ).
 	 */
-	class GenerateMT : public Generate {
+	class GenerateMT final : public Generate {
 	public:
 		/** \brief Default constructor
 		 *
@@ -164,7 +164,7 @@ namespace BayesicSpace {
 		 *
 		 * \return pseudo-random 64-bit unsigned integer
 		 */
-		uint64_t ranInt() const;
+		uint64_t ranInt() const override;
 	protected:
 		/** \brief Degree of recurrence */
 		static const uint16_t n_;

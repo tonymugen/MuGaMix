@@ -31,8 +31,6 @@
 #include <string>
 #include <cmath>
 
-#include <fstream>
-
 #include "index.hpp"
 #include "random.hpp"
 #include "model.hpp"
@@ -44,6 +42,20 @@
 using std::vector;
 using std::string;
 using namespace BayesicSpace;
+
+/** \brief Logit function
+ *
+ * \param[in] p probability in the (0, 1) interval
+ * \return logit transformation
+ */
+inline double logit(const double &p){ return log(p) - log(1.0 - p); }
+
+/** \brief Logistic function
+ *
+ * \param[in] x value to be projected to the (0, 1) interval
+ * \return logistic transformation
+ */
+inline double logistic(const double &x){ return 1.0/(1 + exp(-x)); }
 
 /** \brief Shell sort
  *
@@ -765,12 +777,13 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	}
 	ZA.syrk('l', n, 0.0, Sig); // making covariances in one step
 	// add a small value to the diagonal to make sure the matrix is non-singular
-	for (size_t k = 0; k < d; k++) {
-		double diag = Sig.getElem(k, k);
-		Sig.setElem(k, k, diag + 1e-4);
-	}
-	Sig.chol();
-	Sig.cholInv();
+	//for (size_t k = 0; k < d; k++) {
+	//	double diag = Sig.getElem(k, k);
+	//	Sig.setElem(k, k, diag + 1e-4);
+	//}
+	//Sig.chol();
+	//Sig.cholInv();
+	Sig.pseudoInv();
 
 	// save the scaled precision matrix lower triangle and log-diagonals to the precision parameter vector
 	vector<double> sqrT;
@@ -797,13 +810,15 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	}
 	ZpMp.syrk('l', nLN, 0.0, Sig);
 	// add a small value to the diagonal again
-	for (size_t k = 0; k < d ; k++) {
-		double diag = Sig.getElem(k, k) + 1e-4;
-		Sig.setElem(k, k, diag);
-	}
+	//for (size_t k = 0; k < d ; k++) {
+	//	double diag = Sig.getElem(k, k) + 1e-4;
+	//	Sig.setElem(k, k, diag);
+	//}
 
-	Sig.chol();
-	Sig.cholInv();
+	//Sig.chol();
+	//Sig.cholInv();
+	Sig.pseudoInv();
+
 	for (size_t k = 0; k < d; k++) {
 		sqrT[k] = sqrt( Sig.getElem(k, k) );
 	}
@@ -906,8 +921,9 @@ void WrapMMM::imputeMissing_(){
 		vector<double> vSig(vSigI.size(), 0.0);
 		MatrixView Sig( &vSig, 0, SigI.getNrows(), SigI.getNcols() );
 		// Invert SigI
-		SigI.chol(Sig);
-		Sig.cholInv();
+		//SigI.chol(Sig);
+		//Sig.cholInv();
+		SigI.pseudoInv(Sig);
 		// go through all rows of Y_ with missing data
 		for (auto &missRow : missInd_) {
 			//make Sig_aa^-1 (corresponding to the absent traits)
@@ -918,8 +934,7 @@ void WrapMMM::imputeMissing_(){
 					SigAA.setElem( iNew, jNew, SigI.getElem(missRow.second[iNew], missRow.second[jNew]) );
 				}
 			}
-			SigAA.chol();
-			SigAA.cholInv(); // [(Sig^-1)_aa]^-1; Schur complement of Sig_pp
+			SigAA.pseudoInv(); // [(Sig^-1)_aa]^-1; Schur complement of Sig_pp
 			SigAA.chol();    // this will be the covariance for the MV Gaussian
 			// subset Sig for mean calculation
 			size_t dP = Sig.getNcols() - missRow.second.size(); // number of present traits
@@ -942,8 +957,7 @@ void WrapMMM::imputeMissing_(){
 				}
 			}
 			MatrixView SigPP(&vSigPP, 0, dP, dP);
-			SigPP.chol();
-			SigPP.cholInv(); // now Sig_pp^-1
+			SigPP.pseudoInv(); // now Sig_pp^-1
 			MatrixView SigAP(&vSigAP, 0, missRow.second.size(), dP);
 			// generate mean present and absent vectors
 			vector<double> muA;     // mu_a (means corresponding to the missing data)
@@ -1028,7 +1042,7 @@ void WrapMMM::updatePz_(){
 	hierInd_.back().update(z_);
 #ifndef PKG_DEBUG_OFF
 	if ( hierInd_.back().groupNumber() != Mp_.getNrows() ) {
-		throw string("Lost a population");
+		throw string("Lost a population in WrapMMM::updatePz_()");
 	}
 #endif
 }

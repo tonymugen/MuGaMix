@@ -52,10 +52,10 @@ namespace BayesicSpace {
 
 	/** \brief Mixture model for location parameters
 	 *
-	 * Implements log-posterior and gradient for the location parameters of the mixture model.
+	 * Implements log-posterior and gradient for the location parameters of the multiplicative mixture model.
 	 *
 	 */
-	class MumiLoc : public Model {
+	class MumiLoc final : public Model {
 	public:
 		/** \brief Default constructor */
 		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0} {};
@@ -65,7 +65,7 @@ namespace BayesicSpace {
 		 * \param[in] iSigVec pointer to vectorized inverse-covariance matrix collection
 		 * \param[in] xVec pointer to vectorized covariate predictor matrix
 		 * \param[in] hierInd pointer to vector of hierarchical indexes
-		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and population means
+		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and overall mean (intercept)
 		 */
 		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau);
 		/** \brief Destructor */
@@ -93,7 +93,7 @@ namespace BayesicSpace {
 		 * \param[in] theta parameter vector
 		 * \return Value of the log-posterior
 		 */
-		double logPost(const vector<double> &theta) const;
+		double logPost(const vector<double> &theta) const override;
 		/** \brief Gradient of the log-posterior
 		 *
 		 * Calculates the patial derivative of the log-posterior for each element in the provided parameter vector.
@@ -102,7 +102,7 @@ namespace BayesicSpace {
 		 * \param[out] grad partial derivative (gradient) vector
 		 *
 		 */
-		void gradient(const vector<double> &theta, vector<double> &grad) const;
+		void gradient(const vector<double> &theta, vector<double> &grad) const override;
 
 	protected:
 		/** \brief Matrix view of data */
@@ -150,7 +150,7 @@ namespace BayesicSpace {
 	 * The error matrix is stored first, then the line precision matrix. The unit lower-triangular \f$\boldsymbol{L}_X\f$ is stored first (by column and excluding the diagonal), then the diagonal log-precision matrix \f$\boldsymbol{T}_X\f$ (see the model description for notation).
 	 *
 	 */
-	class MumiISig : public Model {
+	class MumiISig final : public Model {
 	public:
 		/** \brief Default constructor */
 		MumiISig(): Model(), hierInd_{nullptr}, nu0_{2.0}, invAsq_{1e-10}, fTeInd_{0}, fTaInd_{0} {};
@@ -190,7 +190,7 @@ namespace BayesicSpace {
 		 * \param[in] viSig parameter vector
 		 * \return Value of the log-posterior
 		 */
-		double logPost(const vector<double> &viSig) const;
+		double logPost(const vector<double> &viSig) const override;
 		/** \brief Gradient of the log-posterior
 		 *
 		 * Calculates the patial derivative of the log-posterior for each element in the provided parameter vector.
@@ -199,7 +199,7 @@ namespace BayesicSpace {
 		 * \param[out] grad partial derivative (gradient) vector
 		 *
 		 */
-		void gradient(const vector<double> &viSig, vector<double> &grad) const;
+		void gradient(const vector<double> &viSig, vector<double> &grad) const override;
 
 	protected:
 		/** \brief Pointer to vector of indexes connecting hierarchy levels */

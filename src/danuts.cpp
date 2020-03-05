@@ -506,7 +506,7 @@ uint32_t SamplerNUTS::adapt(){
 	int fpClsH0 = fpclassify(nH0_);
 	// check sanity of log-posterior evaluation
 	if (fpClsH0 == FP_NAN) {
-		throw string("log-posterior evlauates to NaN in the adaptation phase");
+		throw string("log-posterior evluates to NaN in the adaptation phase");
 	} else if (fpClsH0 == FP_INFINITE) {
 
 		if (signbit(nH0_)) { // logpost is -Inf
@@ -571,7 +571,7 @@ uint32_t SamplerNUTS::adapt(){
 		}
 		n += nPrime;
 
-		if (j >= 8) { // too many doublings; nudge the epsilon to a larger value
+		if (j >= 6) { // too many doublings; nudge the epsilon to a larger value
 			alpha  = 1.0;
 			nAlpha = 1.0;
 			break;

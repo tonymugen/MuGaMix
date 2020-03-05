@@ -47,7 +47,7 @@ namespace BayesicSpace {
 	 * MCMC sampler class that implements the No-U-Turn Sampling with a dual-averaging algorithm to autimatically set the Hamiltonian step size \f$ \epsilon \f$. A class that implements a statistical model has to provide function to calculate a log-posterior and its gradient, as well as a pointer to the parameter vector.
 	 *
 	 */
-	class SamplerNUTS : public Sampler {
+	class SamplerNUTS final : public Sampler {
 	public:
 		/** \brief Default constructor */
 		SamplerNUTS() : Sampler(), theta_{nullptr} {};
@@ -91,7 +91,7 @@ namespace BayesicSpace {
 		 *
 		 * \return Tree depth for the step
 		 */
-		virtual uint32_t adapt();
+		virtual uint32_t adapt() override;
 		/** \brief NUTS update of parameters
 		 *
 		 * The step size \f$ \epsilon \f$ set during the adaptation phase.
@@ -100,7 +100,7 @@ namespace BayesicSpace {
 		 *
 		 * \return Tree depth for the step
 		 */
-		virtual uint32_t update();
+		virtual uint32_t update() override;
 
 	protected:
 		/** \brief Random numbers */
