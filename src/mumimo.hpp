@@ -66,10 +66,11 @@ namespace BayesicSpace {
 		 * \param[in] xVec pointer to vectorized covariate predictor matrix
 		 * \param[in] hierInd pointer to vector of hierarchical indexes
 		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and overall mean (intercept)
+		 * \param[in] nPops number of populations
 		 */
-		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau);
+		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops);
 		/** \brief Destructor */
-		~MumiLoc(){hierInd_ = nullptr; };
+		~MumiLoc(){hierInd_ = nullptr; iSigTheta_ = nullptr; };
 
 		/** \brief Copy constructor (deleted) */
 		MumiLoc(const MumiLoc &in) = delete;
@@ -137,6 +138,10 @@ namespace BayesicSpace {
 		size_t fTaInd_;
 		/** \brief Index of the first \f$\boldsymbol{T}_P\f$ element */
 		size_t fTpInd_;
+		/** \brief Index of the first probability element */
+		size_t PhiBegInd_;
+		/** \brief Number of populations */
+		size_t Npop_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
@@ -219,12 +224,14 @@ namespace BayesicSpace {
 		MatrixViewConst Y_;
 		/** \brief Line mean view */
 		MatrixViewConst A_;
-		/** \brief Covriate effect view */
+		/** \brief Covariate effect view */
 		MatrixViewConst B_;
 		/** \brief Population mean view */
 		MatrixViewConst Mp_;
 		/** \brief Overall mean view */
 		MatrixViewConst mu_;
+		/** \brief Population assignment logit-probability view */
+		MatrixViewConst Phi_;
 
 		/** \brief Error factorized precision matrix view
 		 *
@@ -315,11 +322,11 @@ namespace BayesicSpace {
 		 * \param[in] Nadapt number of adaptation (burn-in) steps
 		 * \param[in] Nsample number of sampling steps
 		 * \param[in] Nthin thinning number
-		 * \param[out] thetaChain MCMC chain of model parameters
-		 * \param[out] piChain MCMC chain of \f$ p_{ij} \f$
-		 * \param[out] nPopsChain MCMC chain tracking the number of non-empty populations
+		 * \param[out] thetaChain MCMC chain of location parameters
+		 * \param[out] isigChain MCMC chain of inverse-covariance parameters
+		 * \param[out] piChain MCMC chain of \f$ p_{ip} \f$
 		 */
-		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain, vector<int32_t> &nPopsChain);
+		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain);
 		/** \brief Sampler with missing data
 		 *
 		 * Runs the sampler with given parameters, imputes missing data, and outputs chains. Imputed values for the missing data points are in the `impYchain` variable.
@@ -329,11 +336,11 @@ namespace BayesicSpace {
 		 * \param[in] Nsample number of sampling steps
 		 * \param[in] Nthin thinning number
 		 * \param[out] thetaChain MCMC chain of model parameters
-		 * \param[out] piChain MCMC chain of \f$ p_{ij} \f$
-		 * \param[out] nPopsChain MCMC chain tracking the number of non-empty populations
+		 * \param[out] isigChain MCMC chain of inverse-covariance parameters
+		 * \param[out] piChain MCMC chain of \f$ p_{ip} \f$
 		 * \param[out] impYchain MCMC chain tracking imputed data
 		 */
-		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain, vector<int32_t> &nPopsChain, vector<double> &impYchain);
+		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain, vector<double> &impYchain);
 	protected:
 		/** \brief Vectorized data matrix
 		 *
@@ -351,15 +358,9 @@ namespace BayesicSpace {
 		 *
 		 */
 		vector<Index> hierInd_;
-		/** \brief Prior mixture proportions */
-		vector<double> alpha_;
-		/** \brief Dirichlet expected values */
-		vector<double> Dmn_;
-		/** \brief Mixture proportions */
-		vector<double> pi_;
-		/** \brief Allocation vector */
-		vector<size_t> z_;
-		/** \brief Location parameters */
+		/** \brief Prior number of populations per individual */
+		double alpha_;
+		/** \brief Location parameters and mixture proportions */
 		vector<double> vTheta_;
 		/** \brief Inerese-covariances */
 		vector<double> vISig_;
@@ -367,6 +368,10 @@ namespace BayesicSpace {
 		MatrixView A_;
 		/** \brief Matrix view of population means */
 		MatrixView Mp_;
+		/** \brief Index of the first probability element */
+		size_t PhiBegInd_;
+		/** \brief Matrix view of logit-population assignment probabilities */
+		MatrixView Phi_;
 		/** \brief Index of the first \f$\boldsymbol{T}_E\f$ element */
 		size_t fTeInd_;
 		/** \brief Index of the first \f$\boldsymbol{L}_A\f$ element */
@@ -377,22 +382,15 @@ namespace BayesicSpace {
 		vector<double> vLa_;
 		/** \brief Matrix view of the \f$ \boldsymbol{L}_A \f$ matrix */
 		MatrixView La_;
-		/** \brief Vectorized \f$ \boldsymbol{A} - \boldsybol{\mu}_{i\cdot} \f$ residual */
+		/** \brief Vectorized \f$ \boldsymbol{A} - \boldsybol{\mu}_{p\cdot} \f$ residual */
 		vector<double> vAresid_;
 		/** \brief Matrix view of the residual */
 		MatrixView Aresid_;
-		/** \brief Vectorized matrix of line probabilities
-		 *
-		 * Columns correspond to lines (accessions), rows have probabilities that a line belongs to each population, or the probability that \f$ z_i = j \f$.
-		 */
-		vector<double> vPz_;
 		/** \brief First principal component of \f$\boldsymbol{\Sigma}_A\f$
 		 *
 		 * The first prinicpal component vector of the initial estimate of the line (accesion) covariance matrix, to be used for projection ordering of population means.
 		 */
 		vector<double> pc1_;
-		/** \brief Matrix view of the probability vector */
-		MatrixView Pz_;
 		/** \brief Missingness index
 		 *
 		 * The key values are indexes of rows that have missing data, the mapped value is a vector with indexes of missing phenotypes for that row.
@@ -407,15 +405,11 @@ namespace BayesicSpace {
 		 *
 		 * Will point to the chosen derived sampler class(es).
 		 */
-		vector<Sampler*> sampler_;
+		vector<Sampler*> samplers_;
 		/** \brief Random number generator */
 		RanDraw rng_;
 		/** \brief Impute missing phenotype data */
 		void imputeMissing_();
-		/** \brief Update mixture proportions */
-		void updatePi_();
-		/** \brief Update \f$ p_{ij} \f$ */
-		void updatePz_();
 		/** \brief Sort the populations
 		 *
 		 * Populations are sorted using a projection on the first PC of the initial line covariance matrix (`pc1_`). The rows in the population matrix `Mp_` are then re-arranged accordingly (in order of increase). The elements of the `pi_` mixture proportion vector are also rearranged.

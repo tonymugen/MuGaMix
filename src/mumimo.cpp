@@ -108,13 +108,15 @@ void sort(const vector<double> &target, vector<size_t> &outIdx){
 }
 
 // MumiLoc methods
-MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec} {
+MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops} {
 	const size_t n = (*hierInd_)[0].size();
+#ifndef PKG_DEBUG_OFF
 	if (yVec->size()%n) {
 		throw string("ERROR: Y dimensions not compatible with the number of data points implied by the replicate factor");
 	}
+#endif
 	const size_t d = yVec->size()/n;
-	Y_     = MatrixViewConst(yVec, 0, n, d);
+	Y_ = MatrixViewConst(yVec, 0, n, d);
 
 	vLx_.resize(2*d*d, 0.0);
 	Le_ = MatrixView(&vLx_, 0, d, d);
@@ -128,19 +130,22 @@ MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, cons
 	fLaInd_      = trLen + d;
 	fTaInd_      = fLaInd_ + trLen;
 	fTpInd_      = fTaInd_ + d;
+	PhiBegInd_   = ( (*hierInd_)[0].groupNumber() + Npop_ + 1 )*d;
 }
 
 MumiLoc::MumiLoc(MumiLoc &&in) {
 	if (this != &in) {
-		Y_       = move(in.Y_);
-		tau0_    = in.tau0_;
-		hierInd_ = in.hierInd_;
-		Le_      = move(in.Le_);
-		La_      = move(in.La_);
-		vLx_     = move(in.vLx_);
-		fTeInd_  = in.fTeInd_;
-		fLaInd_  = in.fLaInd_;
-		fTaInd_  = in.fTaInd_;
+		Y_         = move(in.Y_);
+		tau0_      = in.tau0_;
+		hierInd_   = in.hierInd_;
+		Le_        = move(in.Le_);
+		La_        = move(in.La_);
+		vLx_       = move(in.vLx_);
+		fTeInd_    = in.fTeInd_;
+		fLaInd_    = in.fLaInd_;
+		fTaInd_    = in.fTaInd_;
+		PhiBegInd_ = in.PhiBegInd_;
+		Npop_      = in.Npop_;
 
 		in.hierInd_   = nullptr;
 		in.iSigTheta_ = nullptr;
@@ -150,15 +155,17 @@ MumiLoc::MumiLoc(MumiLoc &&in) {
 
 MumiLoc& MumiLoc::operator=(MumiLoc &&in){
 	if (this != &in) {
-		Y_       = move(in.Y_);
-		tau0_    = in.tau0_;
-		hierInd_ = in.hierInd_;
-		Le_      = move(in.Le_);
-		La_      = move(in.La_);
-		vLx_     = move(in.vLx_);
-		fTeInd_  = in.fTeInd_;
-		fLaInd_  = in.fLaInd_;
-		fTaInd_  = in.fTaInd_;
+		Y_         = move(in.Y_);
+		tau0_      = in.tau0_;
+		hierInd_   = in.hierInd_;
+		Le_        = move(in.Le_);
+		La_        = move(in.La_);
+		vLx_       = move(in.vLx_);
+		fTeInd_    = in.fTeInd_;
+		fLaInd_    = in.fLaInd_;
+		fTaInd_    = in.fTaInd_;
+		PhiBegInd_ = in.PhiBegInd_;
+		Npop_      = in.Npop_;
 
 		in.hierInd_   = nullptr;
 		in.iSigTheta_ = nullptr;
@@ -183,11 +190,11 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	// make L matrices
 	expandISvec_();
 	const size_t Nln  = (*hierInd_)[0].groupNumber();
-	const size_t Npop = hierInd_->back().groupNumber();
 	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
 	MatrixViewConst A(&theta, 0, Nln, Y_.getNcols() );
-	MatrixViewConst Mp(&theta, Nln*Y_.getNcols(), Npop, Y_.getNcols() );
-	MatrixViewConst mu( &theta, (Nln+Npop)*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
+	MatrixViewConst Mp(&theta, Nln*Y_.getNcols(), Npop_, Y_.getNcols() );
+	MatrixViewConst mu( &theta, (Nln+Npop_)*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
+	MatrixViewConst Phi( &theta, PhiBegInd_, Nln, Y_.getNcols() );
 
 	// Calculate the residual Y - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
@@ -700,14 +707,8 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 }
 
 // WrapMM methods
-WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY} {
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY}, alpha_{alphaPr} {
 	hierInd_.push_back( Index(y2line) );
-	// Set up population mixture vectors
-	alpha_.resize(Npop, alphaPr);
-	pi_.resize(Npop, 0.0);
-	Dmn_.resize(Npop, 0.0);
-	// Just establish the correct number of populations, will fill in below
-	hierInd_.push_back( Index(Npop) );
 	const size_t N = hierInd_[0].size();
 	if (vY.size()%N) {
 		throw string("WrapMMM constructor ERROR: length of response vector not divisible by data point number");
@@ -721,31 +722,28 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	Y_ = MatrixView(&vY_, 0, N, d);
 
 	vTheta_.resize(Adim + Mpdim + d, 0.0);
-	vPz_.resize(Npop*Nln, 0.0);
 	A_  = MatrixView(&vTheta_, 0, Nln, d);
 	Mp_ = MatrixView(&vTheta_, Adim, Npop, d);
 	MatrixView mu(&vTheta_, Adim+Mpdim, 1, d);
-	Pz_ = MatrixView(&vPz_, 0, Npop, Nln);
-	z_.resize(Nln, 0);
+	PhiBegInd_ = Adim+Mpdim+d;
+	Phi_       = MatrixView(&vTheta_, PhiBegInd_, Nln, Npop);
 
 	Y_.colMeans(hierInd_[0], A_);  //  means to get A starting values
-	// Calculate PC1 for projection sorting of populations; must be done here so that all chains have the same PC1
 	vector<double> vSig(d*d, 0.0);
 	MatrixView Sig(&vSig, 0, d, d);
-	vector<double> aMean(d, 0.0);
-	vector<double> vAtmp(vTheta_.begin(), vTheta_.begin()+Adim);
-	MatrixView Atmp(&vAtmp, 0, Nln, d);
-	Atmp.colMeans(aMean);
-	Atmp.rowSub(aMean); // centering the A matrix in place
-	Atmp.syrk('l', 1.0, 0.0, Sig);
-	const size_t nPC = 1;
-	pc1_.resize(d, 0);
-	MatrixView U(&pc1_, 0, d, nPC);
-	vector<double> lam(nPC, 0.0);
-	Sig.eigen('l', 1, U, lam);
 
-	// use k-means for population assignment and starting values
-	kMeans_(A_, Npop, 50, hierInd_.back(), Mp_);
+	// use k-means for population assignment and starting values of logit(p_jp)
+	Index popInd(Npop);
+	kMeans_(A_, Npop, 50, popInd, Mp_);
+	for (size_t iLN = 0; iLN < Nln; iLN++) {
+		for (size_t jPOP = 0; jPOP < Npop; jPOP++) {
+			if (popInd.groupID(iLN) == jPOP) {
+				Phi_.setElem(iLN, jPOP, logit(0.8 + 0.15*rng_.runif()));
+			} else {
+				Phi_.setElem(iLN, jPOP, logit(0.1 + 0.4*rng_.runif()));
+			}
+		}
+	}
 
 	vector<double> tmpMu;
 	Mp_.colMeans(tmpMu);
@@ -776,13 +774,6 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		}
 	}
 	ZA.syrk('l', n, 0.0, Sig); // making covariances in one step
-	// add a small value to the diagonal to make sure the matrix is non-singular
-	//for (size_t k = 0; k < d; k++) {
-	//	double diag = Sig.getElem(k, k);
-	//	Sig.setElem(k, k, diag + 1e-4);
-	//}
-	//Sig.chol();
-	//Sig.cholInv();
 	Sig.pseudoInv();
 
 	// save the scaled precision matrix lower triangle and log-diagonals to the precision parameter vector
@@ -801,7 +792,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	// A precision matrix
 	vZA.resize(Nln*d);
 	MatrixView ZpMp(&vZA, 0, Nln, d);
-	Mp_.colExpand(hierInd_.back(), ZpMp);
+	Mp_.colExpand(popInd, ZpMp);
 	for (size_t jCol = 0; jCol < d ; jCol++) {
 		for (size_t iRow = 0; iRow < Nln ; iRow++) {
 			double diff = A_.getElem(iRow, jCol) - ZpMp.getElem(iRow, jCol);
@@ -809,14 +800,6 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		}
 	}
 	ZpMp.syrk('l', nLN, 0.0, Sig);
-	// add a small value to the diagonal again
-	//for (size_t k = 0; k < d ; k++) {
-	//	double diag = Sig.getElem(k, k) + 1e-4;
-	//	Sig.setElem(k, k, diag);
-	//}
-
-	//Sig.chol();
-	//Sig.cholInv();
 	Sig.pseudoInv();
 
 	for (size_t k = 0; k < d; k++) {
@@ -843,8 +826,6 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	vAresid_.resize(Adim, 0.0);
 	Aresid_ = MatrixView(&vAresid_, 0, Nln, d);
 	sortPops_();
-	updatePi_();
-	updatePz_();
 	// add noise
 	for (auto &t : vTheta_) {
 		t += 0.5*rng_.rnorm();
@@ -854,8 +835,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	}
 	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0) );
 	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq) );
-	sampler_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	sampler_.push_back( new SamplerNUTS(models_[1], &vISig_) );
+	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 }
 
 WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : WrapMMM(vY, y2line, Npop, alphaPr, tau0, nu0, invAsq) {
@@ -873,7 +854,7 @@ WrapMMM::~WrapMMM(){
 	for (auto &m : models_) {
 		delete m;
 	}
-	for (auto &s : sampler_) {
+	for (auto &s : samplers_) {
 		delete s;
 	}
 }
@@ -993,60 +974,6 @@ void WrapMMM::imputeMissing_(){
 	}
 }
 
-void WrapMMM::updatePi_(){
-	for (size_t k = 0; k < Dmn_.size(); k++) {
-		Dmn_[k] = alpha_[k] + static_cast<double>( hierInd_.back().groupSize(k) ); // the line (accession) to population index always the last one in the vector
-	}
-	rng_.rdirichlet(Dmn_, pi_);
-}
-
-void WrapMMM::updatePz_(){
-	for (size_t p = 0; p < Mp_.getNrows(); p++) {             // for each population
-		for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
-			for (size_t iRow = 0; iRow < A_.getNrows(); iRow++) {
-				Aresid_.setElem( iRow, jCol, A_.getElem(iRow, jCol) - Mp_.getElem(p, jCol) ); // will iterate through populations first
-			}
-		}
-		Aresid_.trm('l', 'r', false, false, 1.0, La_); // half-kernel
-		for (size_t iA = 0; iA < Aresid_.getNrows(); iA++) {
-			double sSq = 0.0;
-			for (size_t jCol = 0; jCol < Aresid_.getNcols(); jCol++) {
-				sSq += Aresid_.getElem(iA, jCol)*Aresid_.getElem(iA, jCol);
-			}
-			Pz_.setElem( p, iA, pi_[p]*exp(-0.5*sSq) );
-		}
-	}
-	// normalize the scores to create p[ij]
-	for (size_t jCol = 0; jCol < Pz_.getNcols(); jCol++) {
-		double sum = 0.0;
-		for (size_t iPop = 0; iPop < Pz_.getNrows(); iPop++) {
-			sum += Pz_.getElem(iPop, jCol);
-		}
-		for (size_t iPop = 0; iPop < Pz_.getNrows(); iPop++) {
-			double div = Pz_.getElem(iPop, jCol)/sum;
-			Pz_.setElem(iPop, jCol, div);
-		}
-	}
-	// assign z_ values
-	for (size_t iA = 0; iA < Aresid_.getNrows(); iA++) {
-		double    u = rng_.runif();
-		double cumP = 0.0;
-		for (size_t p = 0; p < Mp_.getNrows(); p++) {
-			cumP += Pz_.getElem(p, iA);
-			if (u <= cumP) {
-				z_[iA] = p;
-				break;
-			}
-		}
-	}
-	hierInd_.back().update(z_);
-#ifndef PKG_DEBUG_OFF
-	if ( hierInd_.back().groupNumber() != Mp_.getNrows() ) {
-		throw string("Lost a population in WrapMMM::updatePz_()");
-	}
-#endif
-}
-
 void WrapMMM::expandLa_(){
 	vector <double> Ta;
 	for (size_t k = fTaInd_; k < fTaInd_ + La_.getNcols(); k++) {
@@ -1062,37 +989,7 @@ void WrapMMM::expandLa_(){
 	}
 }
 
-void WrapMMM::sortPops_(){
-	// Calculate the projection of population means on PC1
-	const size_t nPC = 1;
-	MatrixView U(&pc1_, 0, Mp_.getNcols(), nPC);
-	vector<double> prj(Mp_.getNrows(), 0.0);
-	MatrixView Mprj(&prj, 0, Mp_.getNrows(), nPC);
-	U.gemm(false, 1.0, Mp_, false, 0.0, Mprj);
-
-	// sort the projection vector
-	vector<size_t> sIdx;
-	sort(prj, sIdx);
-
-	// rearrange the population means matrix
-	const size_t mDim = Mp_.getNrows()*Mp_.getNcols();
-	const size_t aDim = A_.getNrows()*A_.getNcols();
-	vector<double> tmpM(vTheta_.begin()+aDim, vTheta_.begin()+aDim+mDim);
-	MatrixView tmpMmat( &tmpM, 0, Mp_.getNrows(), Mp_.getNcols() );
-	for (size_t oldRow = 0; oldRow < Mp_.getNrows(); oldRow++) {
-		if (sIdx[oldRow] != oldRow) { // if the index did not change, do nothing
-			for (size_t jCol = 0; jCol < Mp_.getNcols(); jCol++) {
-				Mp_.setElem( sIdx[oldRow], jCol, tmpMmat.getElem(oldRow, jCol) );
-			}
-		}
-	}
-
-	// rearrange the pi_ vector to match the population matrix rows
-	vector<double> tmpPi(pi_);
-	for (size_t oldInd = 0; oldInd < pi_.size(); oldInd++) {
-		pi_[sIdx[oldInd]] = tmpPi[oldInd];
-	}
-}
+void WrapMMM::sortPops_(){}
 
 double WrapMMM::rowDistance_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){
 #ifndef PKG_DEBUG_OFF
@@ -1174,66 +1071,60 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 	}
 }
 
-void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain, vector<int32_t> &nPopsChain){
+void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain){
 	for (uint32_t a = 0; a < Nadapt; a++) {
-		for (auto &s : sampler_) {
+		for (auto &s : samplers_) {
 			s->adapt();
 		}
-		sortPops_();
-		updatePi_();
-		updatePz_();
+		//sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
-		for (auto &s : sampler_) {
+		for (auto &s : samplers_) {
 			s->update();
 		}
-		sortPops_();
-		updatePi_();
-		updatePz_();
+		//sortPops_();
 		if ( (b%Nthin) == 0) {
-			for (auto &t : vTheta_) {
-				thetaChain.push_back(t);
+			for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) {
+				thetaChain.push_back(vTheta_[iTht]);
+			}
+			for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
+				for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
+					piChain.push_back( Phi_.getElem(iRow, jCol) );
+				}
 			}
 			for (auto &p : vISig_) {
-				thetaChain.push_back(p);
+				isigChain.push_back(p);
 			}
-			for (auto &p : vPz_) {
-				piChain.push_back(p);
-			}
-			nPopsChain.push_back( hierInd_.back().neGroupNumber() );
 		}
 	}
 }
 
-void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain, vector<int32_t> &nPopsChain, vector<double> &impYchain){
+void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain, vector<double> &impYchain){
 	for (uint32_t a = 0; a < Nadapt; a++) {
-		for (auto &s : sampler_) {
+		for (auto &s : samplers_) {
 			s->adapt();
 		}
-		sortPops_();
-		updatePi_();
-		updatePz_();
+		//sortPops_();
 		imputeMissing_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
-		for (auto &s : sampler_) {
+		for (auto &s : samplers_) {
 			s->update();
 		}
-		sortPops_();
-		updatePi_();
-		updatePz_();
+		//sortPops_();
 		imputeMissing_();
 		if ( (b%Nthin) == 0) {
-			for (auto &t : vTheta_) {
-				thetaChain.push_back(t);
+			for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) {
+				thetaChain.push_back(vTheta_[iTht]);
+			}
+			for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
+				for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
+					piChain.push_back( Phi_.getElem(iRow, jCol) );
+				}
 			}
 			for (auto &p : vISig_) {
-				thetaChain.push_back(p);
+				isigChain.push_back(p);
 			}
-			for (auto &p : vPz_) {
-				piChain.push_back(p);
-			}
-			nPopsChain.push_back( hierInd_.back().neGroupNumber() );
 			for (auto &m : missInd_) {
 				for (auto &k : m.second) {
 					impYchain.push_back( Y_.getElem(m.first, k) );
