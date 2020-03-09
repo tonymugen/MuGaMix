@@ -36,6 +36,12 @@
 #include "mumimo.hpp"
 #include "index.hpp"
 
+
+//[[Rcpp::export(name="testLpostLoc")
+double testLpostLoc(const std::vector<double> &yVec, ){
+
+}
+
 //' Run the sampler
 //'
 //' Runs the sampler on the data assuming no fixed effects or missing trait data and one replication level.
@@ -71,9 +77,9 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 		}
 		l1.push_back( static_cast<size_t>(lf-1) );
 	}
-	std::vector<double> thetaChain;
-	std::vector<double> piChain;
-	std::vector<int32_t> npChain;
+	std::vector<double> thetaChain; // location parameter chain
+	std::vector<double> iSigChain; // inverse-covariance chain
+	std::vector<double> piChain;    // population probability chain
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
 	const uint32_t Nt = static_cast<uint32_t>(Nthin);
@@ -81,14 +87,14 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 
 	try {
 		for (int32_t i = 0; i < Nchains; i++) {
-			BayesicSpace::WrapMMM modelObj(yVec, l1, Np, 2.0, 1e-8, 2.5, 1e-6);
-			modelObj.runSampler(Na, Ns, Nt, thetaChain, piChain, npChain);
+			BayesicSpace::WrapMMM modelObj(yVec, l1, Np, 1.0, 1e-8, 2.5, 1e-6);
+			modelObj.runSampler(Na, Ns, Nt, thetaChain, iSigChain, piChain);
 		}
-		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("nPopsChain", npChain));
+		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("iSigChain", iSigChain));
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
 	}
-	return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("nPopsChain", npChain));
+	return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("iSigChain", iSigChain));
 }
 
 //' Run the sampler with missing data
@@ -128,10 +134,10 @@ Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int
 		}
 		l1.push_back( static_cast<size_t>(lf-1) );
 	}
-	std::vector<double> thetaChain;
-	std::vector<double> piChain;
-	std::vector<int32_t> npChain;
-	std::vector<double> yImpChain;
+	std::vector<double> thetaChain;  // location parameter chain
+	std::vector<double> iSigChain;  // inverse-covariance chain
+	std::vector<double> piChain;     // population probability chain
+	std::vector<double> yImpChain;   // imputed missing data chain
 
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
@@ -140,13 +146,13 @@ Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int
 
 	try {
 		for (int32_t i = 0; i < Nchains; i++) {
-			BayesicSpace::WrapMMM modelObj(yVec, l1, missIDs, Np, 2.0, 1e-8, 2.5, 1e-6);
-			modelObj.runSampler(Na, Ns, Nt, thetaChain, piChain, npChain, yImpChain);
+			BayesicSpace::WrapMMM modelObj(yVec, l1, missIDs, Np, 1.0, 1e-8, 2.5, 1e-6);
+			modelObj.runSampler(Na, Ns, Nt, thetaChain, iSigChain, piChain, yImpChain);
 		}
-		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("nPopsChain", npChain), Rcpp::Named("imputed", yImpChain));
+		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("iSigChain", iSigChain), Rcpp::Named("imputed", yImpChain));
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
 	}
-	return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("nPopsChain", npChain), Rcpp::Named("imputed", yImpChain));
+	return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("iSigChain", iSigChain), Rcpp::Named("imputed", yImpChain));
 }
 

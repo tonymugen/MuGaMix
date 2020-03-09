@@ -285,6 +285,19 @@ namespace BayesicSpace {
 	public:
 		/** \brief Default constructor */
 		WrapMMM() {};
+		/** \brief Constructor for a one-level hierarchical model
+		 *
+		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
+		 *
+		 * \param[in] vY vectorized data matrix
+		 * \param[in] y2line factor connecting data to lines (accessions)
+		 * \param[in] Npop number of populations
+		 * \param[in] alphaPr prior on the number of populations per line
+		 * \param[in] tau0 prior precision for the "fixed" effects
+		 * \param[in] nu0 prior degrees of freedom for precision matrices
+		 * \param[in] invAsq prior inverse variance for precision matrices
+		 */
+		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Constructor for a one-level hierarchical model with missing data
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
@@ -293,25 +306,12 @@ namespace BayesicSpace {
 		 * \param[in] y2line factor connecting data to lines (accessions)
 		 * \param[in] missIDs vecotized matrix (same dimenstions as `vY`) with 1 corresponding to a missing data point and 0 otherwise
 		 * \param[in] Npop number of populations
-		 * \param[in] alphaPr prior on mixture proporions (prior proportions are assumed equal)
+		 * \param[in] alphaPr prior on the number of populations per line
 		 * \param[in] tau0 prior precision for the "fixed" effects
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
 		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
-		/** \brief Constructor for a one-level hierarchical model
-		 *
-		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
-		 *
-		 * \param[in] vY vectorized data matrix
-		 * \param[in] y2line factor connecting data to lines (accessions)
-		 * \param[in] Npop number of populations
-		 * \param[in] alphaPr prior on mixture proporions (prior proportions are assumed equal)
-		 * \param[in] tau0 prior precision for the "fixed" effects
-		 * \param[in] nu0 prior degrees of freedom for precision matrices
-		 * \param[in] invAsq prior inverse variance for precision matrices
-		 */
-		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Copy constructor (deleted) */
 		WrapMMM(WrapMMM &in) = delete;
 		/** \brief Move constructor (deleted) */

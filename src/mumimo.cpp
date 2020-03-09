@@ -394,6 +394,19 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 		gmu.setElem(0, jCol, diff);
 	}
 	// Phi partial derivatives
+	for (size_t p = 0; p < Npop_; p++) {
+		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+				double sum = gPhi.getElem(iRow, p) + mTRAresid[p].getElem(iRow, jCol)*mAresid[p].getElem(iRow, jCol); // p_jp{(A-mu_p)Sig^-1_A,p(A-mu_p)^T}_jj
+				gPhi.setElem(iRow, p, sum);
+			}
+		}
+		// finish off
+		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
+			double corr = (gPhi.getElem(iRow, p) - phiSumConst_)/(2.0*exp(Phi.getElem(iRow, p)) + 1.0);
+			gPhi.setElem(iRow, p, corr);
+		}
+	}
 }
 
 // MumiISig methods
@@ -1113,7 +1126,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			}
 			for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
 				for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-					piChain.push_back( Phi_.getElem(iRow, jCol) );
+					piChain.push_back( logistic(Phi_.getElem(iRow, jCol)) );
 				}
 			}
 			for (auto &p : vISig_) {
@@ -1143,7 +1156,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			}
 			for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
 				for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-					piChain.push_back( Phi_.getElem(iRow, jCol) );
+					piChain.push_back( logistic(Phi_.getElem(iRow, jCol)) );
 				}
 			}
 			for (auto &p : vISig_) {
