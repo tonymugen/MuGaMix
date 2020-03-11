@@ -37,11 +37,73 @@
 #include "index.hpp"
 
 
-//[[Rcpp::export(name="testLpostLoc")
-double testLpostLoc(const std::vector<double> &yVec, ){
-
+//[[Rcpp::export(name="testLpostLoc")]]
+double testLpostLoc(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const std::vector<double> &theta, const std::vector<double> &iSigTheta){
+	std::vector<size_t> l1;
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(lf-1) );
+	}
+	std::vector<BayesicSpace::Index> idx;
+	idx.push_back( BayesicSpace::Index(l1) );
+	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 1.0);
+	return test.logPost(theta);
 }
-
+//[[Rcpp::export(name="lpTestLI")]]
+Rcpp::List lpTestLI(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
+	std::vector<size_t> l1;
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(lf-1) );
+	}
+	std::vector<BayesicSpace::Index> idx;
+	idx.push_back( BayesicSpace::Index(l1) );
+	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 1.0);
+	const size_t i = static_cast<size_t>(ind - 1);
+	double thtVal  = theta[i];
+	double add     = -limit;
+	std::vector<double> lPost;
+	while ( add <= limit ){
+		theta[i] = thtVal + add;
+		lPost.push_back( test.logPost(theta) );
+		add += incr;
+	}
+	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
+}
+//[[Rcpp::export(name="gradTestLI")]]
+Rcpp::List gradTestLI(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
+	std::vector<size_t> l1;
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(lf-1) );
+	}
+	std::vector<BayesicSpace::Index> idx;
+	idx.push_back( BayesicSpace::Index(l1) );
+	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 1.0);
+	const size_t i = static_cast<size_t>(ind - 1);
+	double thtVal  = theta[i];
+	double add     = -limit;
+	std::vector<double> gradVal;
+	std::vector<double> grad;
+	try {
+		test.gradient(theta, grad); 
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+	while ( add <= limit ){
+		theta[i] = thtVal + add;
+		test.gradient(theta, grad); 
+		gradVal.push_back(grad[i]);
+		add += incr;
+	}
+	return Rcpp::List::create(Rcpp::Named("gradVal", gradVal));
+}
 //' Run the sampler
 //'
 //' Runs the sampler on the data assuming no fixed effects or missing trait data and one replication level.

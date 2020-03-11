@@ -116,7 +116,7 @@ MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, cons
 	}
 #endif
 	const size_t d = yVec->size()/n;
-	phiSumConst_   = (2.0*alphaPr/static_cast<double>(Npop_)) - static_cast<double>(d) - 2.0;
+	phiSumConst_   = (2.0*alphaPr/static_cast<double>(Npop_)) + static_cast<double>(d) - 2.0;
 	Y_             = MatrixViewConst(yVec, 0, n, d);
 
 	vLx_.resize(2*d*d, 0.0);
@@ -194,10 +194,10 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	expandISvec_();
 	const size_t Nln  = (*hierInd_)[0].groupNumber();
 	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
-	MatrixViewConst A(&theta, 0, Nln, Y_.getNcols() );
-	MatrixViewConst Mp(&theta, Nln*Y_.getNcols(), Npop_, Y_.getNcols() );
+	MatrixViewConst A( &theta, 0, Nln, Y_.getNcols() );
+	MatrixViewConst Mp( &theta, Nln*Y_.getNcols(), Npop_, Y_.getNcols() );
 	MatrixViewConst mu( &theta, (Nln+Npop_)*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
-	MatrixViewConst Phi( &theta, PhiBegInd_, Nln, Y_.getNcols() );
+	MatrixViewConst Phi( &theta, PhiBegInd_, Nln, Npop_ );
 
 	// Calculate the residual Y - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
@@ -219,7 +219,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 		}
 		eTrace += exp((*iSigTheta_)[fTeInd_ + jCol])*dp;
 	}
-	// backtransform the logit-p_jp and sum(ln(e^phi + 1))
+	// backtransform the logit-p_jp and sum(ln(e^-phi + 1))
 	vector<double> vP;
 	double phiSum = 0.0;
 	for (size_t iEl = PhiBegInd_; iEl < theta.size(); iEl++) {
@@ -273,22 +273,23 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 
 void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	expandISvec_();
-	grad.clear();
+	if ( grad.size() ) {
+		grad.clear();
+	}
 	grad.resize(theta.size(), 0.0);
 	const size_t Nln  = (*hierInd_)[0].groupNumber();
-	const size_t Npop = hierInd_->back().groupNumber();
 	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
 	const size_t Adim = Nln*Y_.getNcols();
 	MatrixViewConst A( &theta, 0, Nln, Y_.getNcols() );
-	MatrixViewConst M( &theta, Adim, Npop, Y_.getNcols() );
-	MatrixViewConst mu( &theta, Adim + Npop*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
-	MatrixViewConst Phi( &theta, PhiBegInd_, Nln, Y_.getNcols() );
+	MatrixViewConst M( &theta, Adim, Npop_, Y_.getNcols() );
+	MatrixViewConst mu( &theta, Adim + Npop_*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
+	MatrixViewConst Phi( &theta, PhiBegInd_, Nln, Npop_ );
 
 	// Matrix views of the gradient
 	MatrixView gA( &grad, 0, Nln, Y_.getNcols() );
-	MatrixView gM( &grad, Adim, Npop, Y_.getNcols() );
-	MatrixView gmu( &grad, Adim + Npop*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
-	MatrixView gPhi( &grad, PhiBegInd_, Nln, Y_.getNcols() );
+	MatrixView gM( &grad, Adim, Npop_, Y_.getNcols() );
+	MatrixView gmu( &grad, Adim + Npop_*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
+	MatrixView gPhi( &grad, PhiBegInd_, Nln, Npop_ );
 
 	// Calculate the residual Y - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
@@ -403,7 +404,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 		}
 		// finish off
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-			double corr = (gPhi.getElem(iRow, p) - phiSumConst_)/(2.0*exp(Phi.getElem(iRow, p)) + 1.0);
+			double corr = (phiSumConst_ - gPhi.getElem(iRow, p))/(2.0*exp(Phi.getElem(iRow, p)) + 2.0);
 			gPhi.setElem(iRow, p, corr);
 		}
 	}
