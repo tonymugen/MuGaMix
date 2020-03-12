@@ -142,7 +142,7 @@ namespace BayesicSpace {
 		/** \brief Index of the first probability element */
 		size_t PhiBegInd_;
 		/** \brief Number of populations */
-		 size_t Npop_;
+		size_t Npop_;
 		/** \brief The \f$ \dfrac{2\alpha}{N_M} - d - 2 \f$ constant*/
 		double phiSumConst_;
 		/** \brief Expand the vector of factorized precision matrices
@@ -170,9 +170,10 @@ namespace BayesicSpace {
 		 * \param[in] hierInd pointer to a vector with hierarchical indexes
 		 * \param[in] nu0 prior degrees of freedom \f$\nu_0\f$
 		 * \param[in] invAsq prior precision \f$a^{-2}\f$
+		 * \param[in] nPops number of populations
 		 *
 		 */
-		MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<Index> *hierInd, const double &nu0, const double &invAsq);
+		MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<Index> *hierInd, const double &nu0, const double &invAsq, const size_t &nPops);
 
 		/** \brief Destructor */
 		~MumiISig(){hierInd_ = nullptr; };

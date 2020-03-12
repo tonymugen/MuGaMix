@@ -13,6 +13,14 @@ gradTestLI <- function(yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr) {
     .Call(`_MuGaMix_gradTestLI`, yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr)
 }
 
+lpTestSI <- function(yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr) {
+    .Call(`_MuGaMix_lpTestSI`, yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr)
+}
+
+gradTestSI <- function(yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr) {
+    .Call(`_MuGaMix_gradTestSI`, yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr)
+}
+
 #' Run the sampler
 #'
 #' Runs the sampler on the data assuming no fixed effects or missing trait data and one replication level.

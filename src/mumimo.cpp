@@ -336,7 +336,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	MatrixView mResISE( &vResISE, 0, Y_.getNrows(), Y_.getNcols() );
 	mResid.symm('l', 'r', 1.0, iSigE, 0.0, mResISE);
 
-	// Separately store transformed residuals P[.p](A - mu[p])Sig^{-1}[A] and the untrasformed (for the phi[jp] gradient below) residuals for each population
+	// Separately store transformed residuals P[.p](A - mu[p])Sig^{-1}[A] and the untransformed (for the phi[jp] gradient below) residuals for each population
 	vector<double> vTRAresid(Adim*Npop_, 0.0); // transformed
 	vector<MatrixView> mTRAresid;
 	vector<double> vAresid(Adim*Npop_, 0.0);   // untransformed
@@ -411,25 +411,25 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 }
 
 // MumiISig methods
-MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<Index> *hierInd, const double &nu0, const double &invAsq) : Model(), hierInd_{hierInd}, nu0_{nu0}, invAsq_{invAsq} {
-	// TODO: delete the tests after code testing; they will all be done by the wrapping class
+MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<Index> *hierInd, const double &nu0, const double &invAsq, const size_t &nPops) : Model(), hierInd_{hierInd}, nu0_{nu0}, invAsq_{invAsq} {
 	const size_t N = (*hierInd_)[0].size(); // first index is data to lines
+#ifndef PKG_DEBUG_OFF
 	if (yVec->size()%N) {
 		throw string("MumiISig constructor ERROR: vectorized data length not divisible by number of data points");
 	}
+#endif
 	const size_t d = yVec->size()/N;
+#ifndef PKG_DEBUG_OFF
 	if (vTheta->size()%d) {
 		throw string("MumiISig constructor ERROR: vectorized parameter set length not divisible by number of traits");
 	}
+#endif
 	Y_ = MatrixViewConst(yVec, 0, N, d);
 	const size_t Nln = (*hierInd_)[0].groupNumber();
-	if (hierInd_->back().size() != Nln) {
-		throw string("MumiISig constructor ERROR: number of elements in the population factor not the same as the number of lines in the line factor");
-	}
-	const size_t Npop = hierInd_->back().groupNumber();
-	A_  = MatrixViewConst(vTheta, 0, Nln, d);
-	Mp_ = MatrixViewConst(vTheta, Nln*d, Npop, d);
-	mu_ = MatrixViewConst(vTheta, (Nln+Npop)*d, 1, d);
+	A_   = MatrixViewConst(vTheta, 0, Nln, d);
+	Mp_  = MatrixViewConst(vTheta, Nln*d, nPops, d);
+	mu_  = MatrixViewConst(vTheta, (Nln+nPops)*d, 1, d);
+	Phi_ = MatrixViewConst(vTheta, (Nln+nPops+1)*d, Nln, nPops);
 	vLx_.resize(2*d*d, 0.0);
 	Le_ = MatrixView(&vLx_, 0, d, d);
 	La_ = MatrixView(&vLx_, d*d, d, d);
@@ -445,7 +445,7 @@ MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, con
 	nxnd_        = nu0_*( nu0_ + 2.0*static_cast<double>(d) );
 	Nnd_         = static_cast<double>( Y_.getNrows() ) + nu0_ + 2.0*static_cast<double>(d);
 	NAnd_        = static_cast<double>(Nln) + nu0_ + 2.0*static_cast<double>(d);
-	NPnd_        = static_cast<double>(Npop) + nu0_ + 2.0*static_cast<double>(d);
+	NPnd_        = static_cast<double>(nPops) + nu0_ + 2.0*static_cast<double>(d);
 }
 
 MumiISig::MumiISig(MumiISig &&in) {
@@ -458,6 +458,7 @@ MumiISig::MumiISig(MumiISig &&in) {
 		B_       = move(in.B_);
 		Mp_      = move(in.Mp_);
 		mu_      = move(in.mu_);
+		Phi_     = move(in.Phi_);
 		vLx_     = move(in.vLx_);
 		Le_      = MatrixView( &vLx_, 0, Y_.getNcols(), Y_.getNcols() );
 		La_      = MatrixView( &vLx_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
@@ -483,6 +484,7 @@ MumiISig& MumiISig::operator=(MumiISig &&in){
 		B_       = move(in.B_);
 		Mp_      = move(in.Mp_);
 		mu_      = move(in.mu_);
+		Phi_     = move(in.Phi_);
 		vLx_     = move(in.vLx_);
 		Le_      = MatrixView( &vLx_, 0, Y_.getNcols(), Y_.getNcols() );
 		La_      = MatrixView( &vLx_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
@@ -536,33 +538,46 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 		eTrace += exp(viSig[fTeInd_ + jCol])*dp;
 	}
 
+	// backtransform the logit-p_jp
+	vector<double> vP;
+	for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
+		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
+			vP.push_back( logistic( Phi_.getElem(iRow, jCol) ) );
+		}
+	}
+	MatrixView P( &vP, 0, Phi_.getNrows(), Phi_.getNcols() );
+
 	// Clear the Y residuals and re-use for A residuals
 	vResid.clear();
 	vResid.resize(A_.getNrows()*A_.getNcols(), 0.0);
 	mResid = MatrixView( &vResid, 0, A_.getNrows(), A_.getNcols() );
-	for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
-		for (size_t iRow = 0; iRow < A_.getNrows(); ++iRow) {
-			double diff =  A_.getElem(iRow, jCol) - Mp_.getElem(hierInd_->back().groupID(iRow), jCol);
-			mResid.setElem(iRow, jCol, diff); // A - Z[p]M[p]
-		}
-	}
-	mResid.trm('l', 'r', false, true, 1.0, La_);
-	// Now calculate the trace of the RL_AT_AL_^TR^T matrix
+	// Calculate the trace of the RL_AT_AL_^TR^T matrix
 	double aTrace = 0.0;
-	for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
-		double dp = 0.0;
-		for (size_t iRow = 0; iRow < A_.getNrows(); iRow++) {
-			dp += mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
+	for (size_t pPop = 0; pPop < Mp_.getNrows(); pPop++) {
+		for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
+			for (size_t iRow = 0; iRow < A_.getNrows(); ++iRow) {
+				double diff =  A_.getElem(iRow, jCol) - Mp_.getElem(pPop, jCol);
+				mResid.setElem(iRow, jCol, diff); // A - Z[p]M[p]
+			}
 		}
-		aTrace += exp(viSig[fTaInd_ + jCol])*dp;
+		mResid.trm('l', 'r', false, true, 1.0, La_);
+		for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
+			double dp = 0.0;
+			for (size_t iRow = 0; iRow < A_.getNrows(); iRow++) {
+				dp += P.getElem(iRow, pPop)*mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
+			}
+			aTrace += exp(viSig[fTaInd_ + jCol])*dp;
+		}
 	}
-	// Mp trace
+	// M[p] crossproduct trace
 	double trM = 0.0;
 	for (size_t jCol = 0; jCol < Mp_.getNcols(); ++jCol) {
-		for (size_t iRow = 0; iRow < Mp_.getNrows(); ++iRow) { // even if the population is empty; prior rules if it is
+		double dp = 0.0;
+		for (size_t iRow = 0; iRow < Mp_.getNrows(); ++iRow) {
 			double diff = Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol);
-			trM += diff*exp(viSig[fTpInd_ + jCol])*diff;
+			dp += diff*diff;
 		}
+		trM += exp(viSig[fTpInd_ + jCol])*dp;
 	}
 	// Sum of log-determinants
 	double ldetSumE = 0.0;
@@ -665,17 +680,29 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	//
 	// L_A and T_A next
 	//
-	// Start with caclulating the residual, replacing the old one
-	vResid.resize(A_.getNcols()*A_.getNrows(), 0.0);
-	mResid = MatrixView( &vResid, 0, A_.getNrows(), A_.getNcols() );
-	for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
-		for (size_t iRow = 0; iRow < A_.getNrows(); ++ iRow) {
-			double diff =  A_.getElem(iRow, jCol) - Mp_.getElem(hierInd_->back().groupID(iRow), jCol);
-			mResid.setElem(iRow, jCol, diff); // A - Z_pM_p
+	// backtransform the logit-p_jp and take the square root
+	vector<double> vP;
+	for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
+		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
+			vP.push_back( sqrt( logistic( Phi_.getElem(iRow, jCol) ) ) );
 		}
 	}
-	// Calculate the crossproduct and multiply by L_A
-	mResid.syrk('l', 1.0, 0.0, mRtR);
+	MatrixView P( &vP, 0, Phi_.getNrows(), Phi_.getNcols() );
+
+	// Clear the Y residuals and re-use for A residuals
+	vResid.clear();
+	vResid.resize(A_.getNrows()*A_.getNcols(), 0.0);
+	mResid = MatrixView( &vResid, 0, A_.getNrows(), A_.getNcols() );
+	fill(vRtR.begin(), vRtR.end(), 0.0); // zero out vRtR, we will be adding the pop matrices to it
+	for (size_t pPop = 0; pPop < Mp_.getNrows(); pPop++) {
+		for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
+			for (size_t iRow = 0; iRow < A_.getNrows(); ++iRow) {
+				double diff =  P.getElem(iRow, pPop)*( A_.getElem(iRow, jCol) - Mp_.getElem(pPop, jCol) );
+				mResid.setElem(iRow, jCol, diff); // sqrt(P[.p])(A - M[p.])
+			}
+		}
+		mResid.syrk('l', 1.0, 1.0, mRtR); // adding to the mRtR that's from other populations
+	}
 	La_.symm('l', 'l', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_A; R = A - Z_pM_p
 	for (size_t k = 0; k < A_.getNcols(); k++) {
 		Tx[k] = exp(viSig[fTaInd_ + k]);
@@ -872,7 +899,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		s += 0.5*rng_.rnorm();
 	}
 	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alpha_) );
-	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq) );
+	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Npop) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 }

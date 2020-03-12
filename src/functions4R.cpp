@@ -91,14 +91,61 @@ Rcpp::List gradTestLI(const std::vector<double> &yVec, const std::vector<int32_t
 	double add     = -limit;
 	std::vector<double> gradVal;
 	std::vector<double> grad;
+	while ( add <= limit ){
+		theta[i] = thtVal + add;
+		test.gradient(theta, grad);
+		gradVal.push_back(grad[i]);
+		add += incr;
+	}
+	return Rcpp::List::create(Rcpp::Named("gradVal", gradVal));
+}
+//[[Rcpp::export(name="lpTestSI")]]
+Rcpp::List lpTestSI(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const std::vector<double> &theta, std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
+	std::vector<size_t> l1;
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(lf-1) );
+	}
+	std::vector<BayesicSpace::Index> idx;
+	idx.push_back( BayesicSpace::Index(l1) );
+	std::vector<double> lPost;
 	try {
-		test.gradient(theta, grad); 
+		BayesicSpace::MumiISig test(&yVec, &theta, &idx, 2.5, 1e-8, static_cast<size_t>(Npop));
+		const size_t i = static_cast<size_t>(ind - 1);
+		double isVal  = iSigTheta[i];
+		double add     = -limit;
+		while ( add <= limit ){
+			iSigTheta[i] = isVal + add;
+			lPost.push_back( test.logPost(iSigTheta) );
+			add += incr;
+		}
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
 	}
+	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
+}
+//[[Rcpp::export(name="gradTestSI")]]
+Rcpp::List gradTestSI(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const std::vector<double> &theta, std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
+	std::vector<size_t> l1;
+	for (auto &lf : lnFac) {
+		if (lf <= 0) {
+			Rcpp::stop("ERROR: all elements of the line factor must be positive");
+		}
+		l1.push_back( static_cast<size_t>(lf-1) );
+	}
+	std::vector<BayesicSpace::Index> idx;
+	idx.push_back( BayesicSpace::Index(l1) );
+	BayesicSpace::MumiISig test(&yVec, &theta, &idx, 2.5, 1e-8, static_cast<size_t>(Npop));
+	const size_t i = static_cast<size_t>(ind - 1);
+	double isVal  = iSigTheta[i];
+	double add     = -limit;
+	std::vector<double> gradVal;
+	std::vector<double> grad;
 	while ( add <= limit ){
-		theta[i] = thtVal + add;
-		test.gradient(theta, grad); 
+		iSigTheta[i] = isVal + add;
+		test.gradient(iSigTheta, grad);
 		gradVal.push_back(grad[i]);
 		add += incr;
 	}
