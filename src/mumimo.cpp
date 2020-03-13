@@ -775,9 +775,11 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY}, alpha_{alphaPr} {
 	hierInd_.push_back( Index(y2line) );
 	const size_t N = hierInd_[0].size();
+#ifndef PKG_DEBUG_OFF
 	if (vY.size()%N) {
 		throw string("WrapMMM constructor ERROR: length of response vector not divisible by data point number");
 	}
+#endif
 	const size_t d     = vY.size()/N;
 	const size_t Nln   = hierInd_[0].groupNumber();
 	const size_t Adim  = Nln*d;
