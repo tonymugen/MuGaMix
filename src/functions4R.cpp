@@ -46,6 +46,8 @@
 //' @param Nsamp number of sampling steps
 //' @param Nthin thinning number
 //'
+//' @keywords internal
+//'
 //[[Rcpp::export(name="runSampler")]]
 Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
 	if (yVec.size()%lnFac.size()) {
@@ -102,6 +104,8 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 //' @param Nadapt number of adaptation (burn-in) steps
 //' @param Nsamp number of sampling steps
 //' @param Nthin thinning number
+//'
+//' @keywords internal
 //'
 //[[Rcpp::export(name="runSamplerMiss")]]
 Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const std::vector<int32_t> &missIDs, const int32_t &Npop, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){

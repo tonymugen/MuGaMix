@@ -71,7 +71,7 @@ fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, 
 		res            <- runSamplerMiss(yVec, lnInd, as.integer(missInd), n.pop, n.burnin, n.sampling, n.thin, n.chains)
 		res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
 		res$piChain    <- matrix(res$piChain, ncol=n.chains)
-		res$nPopsChain <- matrix(res$nPopsChain, ncol=n.chains)
+		res$nPopsChain <- matrix(res$iSigChain, ncol=n.chains)
 		res$imputed    <- matrix(res$imputed, ncol=n.chains)
 		res$lineIDs    <- levels(lnFac)
 		res$n.samples  <- n.sampling/n.thin
@@ -82,7 +82,7 @@ fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, 
 		res            <- runSampler(yVec, lnInd, n.pop, n.burnin, n.sampling, n.thin, n.chains)
 		res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
 		res$piChain    <- matrix(res$piChain, ncol=n.chains)
-		res$nPopsChain <- matrix(res$nPopsChain, ncol=n.chains)
+		res$nPopsChain <- matrix(res$iSigChain, ncol=n.chains)
 		res$imputed    <- NULL
 		res$lineIDs    <- levels(lnFac)
 		res$n.samples  <- n.sampling/n.thin

@@ -788,7 +788,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	// Calculate starting values for theta
 	Y_ = MatrixView(&vY_, 0, N, d);
 
-	vTheta_.resize(Adim + Mpdim + d, 0.0);
+	vTheta_.resize(Adim + Mpdim + d + Nln*Npop, 0.0);
 	A_  = MatrixView(&vTheta_, 0, Nln, d);
 	Mp_ = MatrixView(&vTheta_, Adim, Npop, d);
 	MatrixView mu(&vTheta_, Adim+Mpdim, 1, d);

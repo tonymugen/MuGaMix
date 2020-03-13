@@ -12,6 +12,8 @@
 #' @param Nsamp number of sampling steps
 #' @param Nthin thinning number
 #'
+#' @keywords internal
+#'
 runSampler <- function(yVec, lnFac, Npop, Nadapt, Nsamp, Nthin, Nchains) {
     .Call(`_MuGaMix_runSampler`, yVec, lnFac, Npop, Nadapt, Nsamp, Nthin, Nchains)
 }
@@ -28,6 +30,8 @@ runSampler <- function(yVec, lnFac, Npop, Nadapt, Nsamp, Nthin, Nchains) {
 #' @param Nadapt number of adaptation (burn-in) steps
 #' @param Nsamp number of sampling steps
 #' @param Nthin thinning number
+#'
+#' @keywords internal
 #'
 runSamplerMiss <- function(yVec, lnFac, missIDs, Npop, Nadapt, Nsamp, Nthin, Nchains) {
     .Call(`_MuGaMix_runSamplerMiss`, yVec, lnFac, missIDs, Npop, Nadapt, Nsamp, Nthin, Nchains)
