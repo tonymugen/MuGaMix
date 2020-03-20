@@ -31,6 +31,8 @@
 #include <string>
 #include <cmath>
 
+#include <fstream>
+
 #include "index.hpp"
 #include "random.hpp"
 #include "model.hpp"
@@ -785,6 +787,10 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	const size_t Adim  = Nln*d;
 	const size_t Mpdim = Npop*d;
 
+	std::fstream tstStrm;
+	tstStrm.open("treeTests.tsv", std::ios::in|std::ios::trunc);
+	tstStrm.close();
+
 	// Calculate starting values for theta
 	Y_ = MatrixView(&vY_, 0, N, d);
 
@@ -1139,15 +1145,24 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 }
 
 void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain){
+	std::fstream treeOut;
+	treeOut.open("treeTests.tsv", std::ios::app);
+	treeOut << "y\tvariable.group\tphase" << std::endl;
 	for (uint32_t a = 0; a < Nadapt; a++) {
+		size_t parGrp = 0;
 		for (auto &s : samplers_) {
-			s->adapt();
+			size_t tr = s->adapt();
+			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
+			parGrp++;
 		}
 		//sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
+		size_t parGrp = 0;
 		for (auto &s : samplers_) {
-			s->update();
+			size_t tr = s->update();
+			treeOut << tr << "\t" << parGrp << "\tsample" << std::endl;
+			parGrp++;
 		}
 		//sortPops_();
 		if ( (b%Nthin) == 0) {
@@ -1164,6 +1179,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			}
 		}
 	}
+	treeOut.close();
 }
 
 void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain, vector<double> &impYchain){

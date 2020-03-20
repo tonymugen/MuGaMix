@@ -640,7 +640,7 @@ uint32_t SamplerNUTS::update() {
 	vector<double> thetaMinus(*theta_);
 	vector<double> thetaPrime;
 	// theta_ will play the role of theta^m in Algorithm 3
-	while (s) {
+	while ( s && (j < 6) ) {
 		double nPrime = 0.0;
 		char sPrime   = '\0';
 		if (rng_.ranInt()&mask_) { // testing if the last bit is set; should be a 50/50 chance, so in effect sampling U{-1,1}
