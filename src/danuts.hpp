@@ -91,7 +91,7 @@ namespace BayesicSpace {
 		 *
 		 * \return Tree depth for the step
 		 */
-		virtual uint32_t adapt() override;
+		uint32_t adapt() override;
 		/** \brief NUTS update of parameters
 		 *
 		 * The step size \f$ \epsilon \f$ set during the adaptation phase.
@@ -100,7 +100,7 @@ namespace BayesicSpace {
 		 *
 		 * \return Tree depth for the step
 		 */
-		virtual uint32_t update() override;
+		uint32_t update() override;
 
 	protected:
 		/** \brief Random numbers */

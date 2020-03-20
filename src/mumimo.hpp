@@ -145,6 +145,10 @@ namespace BayesicSpace {
 		size_t Npop_;
 		/** \brief The \f$ \dfrac{2\alpha}{N_M} - d - 2 \f$ constant*/
 		double phiSumConst_;
+		/** \brief \f$ \ln(2\pi) \f$ constant*/
+		static const double ln2pi_;
+		/** \brief \f$ d\ln(2\pi) \f$ constant */
+		double dln2pi_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
