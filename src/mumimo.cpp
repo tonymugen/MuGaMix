@@ -261,11 +261,12 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
 				dp += P.getElem(iRow, pPop)*mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
 			}
-			double p = (*iSigTheta_)[fTaInd_ + jCol];
-			lnTAsum += p;
-			aTrace  += exp(p)*dp;
+			double lnTau = (*iSigTheta_)[fTaInd_ + jCol];
+			lnTAsum     += lnTau;
+			aTrace      += exp(lnTau)*dp;
 		}
 	}
+	// now multiply pSum by the correction factor
 	pSum *= dln2pi_ - lnTAsum;
 	// M[p] crossproduct trace
 	double trM = 0.0;
@@ -283,7 +284,8 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	}
 	trP *= tau0_;
 	// now sum to get the log-posterior
-	return -0.5*(eTrace + aTrace + phiSum + pSum + trM + trP);
+	//return -0.5*(eTrace + aTrace + phiSum + pSum + trM + trP);
+	return -0.5*(eTrace + aTrace + phiSum + trM + trP);
 }
 
 void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
@@ -713,7 +715,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	double pSum = 0.0;;
 	for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
 		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-			double p = logistic( Phi_.getElem(iRow, jCol) ); 
+			double p = logistic( Phi_.getElem(iRow, jCol) );
 			pSum    += p;
 			vP.push_back( sqrt(p) );
 		}
