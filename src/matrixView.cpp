@@ -116,7 +116,7 @@ void MatrixView::setElem(const size_t& iRow, const size_t &jCol, const double &i
 
 }
 
-void MatrixView::setCol(const size_t jCol, const vector<double> data){
+void MatrixView::setCol(const size_t &jCol, const vector<double> &data){
 #ifndef PKG_DEBUG_OFF
 	if (jCol >= Ncol_) {
 		throw string("ERROR: column index out of range in MatrixView::setCol()");
@@ -128,6 +128,42 @@ void MatrixView::setCol(const size_t jCol, const vector<double> data){
 	double *colBeg = data_->data() + idx_ + jCol*Nrow_;
 	memcpy(colBeg, data.data(), Nrow_*sizeof(double));
 
+}
+
+void MatrixView::addToElem(const size_t &iRow, const size_t &jCol, const double &input){
+#ifndef PKG_DEBUG_OFF
+	if ((iRow >= Nrow_) || (jCol >= Ncol_)) {
+		throw string("ERROR: element out of range in MatrixView::addToElem()");
+	}
+#endif
+	data_->data()[idx_ + Nrow_*jCol + iRow] += input;
+}
+
+void MatrixView::subtractFromElem(const size_t &iRow, const size_t &jCol, const double &input){
+#ifndef PKG_DEBUG_OFF
+	if ((iRow >= Nrow_) || (jCol >= Ncol_)) {
+		throw string("ERROR: element out of range in MatrixView::subtractFromElem()");
+	}
+#endif
+	data_->data()[idx_ + Nrow_*jCol + iRow] -= input;
+}
+
+void MatrixView::multiplyElem(const size_t &iRow, const size_t &jCol, const double &input){
+#ifndef PKG_DEBUG_OFF
+	if ((iRow >= Nrow_) || (jCol >= Ncol_)) {
+		throw string("ERROR: element out of range in MatrixView::multiplyElem()");
+	}
+#endif
+	data_->data()[idx_ + Nrow_*jCol + iRow] *= input;
+}
+
+void MatrixView::divideElem(const size_t &iRow, const size_t &jCol, const double &input){
+#ifndef PKG_DEBUG_OFF
+	if ((iRow >= Nrow_) || (jCol >= Ncol_)) {
+		throw string("ERROR: element out of range in MatrixView::divideElem()");
+	}
+#endif
+	data_->data()[idx_ + Nrow_*jCol + iRow] /= input;
 }
 
 void MatrixView::chol(){

@@ -58,7 +58,7 @@ namespace BayesicSpace {
 	class MumiLoc final : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0}, Npop_{0}, phiSumConst_{0.0} {};
+		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0}, Npop_{0}, pPriorConst_{0.0}, pPriorM1Const_{0.0}, d_{0.0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer vectorized data matrix
@@ -143,12 +143,12 @@ namespace BayesicSpace {
 		size_t PhiBegInd_;
 		/** \brief Number of populations */
 		size_t Npop_;
-		/** \brief The \f$ \dfrac{2\alpha}{N_M} - d - 2 \f$ constant*/
-		double phiSumConst_;
-		/** \brief \f$ \ln(2\pi) \f$ constant*/
-		static const double ln2pi_;
-		/** \brief \f$ d\ln(2\pi) \f$ constant */
-		double dln2pi_;
+		/** \brief The \f$ \dfrac{\alpha}{N_M}\f$ constant*/
+		double pPriorConst_;
+		/** \brief The \f$ \dfrac{\alpha}{N_M} - 1\f$ constant*/
+		double pPriorM1Const_;
+		/** \brief Number of traits */
+		double d_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.

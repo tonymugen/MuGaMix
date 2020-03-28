@@ -109,9 +109,6 @@ void sort(const vector<double> &target, vector<size_t> &outIdx){
 	} while (inc > 1);
 }
 
-// MumiLoc methods
-const double MumiLoc::ln2pi_ = 1.8378770664;
-
 MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &alphaPr) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops} {
 	const size_t n = (*hierInd_)[0].size();
 #ifndef PKG_DEBUG_OFF
@@ -120,8 +117,9 @@ MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, cons
 	}
 #endif
 	const size_t d = yVec->size()/n;
-	phiSumConst_   = (2.0*alphaPr/static_cast<double>(Npop_)) - 2.0;
-	dln2pi_        = static_cast<double>(d)*ln2pi_;
+	pPriorConst_   = alphaPr/static_cast<double>(Npop_);
+	pPriorM1Const_ = pPriorConst_ - 1.0;
+	d_             = static_cast<double>(d);
 	Y_             = MatrixViewConst(yVec, 0, n, d);
 
 	vLx_.resize(2*d*d, 0.0);
@@ -141,41 +139,42 @@ MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, cons
 
 MumiLoc::MumiLoc(MumiLoc &&in) {
 	if (this != &in) {
-		Y_           = move(in.Y_);
-		tau0_        = in.tau0_;
-		hierInd_     = in.hierInd_;
-		Le_          = move(in.Le_);
-		La_          = move(in.La_);
-		vLx_         = move(in.vLx_);
-		fTeInd_      = in.fTeInd_;
-		fLaInd_      = in.fLaInd_;
-		fTaInd_      = in.fTaInd_;
-		PhiBegInd_   = in.PhiBegInd_;
-		Npop_        = in.Npop_;
-		phiSumConst_ = in.phiSumConst_;
-		dln2pi_      = in.dln2pi_;
+		Y_             = move(in.Y_);
+		tau0_          = in.tau0_;
+		hierInd_       = in.hierInd_;
+		Le_            = move(in.Le_);
+		La_            = move(in.La_);
+		vLx_           = move(in.vLx_);
+		fTeInd_        = in.fTeInd_;
+		fLaInd_        = in.fLaInd_;
+		fTaInd_        = in.fTaInd_;
+		PhiBegInd_     = in.PhiBegInd_;
+		Npop_          = in.Npop_;
+		pPriorConst_   = in.pPriorConst_;
+		pPriorM1Const_ = in.pPriorM1Const_;
+		d_             = in.d_;
 
 		in.hierInd_   = nullptr;
 		in.iSigTheta_ = nullptr;
 	}
 }
 
-
 MumiLoc& MumiLoc::operator=(MumiLoc &&in){
 	if (this != &in) {
-		Y_           = move(in.Y_);
-		tau0_        = in.tau0_;
-		hierInd_     = in.hierInd_;
-		Le_          = move(in.Le_);
-		La_          = move(in.La_);
-		vLx_         = move(in.vLx_);
-		fTeInd_      = in.fTeInd_;
-		fLaInd_      = in.fLaInd_;
-		fTaInd_      = in.fTaInd_;
-		PhiBegInd_   = in.PhiBegInd_;
-		Npop_        = in.Npop_;
-		phiSumConst_ = in.phiSumConst_;
-		dln2pi_      = in.dln2pi_;
+		Y_             = move(in.Y_);
+		tau0_          = in.tau0_;
+		hierInd_       = in.hierInd_;
+		Le_            = move(in.Le_);
+		La_            = move(in.La_);
+		vLx_           = move(in.vLx_);
+		fTeInd_        = in.fTeInd_;
+		fLaInd_        = in.fLaInd_;
+		fTaInd_        = in.fTaInd_;
+		PhiBegInd_     = in.PhiBegInd_;
+		Npop_          = in.Npop_;
+		pPriorConst_   = in.pPriorConst_;
+		pPriorM1Const_ = in.pPriorM1Const_;
+		d_             = in.d_;
 
 		in.hierInd_   = nullptr;
 		in.iSigTheta_ = nullptr;
@@ -226,48 +225,62 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 		}
 		eTrace   += exp( (*iSigTheta_)[fTeInd_ + jCol] )*dp;
 	}
-	// backtransform the logit-p_jp and sum(ln(e^-phi + 1))
-	vector<double> vP;
-	double phiSum = 0.0;
-	double pSum   = 0.0;
-	for (size_t iEl = PhiBegInd_; iEl < theta.size(); iEl++) {
-		double expPhi = exp(-theta[iEl]) + 1.0;
-		double p      = 1.0/expPhi;
-		vP.push_back(p);
-		pSum   += p;
-		phiSum += log(expPhi);
-	}
-	phiSum *= phiSumConst_;
-	// correct pSum below, after I process ln(T_A)
-	MatrixView P(&vP, 0, A.getNrows(), Npop_);
 
+	// backtransform the logit-p_jp and calculate row and column sums
+	vector<double> vP(Phi.getNrows()*Phi.getNcols());
+	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
+	vector<double> pPopSum(Nln, 0.0);
+	vector<double> pLnSum(Npop_, 0.0);
+	for (size_t p = 0; p < Phi.getNcols(); p++) {
+		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+			double p_ip = logistic( Phi.getElem(iRow, p) );
+			pPopSum[iRow] += p_ip;
+			pLnSum[p]     += p_ip;
+			P.setElem(iRow, p, p_ip);
+		}
+	}
 	// Clear the Y residuals and re-use for A residuals
 	vResid.clear();
-	vResid.resize(A.getNrows()*A.getNcols(), 0.0);
-	mResid = MatrixView( &vResid, 0, A.getNrows(), A.getNcols() );
-	// Calculate the trace of the RL_AT_AL_^TR^T matrix
+	vResid.assign( theta.begin(), theta.begin() + A.getNrows()*A.getNcols() );
+	mResid = MatrixView( &vResid, 0, A.getNrows(), A.getNcols() ); // mResid now has the A values
+	// Calculate the trace of the PRL_AT_AL_^TR^T matrix
 	double aTrace  = 0.0;
 	double lnTAsum = 0.0;
-	for (size_t pPop = 0; pPop < Npop_; pPop++) {
-		for (size_t jCol = 0; jCol  < A.getNcols(); ++jCol) {
-			for (size_t iRow = 0; iRow < A.getNrows(); ++iRow) {
-				double diff =  A.getElem(iRow, jCol) - Mp.getElem(pPop, jCol);
-				mResid.setElem(iRow, jCol, diff); // A - Z[p]M[p]
-			}
-		}
-		mResid.trm('l', 'r', false, true, 1.0, La_);
-		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
-			double dp = 0.0;
-			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				dp += P.getElem(iRow, pPop)*mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
-			}
-			double lnTau = (*iSigTheta_)[fTaInd_ + jCol];
-			lnTAsum     += lnTau;
-			aTrace      += exp(lnTau)*dp;
+	vector<double> vPw(vP);
+	MatrixView Pw( &vPw, 0, P.getNrows(), P.getNcols() );
+	for (size_t p = 0; p < Pw.getNcols(); p++) {
+		for (size_t iRow = 0; iRow < Pw.getNrows(); iRow++) {
+			Pw.divideElem(iRow, p, pPopSum[iRow]);
 		}
 	}
-	// now multiply pSum by the correction factor
-	pSum *= dln2pi_ - lnTAsum;
+	Mp.gemm(false, 1.0, Pw, false, -1.0, mResid); // mResid now A-WM
+	mResid.trm('l', 'r', false, true, 1.0, La_);  // mResid now (A-WM)L_A
+	for (size_t jCol = 0; jCol < mResid.getNcols(); jCol++) {
+		double dp = 0.0;
+		for (size_t iRow = 0; iRow < mResid.getNrows(); iRow++) {
+			dp += pPopSum[iRow]*mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
+		}
+		double lnTau = (*iSigTheta_)[fTaInd_ + jCol];
+		lnTAsum     += lnTau;
+		aTrace      += exp(lnTau)*dp;
+	}
+	// sum the various log(sum_j(p_jp) + ...) elements
+	double sumLnSump = 0.0;
+	for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
+		sumLnSump += log(pPopSum[iRow]);
+	}
+	sumLnSump *= static_cast<double>( A.getNcols() )*lnTAsum;
+	double betaPsum1 = 0.0;
+	double betaPsum2 = 0.0;
+	for (size_t p = 0; p < Npop_; p++) {
+		betaPsum1 += log(pLnSum[p] + pPriorConst_);
+		double popSum = 0.0;
+		for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
+			popSum += log( P.getElem(iRow, p) );
+		}
+		betaPsum2 += (pLnSum[p] + pPriorM1Const_)*popSum;
+	}
+	betaPsum1 *= d_;
 	// M[p] crossproduct trace
 	double trM = 0.0;
 	for (size_t jCol = 0; jCol < Mp.getNcols(); ++jCol) {
@@ -284,8 +297,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	}
 	trP *= tau0_;
 	// now sum to get the log-posterior
-	//return -0.5*(eTrace + aTrace + phiSum + pSum + trM + trP);
-	return -0.5*(eTrace + aTrace + phiSum + trM + trP);
+	return -0.5*(eTrace + aTrace - sumLnSump + trM + trP) + betaPsum1 + betaPsum2;
 }
 
 void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
@@ -430,7 +442,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 		}
 		// finish off
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-			double corr = (phiSumConst_ - gPhi.getElem(iRow, p) - P.getElem(iRow, p)*(dln2pi_ - lnTAsum))/(2.0*eP.getElem(iRow, p));
+			double corr = ( -gPhi.getElem(iRow, p) - P.getElem(iRow, p)*(- lnTAsum))/(2.0*eP.getElem(iRow, p));
 			gPhi.setElem(iRow, p, corr);
 		}
 	}

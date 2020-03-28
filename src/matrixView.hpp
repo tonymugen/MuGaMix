@@ -127,7 +127,35 @@ namespace BayesicSpace {
 		 * \param[in] data vector with data
 		 *
 		 */
-		void setCol(const size_t jCol, const vector<double> data);
+		void setCol(const size_t &jCol, const vector<double> &data);
+		/** \brief Add a scalar to an element
+		 *
+		 * \param[in] iRow row number
+		 * \param[in] jCol column number
+		 * \param[in] input value to add
+		 */
+		void addToElem(const size_t &iRow, const size_t &jCol, const double &input);
+		/** \brief Subtract a scalar from an element
+		 *
+		 * \param[in] iRow row number
+		 * \param[in] jCol column number
+		 * \param[in] input value to subtract
+		 */
+		void subtractFromElem(const size_t &iRow, const size_t &jCol, const double &input);
+		/** \brief Multiply an element by a scalar
+		 *
+		 * \param[in] iRow row number
+		 * \param[in] jCol column number
+		 * \param[in] input value to multiply by
+		 */
+		void multiplyElem(const size_t &iRow, const size_t &jCol, const double &input);
+		/** \brief Divide an element by a scalar
+		 *
+		 * \param[in] iRow row number
+		 * \param[in] jCol column number
+		 * \param[in] input value to divide by
+		 */
+		void divideElem(const size_t &iRow, const size_t &jCol, const double &input);
 
 		// Linear algebra functions
 
@@ -270,7 +298,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$C \leftarrow \alpha BA + \beta C \f$
 		 *
-		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix.
+		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object is called from the \f$B\f$ matrix.
 		 *
 		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] side multiplication side
@@ -291,7 +319,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$C \leftarrow \alpha BA + \beta C \f$
 		 *
-		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix.
+		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object is called from the \f$B\f$ matrix.
 		 *
 		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] side multiplication side
@@ -347,7 +375,7 @@ namespace BayesicSpace {
 		 * \f$B \leftarrow \alpha B op(A)\f$
 		 *
 		 * if _side_ is 'r' (right).
-		 * \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively. The triangular \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix. The current object is replaced by the transformed resulting matrix.
+		 * \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively. The triangular \f$A\f$ matrix is provided as input, the object is called from the \f$B\f$ matrix. The current object is replaced by the transformed resulting matrix.
 		 *
 		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] side multiplication side
@@ -369,7 +397,7 @@ namespace BayesicSpace {
 		 * \f$B \leftarrow \alpha B op(A)\f$
 		 *
 		 * if _side_ is 'r' (right).
-		 * \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively. The triangular \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix. The current object is replaced by the transformed resulting matrix.
+		 * \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively. The triangular \f$A\f$ matrix is provided as input, the method is called from the \f$B\f$ matrix. The current object is replaced by the transformed resulting matrix.
 		 *
 		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] side multiplication side
@@ -386,7 +414,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$ C \leftarrow \alpha op(A)op(B) + \beta C \f$
 		 *
-		 * where \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively, and similarly for \f$op(B)\f$. The object from which the method is called is \f$B\f$.
+		 * where \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively, and similarly for \f$op(B)\f$. The method is called from \f$B\f$.
 		 *
 		 * \param[in] transA whether \f$A\f$ should be transposed
 		 * \param[in] alpha the \f$\alpha\f$ constant
@@ -403,7 +431,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$ C \leftarrow \alpha op(A)op(B) + \beta C \f$
 		 *
-		 * where \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively, and similarly for \f$op(B)\f$. The object from which the method is called is \f$B\f$.
+		 * where \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively, and similarly for \f$op(B)\f$. The method is called from \f$B\f$.
 		 *
 		 * \param[in] transA whether \f$A\f$ should be transposed
 		 * \param[in] alpha the \f$\alpha\f$ constant
@@ -872,7 +900,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$C \leftarrow \alpha BA + \beta C \f$
 		 *
-		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix.
+		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object is called from the \f$B\f$ matrix.
 		 *
 		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] side multiplication side
@@ -893,7 +921,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$C \leftarrow \alpha BA + \beta C \f$
 		 *
-		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object from which the method is called is the \f$B\f$ matrix.
+		 * if _side_ is 'r' (right). The symmetric \f$A\f$ matrix is provided as input, the object is called from the \f$B\f$ matrix.
 		 *
 		 * \param[in] tri \f$A\f$ triangle ID ('u' for upper or 'l' for lower)
 		 * \param[in] side multiplication side
@@ -927,7 +955,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$ C \leftarrow \alpha op(A)op(B) + \beta C \f$
 		 *
-		 * where \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively, and similarly for \f$op(B)\f$. The object from which the method is called is \f$B\f$.
+		 * where \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively, and similarly for \f$op(B)\f$. The object is called from \f$B\f$.
 		 *
 		 * \param[in] transA whether \f$A\f$ should be transposed
 		 * \param[in] alpha the \f$\alpha\f$ constant
@@ -944,7 +972,7 @@ namespace BayesicSpace {
 		 *
 		 * \f$ C \leftarrow \alpha op(A)op(B) + \beta C \f$
 		 *
-		 * where \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively, and similarly for \f$op(B)\f$. The object from which the method is called is \f$B\f$.
+		 * where \f$op(A)\f$ is \f$A^T\f$ or \f$A\f$ if _transA_ is true or false, respectively, and similarly for \f$op(B)\f$. The object is called from \f$B\f$.
 		 *
 		 * \param[in] transA whether \f$A\f$ should be transposed
 		 * \param[in] alpha the \f$\alpha\f$ constant
