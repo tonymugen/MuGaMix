@@ -64,10 +64,14 @@ Rcpp::List lpTestLI(const std::vector<double> &yVec, const std::vector<int32_t> 
 	double thtVal  = theta[i];
 	double add     = -limit;
 	std::vector<double> lPost;
-	while ( add <= limit ){
-		theta[i] = thtVal + add;
-		lPost.push_back( test.logPost(theta) );
-		add += incr;
+	try {
+		while ( add <= limit ){
+			theta[i] = thtVal + add;
+			lPost.push_back( test.logPost(theta) );
+			add += incr;
+		}
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
 	}
 	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
 }
@@ -88,11 +92,15 @@ Rcpp::List gradTestLI(const std::vector<double> &yVec, const std::vector<int32_t
 	double add     = -limit;
 	std::vector<double> gradVal;
 	std::vector<double> grad;
-	while ( add <= limit ){
-		theta[i] = thtVal + add;
-		test.gradient(theta, grad);
-		gradVal.push_back(grad[i]);
-		add += incr;
+	try {
+		while ( add <= limit ){
+			theta[i] = thtVal + add;
+			test.gradient(theta, grad);
+			gradVal.push_back(grad[i]);
+			add += incr;
+		}
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
 	}
 	return Rcpp::List::create(Rcpp::Named("gradVal", gradVal));
 }
@@ -140,11 +148,15 @@ Rcpp::List gradTestSI(const std::vector<double> &yVec, const std::vector<int32_t
 	double add     = -limit;
 	std::vector<double> gradVal;
 	std::vector<double> grad;
-	while ( add <= limit ){
-		iSigTheta[i] = isVal + add;
-		test.gradient(iSigTheta, grad);
-		gradVal.push_back(grad[i]);
-		add += incr;
+	try {
+		while ( add <= limit ){
+			iSigTheta[i] = isVal + add;
+			test.gradient(iSigTheta, grad);
+			gradVal.push_back(grad[i]);
+			add += incr;
+		}
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
 	}
 	return Rcpp::List::create(Rcpp::Named("gradVal", gradVal));
 }

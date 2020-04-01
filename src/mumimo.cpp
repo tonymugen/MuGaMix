@@ -396,7 +396,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	}
 	vector<double> vaResid(theta.begin(), theta.begin()+Adim); // copying A to the A residual matrix
 	MatrixView Aresid( &vaResid, 0, A.getNrows(), A.getNcols() );
-	M.gemm(false, 1.0, Pw, false, -1.0, Aresid); // Aresid now A-WM
+	M.gemm(false, -1.0, Pw, false, 1.0, Aresid); // Aresid now A-WM
 	// Multiply each row of Aresid by pPopSum -> P^rs(A-WM)
 	for (size_t jCol = 0; jCol < Aresid.getNcols(); jCol++) {
 		for (size_t iRow = 0; iRow < Aresid.getNrows(); iRow++) {
@@ -443,6 +443,9 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	for (size_t jCol = 0; jCol < M.getNcols(); jCol++) {
 		PresSum[jCol] -= mu.getElem(0, jCol)*tau0_;
 	}
+	for (size_t jCol = 0; jCol < gmu.getNcols(); jCol++) {
+		gmu.setElem(0, jCol, PresSum[jCol]);
+	}
 	// Phi partial derivatives
 	for (size_t p = 0; p < Npop_; p++) {
 		vAResISA.assign(theta.begin(), theta.begin()+Adim); // re-using AResISA for individual population residuals
@@ -451,7 +454,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 				AResISA.subtractFromElem( iRow, jCol, Pw.getElem(iRow, p)*M.getElem(p, jCol) );
 			}
 		}
-		AResISA.trm('l', 'l', false, true, 1.0, La_); // (A-w_jp m_p)L_A
+		AResISA.trm('l', 'r', false, true, 1.0, La_); // (A-w_jp m_p)L_A
 		for (size_t jCol = 0; jCol < AResISA.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < AResISA.getNrows(); iRow++) {
 				gPhi.addToElem( iRow, p, AResISA.getElem(iRow, jCol)*Tx[jCol]*AResISA.getElem(iRow, jCol) );
