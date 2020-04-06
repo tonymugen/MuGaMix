@@ -58,7 +58,7 @@ namespace BayesicSpace {
 	class MumiLoc final : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0}, Npop_{0}, pPriorConst_{0.0}, pPriorM1Const_{0.0}, d_{0.0} {};
+		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0}, Npop_{0}, absPriorConst_{0.0}, betaPriorConst_{0.0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer vectorized data matrix
@@ -67,9 +67,10 @@ namespace BayesicSpace {
 		 * \param[in] hierInd pointer to vector of hierarchical indexes
 		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and overall mean (intercept)
 		 * \param[in] nPops number of populations
-		 * \param[in] alphaPr prior number of populations per individual
+		 * \param[in] alphaPr \f$ \alpha \f$ of the Beta prior on population assignment probabilities
+		 * \param[in] betaPr \f$ \beta \f$ of the Beta prior on population assignment probabilities
 		 */
-		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &alphaPr);
+		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &alphaPr, const double &betaPr);
 		/** \brief Destructor */
 		~MumiLoc(){hierInd_ = nullptr; iSigTheta_ = nullptr; };
 
@@ -143,12 +144,10 @@ namespace BayesicSpace {
 		size_t PhiBegInd_;
 		/** \brief Number of populations */
 		size_t Npop_;
-		/** \brief The \f$ \dfrac{\alpha}{N_M}\f$ constant*/
-		double pPriorConst_;
-		/** \brief The \f$ \dfrac{\alpha}{N_M} - 1\f$ constant*/
-		double pPriorM1Const_;
-		/** \brief Number of traits */
-		double d_;
+		/** \brief The \f$ \alpha + \beta - 2 \f$ constant*/
+		double absPriorConst_;
+		/** \brief The \f$ \beta - 1\f$ constant*/
+		double betaPriorConst_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
@@ -297,12 +296,13 @@ namespace BayesicSpace {
 		 * \param[in] vY vectorized data matrix
 		 * \param[in] y2line factor connecting data to lines (accessions)
 		 * \param[in] Npop number of populations
-		 * \param[in] alphaPr prior on the number of populations per line
+		 * \param[in] alphaPr \f$\alpha \f$ prior parameter for population assignment probabilities
+		 * \param[in] betaPr \f$\beta \f$ prior parameter for population assignment probabilities
 		 * \param[in] tau0 prior precision for the "fixed" effects
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
+		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &betaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Constructor for a one-level hierarchical model with missing data
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
@@ -311,12 +311,13 @@ namespace BayesicSpace {
 		 * \param[in] y2line factor connecting data to lines (accessions)
 		 * \param[in] missIDs vecotized matrix (same dimenstions as `vY`) with 1 corresponding to a missing data point and 0 otherwise
 		 * \param[in] Npop number of populations
-		 * \param[in] alphaPr prior on the number of populations per line
+		 * \param[in] alphaPr \f$\alpha \f$ prior parameter for population assignment probabilities
+		 * \param[in] betaPr \f$\beta \f$ prior parameter for population assignment probabilities
 		 * \param[in] tau0 prior precision for the "fixed" effects
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
+		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &alphaPr, const double &betaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Copy constructor (deleted) */
 		WrapMMM(WrapMMM &in) = delete;
 		/** \brief Move constructor (deleted) */
@@ -366,8 +367,6 @@ namespace BayesicSpace {
 		 *
 		 */
 		vector<Index> hierInd_;
-		/** \brief Prior number of populations per individual */
-		double alpha_;
 		/** \brief Location parameters and mixture proportions */
 		vector<double> vTheta_;
 		/** \brief Inerese-covariances */
