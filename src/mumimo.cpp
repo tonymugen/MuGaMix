@@ -366,20 +366,18 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	MatrixView mResISE( &vResISE, 0, Y_.getNrows(), Y_.getNcols() );
 	mResid.symm('l', 'r', 1.0, iSigE, 0.0, mResISE);
 
-	// backtransform the logit-p_jp and calculate row and column sums
+	// backtransform the logit-p_jp and calculate row sums
 	vector<double> vP(Phi.getNrows()*Phi.getNcols());
 	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
 	vector<double> veP(Phi.getNrows()*Phi.getNcols());
 	MatrixView eP( &veP, 0, Phi.getNrows(), Phi.getNcols() );
 	vector<double> pPopSum(Nln, 0.0);
-	vector<double> pLnSum(Npop_, 0.0);
 	for (size_t p = 0; p < Phi.getNcols(); p++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
 			double expMp = exp( -Phi.getElem(iRow, p) ); // e^{-phi}
 			eP.setElem(iRow, p, expMp);
 			double p_ip    = 1.0/(expMp + 1.0);
 			pPopSum[iRow] += p_ip;
-			pLnSum[p]     += p_ip;
 			P.setElem(iRow, p, p_ip);
 		}
 	}
@@ -391,25 +389,40 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 			Pw.divideElem(iRow, p, pPopSum[iRow]);
 		}
 	}
-	vector<double> vaResid(theta.begin(), theta.begin()+Adim); // copying A to the A residual matrix
-	MatrixView Aresid( &vaResid, 0, A.getNrows(), A.getNcols() );
-	M.gemm(false, -1.0, Pw, false, 1.0, Aresid); // Aresid now A-WM
-	// Multiply each row of Aresid by pPopSum -> P^rs(A-WM)
-	for (size_t jCol = 0; jCol < Aresid.getNcols(); jCol++) {
-		for (size_t iRow = 0; iRow < Aresid.getNrows(); iRow++) {
-			Aresid.multiplyElem(iRow, jCol, pPopSum[iRow]);
+	// per-population residual vectors and MatrixViews
+	vector< vector<double> > vAresid(Npop_);
+	vector<MatrixView> Aresid(Npop_);
+	for (size_t m = 0; m < Npop_; m++) {
+		vector<double> tmpResV(theta.begin(), theta.begin()+Adim);              // copying A to the residual matrix
+		MatrixView tmpRes( &tmpResV, 0, A.getNrows(), A.getNrows() );
+		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
+				tmpRes.subtractFromElem(iRow, jCol, M.getElem(m, jCol));        // A - mu_m
+			}
+		}
+		vAresid[m] = vector<double>(Adim, 0.0);
+		Aresid[m]  = MatrixView( &vAresid[m], 0, A.getNrows(), A.getNcols() );
+		tmpRes.symm('l', 'r', 1.0, iSigE, 0.0, Aresid[m]);                      // (A - mu_m)Sigma^{-1}_A
+		// store the (a_j - mu_m)Sigma^{-1}_A(a_j - mu_m)^T in gPhi
+		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
+				gPhi.addToElem(iRow, m, tmpRes.getElem(iRow, jCol)*Aresid[m].getElem(iRow, jCol));
+			}
+		}
+		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
+				Aresid[m].multiplyElem(iRow, jCol, Pw.getElem(iRow, m));        // WP_p(A - mu_m)Sigma^{-1}_A
+			}
 		}
 	}
 	// Z^T(Y - ZA - XB)Sig[E]^-1 store in gA
 	mResISE.colSums((*hierInd_)[0], gA);
-	// AresidSigma^{-1}_A
-	vector<double> vAResISA(Adim, 0.0);
-	MatrixView AResISA( &vAResISA, 0, A.getNrows(), A.getNcols() );
-	Aresid.symm('l', 'r', 1.0, iSigA, 0.0, AResISA);
-	// A partial derivatives
-	for (size_t jCol = 0; jCol < AResISA.getNcols(); jCol++) {
-		for (size_t iRow = 0; iRow < AResISA.getNrows(); iRow++) {
-			gA.subtractFromElem( iRow, jCol, AResISA.getElem(iRow, jCol) );
+	// finish A partial derivatives
+	for (size_t m = 0; m < Npop_; m++) {
+		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
+				gA.subtractFromElem(iRow, jCol, Aresid[m].getElem(iRow, jCol));// subtracting each population's WP_p(A - mu_m)Sigma^{-1}_A
+			}
 		}
 	}
 	// M partial derivatives
@@ -418,7 +431,14 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	for (size_t k = fTpInd_; k < iSigTheta_->size(); k++) {
 		tauP.push_back(exp( (*iSigTheta_)[k] ));
 	}
-	AResISA.gemm(true, 1.0, Pw, false, 0.0, gM); // W^T P^{rs}(A-WM)Sigma^{-1}_A, stored in gM
+	// sum the A residuals into gM rows
+	for (size_t m = 0; m < Npop_; m++) {
+		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
+				gM.addToElem(m, jCol, Aresid[m].getElem(iRow, jCol));
+			}
+		}
+	}
 	// Population mean residual
 	vector<double> vPOPresid(theta.begin()+Adim, theta.begin()+Adim+Mdim);
 	MatrixView POPresid( &vPOPresid, 0, M.getNrows(), M.getNcols() );
@@ -443,44 +463,17 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	for (size_t jCol = 0; jCol < gmu.getNcols(); jCol++) {
 		gmu.setElem(0, jCol, PresSum[jCol]);
 	}
-	// store M in POPresid again
-	vPOPresid.assign(theta.begin()+Adim, theta.begin()+Adim+Mdim);
-	// convert the M to ML_A (to multiply by (ML_A)^T = L_A^T M^T)
-	POPresid.trm('l', 'r', false, true, 1.0, La_);
 	// Phi partial derivatives
-	for (size_t p = 0; p < Npop_; p++) {
-		vAResISA.assign(theta.begin(), theta.begin()+Adim); // re-using AResISA for individual population residuals
-		for (size_t jCol = 0; jCol < AResISA.getNcols(); jCol++) {
-			for (size_t iRow = 0; iRow < AResISA.getNrows(); iRow++) {
-				AResISA.subtractFromElem( iRow, jCol, Pw.getElem(iRow, p)*M.getElem(p, jCol) );
-			}
-		}
-		AResISA.trm('l', 'r', false, true, 1.0, La_); // (A-w_jp m_p)L_A
-		for (size_t jCol = 0; jCol < AResISA.getNcols(); jCol++) {
-			for (size_t iRow = 0; iRow < AResISA.getNrows(); iRow++) {
-				gPhi.addToElem( iRow, p, AResISA.getElem(iRow, jCol)*Tx[jCol]*AResISA.getElem(iRow, jCol) );
-			}
-		}
+	for (size_t m = 0; m < Npop_; m++) {
+		// gPhi already has the kernel products stored from before; t_A element missing because we have one Sigma_A
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-			gPhi.multiplyElem(iRow, p, -0.5); // now -1/2(a_j - w_jp mu_p)Sigma^{-1}_A(a_j - w_jp mu_p)^T
-		}
-		// calculate the second element
-		vector<double> kern2(AResISA.getNrows(), 0.0);
-		for (size_t jCol = 0; jCol < AResISA.getNcols(); jCol++) {
-			for (size_t iRow = 0; iRow < AResISA.getNrows(); iRow++) {
-				kern2[iRow] += AResISA.getElem(iRow, jCol)*Tx[jCol]*POPresid.getElem(p, jCol);
-			}
-		}
-		// add the weighted second element
-		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-			gPhi.addToElem(iRow, p, ( 1.0 - Pw.getElem(iRow, p) )*kern2[iRow] );
-		}
-		// finish off
-		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-			gPhi.addToElem(iRow, p, static_cast<double>(Nln)/(pLnSum[p]) + log( P.getElem(iRow, p) ) ); // add the first ratio and the ln(p_jp)
-			gPhi.multiplyElem( iRow, p, P.getElem(iRow, p) );                                                          // multiply by p_jp first time
-			gPhi.addToElem(iRow, p, pLnSum[p] + Pw.getElem(iRow, p)*0.5*lnTAsum );                 // add the rest of the elements
-			gPhi.multiplyElem( iRow, p, P.getElem(iRow, p)*eP.getElem(iRow, p) );                                      // final multiplication
+			double w   = Pw.getElem(iRow, m);
+			double phi = gPhi.getElem(iRow, m);
+			phi *= w - w*w;                                       // (p_jm/sum_m(p_jm) - [p_jm/sum_m(p_jm)]^2)(a_j - mu_m)Sigma^{-1}_A(a_j - mu_p)^T
+			phi += 2.0*(absPriorConst_);                          // (p_jm/sum_m(p_jm) - [p_jm/sum_m(p_jm)]^2)(a_j - mu_m)Sigma^{-1}_A(a_j - mu_p)^T + 2(alpha + beta - 2)
+			phi *= -0.5*P.getElem(iRow, m)*eP.getElem(iRow, m);   // -0.5*p_jm*exp(-phi_jm)[(p_jm/sum_m(p_jm) - [p_jm/sum_m(p_jm)]^2)(a_j - mu_m)Sigma^{-1}_A(a_j - mu_p)^T + 2(alpha + beta - 2)]
+			phi += betaPriorConst_;                               // -0.5*p_jm*exp(-phi_jm)[(p_jm/sum_m(p_jm) - [p_jm/sum_m(p_jm)]^2)(a_j - mu_m)Sigma^{-1}_A(a_j - mu_p)^T + 2(alpha + beta - 2)] + beta - 1
+			gPhi.setElem(iRow, m, phi);
 		}
 	}
 }
