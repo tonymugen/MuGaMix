@@ -116,7 +116,7 @@ MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, cons
 		throw string("ERROR: Y dimensions not compatible with the number of data points implied by the replicate factor");
 	}
 #endif
-	const size_t d = yVec->size()/n;
+	const size_t d  = yVec->size()/n;
 	absPriorConst_  = alphaPr + betaPr - 2.0;
 	betaPriorConst_ = betaPr - 1.0;
 	Y_              = MatrixViewConst(yVec, 0, n, d);
@@ -227,7 +227,6 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	vector<double> vP(Phi.getNrows()*Phi.getNcols());
 	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
 	vector<double> pPopSum(Nln, 0.0);
-	vector<double> pLnSum(Npop_, 0.0);
 	double phiSum = 0.0;                 // Sum_jm phi_{jm}
 	double lnEphi = 0.0;                 // Sum_jm ln(e^(-phi_jm) + 1)
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
@@ -238,7 +237,6 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 			lnEphi        += log(invP);
 			double p       = 1.0/invP;
 			pPopSum[iRow] += p;
-			pLnSum[p]     += p;
 			P.setElem(iRow, m, p);
 		}
 	}
@@ -247,9 +245,8 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	vector<double> AtraceVec(Nln, 0.0); // accumulate A trace values here
 	// calculate T_A
 	vector<double> Ta;
-	auto endIt = iSigTheta_->begin() + fTpInd_;
-	for (auto tIt = iSigTheta_->begin() + fTaInd_; tIt != endIt; ++tIt) {
-		Ta.push_back( exp( *tIt ) );
+	for (size_t k = fTaInd_; k < fTpInd_; k++) {
+		Ta.push_back( exp( (*iSigTheta_)[k] ) );
 	}
 	for (size_t m = 0; m < Npop_; m++) {                                           // m is the population index as in the model description document
 		vector<double> locAtr(Nln, 0.0);
@@ -286,7 +283,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
 			dp += diff*diff;
 		}
-		trM += exp((*iSigTheta_)[fTpInd_ + jCol])*dp;
+		trM += exp( (*iSigTheta_)[fTpInd_ + jCol] )*dp;
 	}
 	double trP = 0.0;
 	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
@@ -310,13 +307,13 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	MatrixViewConst A( &theta, 0, Nln, Y_.getNcols() );
 	MatrixViewConst M( &theta, Adim, Npop_, Y_.getNcols() );
 	MatrixViewConst mu( &theta, Adim + Npop_*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
-	MatrixViewConst Phi( &theta, PhiBegInd_, Nln, Npop_ );
+	MatrixViewConst Phi(&theta, PhiBegInd_, Nln, Npop_);
 
 	// Matrix views of the gradient
 	MatrixView gA( &grad, 0, Nln, Y_.getNcols() );
 	MatrixView gM( &grad, Adim, Npop_, Y_.getNcols() );
 	MatrixView gmu( &grad, Adim + Npop_*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
-	MatrixView gPhi( &grad, PhiBegInd_, Nln, Npop_ );
+	MatrixView gPhi(&grad, PhiBegInd_, Nln, Npop_);
 
 	// Calculate the residual Y - ZA matrix
 	vector<double> vResid(Ydim, 0.0);
@@ -333,8 +330,8 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	MatrixView iSigE( &vISigE, 0, Y_.getNcols(), Y_.getNcols() );
 	// L_ExT_E
 	vector<double> Tx;
-	for (size_t k = 0; k < Y_.getNcols(); k++) {
-		Tx.push_back( exp((*iSigTheta_)[fTeInd_ + k]) );
+	for (size_t k = fTeInd_; k < fLaInd_; k++) {
+		Tx.push_back( exp( (*iSigTheta_)[k] ) );
 	}
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
 		iSigE.setElem(jCol, jCol, Tx[jCol]);
@@ -347,11 +344,8 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	iSigE.trm('l', 'r', true, true, 1.0, Le_);
 	vector<double> vISigA(Y_.getNcols()*Y_.getNcols(), 0.0);
 	MatrixView iSigA( &vISigA, 0, Y_.getNcols(), Y_.getNcols() );
-	double lnTAsum = 0.0;
-	for (size_t k = 0; k < Y_.getNcols(); k++) {
-		double lnTA = (*iSigTheta_)[fTaInd_ + k];
-		Tx[k]       = exp(lnTA);
-		lnTAsum    += lnTA;
+	for (size_t k = fTaInd_; k < fTpInd_; k++) {
+		Tx[k] = exp( (*iSigTheta_)[k] );
 	}
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
 		iSigA.setElem(jCol, jCol, Tx[jCol]);
@@ -372,21 +366,21 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	vector<double> veP(Phi.getNrows()*Phi.getNcols());
 	MatrixView eP( &veP, 0, Phi.getNrows(), Phi.getNcols() );
 	vector<double> pPopSum(Nln, 0.0);
-	for (size_t p = 0; p < Phi.getNcols(); p++) {
+	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
-			double expMp = exp( -Phi.getElem(iRow, p) ); // e^{-phi}
-			eP.setElem(iRow, p, expMp);
-			double p_ip    = 1.0/(expMp + 1.0);
-			pPopSum[iRow] += p_ip;
-			P.setElem(iRow, p, p_ip);
+			double expMp = exp( -Phi.getElem(iRow, m) ); // e^{-phi}
+			eP.setElem(iRow, m, expMp);
+			double p_im    = 1.0/(expMp + 1.0);
+			pPopSum[iRow] += p_im;
+			P.setElem(iRow, m, p_im);
 		}
 	}
-	// Calculate w_jp = p_jp/sum_p(p_jp)
+	// Calculate w_jm = p_jm/sum_m(p_jm)
 	vector<double> vPw(vP);
 	MatrixView Pw( &vPw, 0, P.getNrows(), P.getNcols() );
-	for (size_t p = 0; p < Pw.getNcols(); p++) {
+	for (size_t m = 0; m < Pw.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Pw.getNrows(); iRow++) {
-			Pw.divideElem(iRow, p, pPopSum[iRow]);
+			Pw.divideElem(iRow, m, pPopSum[iRow]);
 		}
 	}
 	// per-population residual vectors and MatrixViews
@@ -394,7 +388,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	vector<MatrixView> Aresid(Npop_);
 	for (size_t m = 0; m < Npop_; m++) {
 		vector<double> tmpResV(theta.begin(), theta.begin()+Adim);              // copying A to the residual matrix
-		MatrixView tmpRes( &tmpResV, 0, A.getNrows(), A.getNrows() );
+		MatrixView tmpRes( &tmpResV, 0, A.getNrows(), A.getNcols() );
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
 				tmpRes.subtractFromElem(iRow, jCol, M.getElem(m, jCol));        // A - mu_m
@@ -402,7 +396,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 		}
 		vAresid[m] = vector<double>(Adim, 0.0);
 		Aresid[m]  = MatrixView( &vAresid[m], 0, A.getNrows(), A.getNcols() );
-		tmpRes.symm('l', 'r', 1.0, iSigE, 0.0, Aresid[m]);                      // (A - mu_m)Sigma^{-1}_A
+		tmpRes.symm('l', 'r', 1.0, iSigA, 0.0, Aresid[m]);                      // (A - mu_m)Sigma^{-1}_A
 		// store the (a_j - mu_m)Sigma^{-1}_A(a_j - mu_m)^T in gPhi
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
