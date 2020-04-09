@@ -306,13 +306,13 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	const size_t Mdim = Npop_*Y_.getNcols();
 	MatrixViewConst A( &theta, 0, Nln, Y_.getNcols() );
 	MatrixViewConst M( &theta, Adim, Npop_, Y_.getNcols() );
-	MatrixViewConst mu( &theta, Adim + Npop_*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
+	MatrixViewConst mu( &theta, Adim + Mdim, 1, Y_.getNcols() ); // overall mean
 	MatrixViewConst Phi(&theta, PhiBegInd_, Nln, Npop_);
 
 	// Matrix views of the gradient
 	MatrixView gA( &grad, 0, Nln, Y_.getNcols() );
 	MatrixView gM( &grad, Adim, Npop_, Y_.getNcols() );
-	MatrixView gmu( &grad, Adim + Npop_*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
+	MatrixView gmu( &grad, Adim + Mdim, 1, Y_.getNcols() ); // overall mean
 	MatrixView gPhi(&grad, PhiBegInd_, Nln, Npop_);
 
 	// Calculate the residual Y - ZA matrix
@@ -423,7 +423,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// make tau_p
 	vector<double> tauP;
 	for (size_t k = fTpInd_; k < iSigTheta_->size(); k++) {
-		tauP.push_back(exp( (*iSigTheta_)[k] ));
+		tauP.push_back( exp( (*iSigTheta_)[k] ) );
 	}
 	// sum the A residuals into gM rows
 	for (size_t m = 0; m < Npop_; m++) {
