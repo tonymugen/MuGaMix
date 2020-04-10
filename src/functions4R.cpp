@@ -31,8 +31,6 @@
 #include <cmath>
 #include <algorithm>
 
-#include <fstream>
-
 #include <Rcpp.h>
 
 #include "mumimo.hpp"

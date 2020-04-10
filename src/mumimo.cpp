@@ -383,39 +383,44 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 			Pw.divideElem(iRow, m, pPopSum[iRow]);
 		}
 	}
-	// per-population residual vectors and MatrixViews
-	vector< vector<double> > vAresid(Npop_);
-	vector<MatrixView> Aresid(Npop_);
+	// Z^T(Y - ZA - XB)Sig[E]^-1 store in gA
+	mResISE.colSums((*hierInd_)[0], gA);
 	for (size_t m = 0; m < Npop_; m++) {
-		vector<double> tmpResV(theta.begin(), theta.begin()+Adim);              // copying A to the residual matrix
-		MatrixView tmpRes( &tmpResV, 0, A.getNrows(), A.getNcols() );
+		vector<double> vAresid(theta.begin(), theta.begin()+Adim);                     // copying A to the residual matrix
+		MatrixView Aresid( &vAresid, 0, A.getNrows(), A.getNcols() );
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				tmpRes.subtractFromElem(iRow, jCol, M.getElem(m, jCol));        // A - mu_m
+				Aresid.subtractFromElem(iRow, jCol, M.getElem(m, jCol));               // A - mu_m
 			}
 		}
-		vAresid[m] = vector<double>(Adim, 0.0);
-		Aresid[m]  = MatrixView( &vAresid[m], 0, A.getNrows(), A.getNcols() );
-		tmpRes.symm('l', 'r', 1.0, iSigA, 0.0, Aresid[m]);                      // (A - mu_m)Sigma^{-1}_A
+		vector<double> vAresISA(A.getNrows()*A.getNcols(), 0.0);
+		MatrixView AresISA( &vAresISA, 0, A.getNrows(), A.getNcols() );
+		Aresid.symm('l', 'r', 1.0, iSigA, 0.0, AresISA);                               // (A - mu_m)Sigma^{-1}_A
 		// store the (a_j - mu_m)Sigma^{-1}_A(a_j - mu_m)^T in gPhi
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				gPhi.addToElem(iRow, m, tmpRes.getElem(iRow, jCol)*Aresid[m].getElem(iRow, jCol));
+				gPhi.addToElem(iRow, m, Aresid.getElem(iRow, jCol)*AresISA.getElem(iRow, jCol));
 			}
 		}
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				Aresid[m].multiplyElem(iRow, jCol, Pw.getElem(iRow, m));        // WP_p(A - mu_m)Sigma^{-1}_A
+				AresISA.multiplyElem(iRow, jCol, Pw.getElem(iRow, m));                  // WP_p(A - mu_m)Sigma^{-1}_A
 			}
 		}
-	}
-	// Z^T(Y - ZA - XB)Sig[E]^-1 store in gA
-	mResISE.colSums((*hierInd_)[0], gA);
-	// finish A partial derivatives
-	for (size_t m = 0; m < Npop_; m++) {
-		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
-			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				gA.subtractFromElem(iRow, jCol, Aresid[m].getElem(iRow, jCol));// subtracting each population's WP_p(A - mu_m)Sigma^{-1}_A
+		// finish A partial derivatives
+		for (size_t m = 0; m < Npop_; m++) {
+			for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
+				for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
+					gA.subtractFromElem(iRow, jCol, AresISA.getElem(iRow, jCol));       // subtracting each population's WP_p(A - mu_m)Sigma^{-1}_A
+				}
+			}
+		}
+		// sum the A residuals into gM rows
+		for (size_t m = 0; m < Npop_; m++) {
+			for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
+				for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
+					gM.addToElem(m, jCol, AresISA.getElem(iRow, jCol));
+				}
 			}
 		}
 	}
@@ -424,14 +429,6 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	vector<double> tauP;
 	for (size_t k = fTpInd_; k < iSigTheta_->size(); k++) {
 		tauP.push_back( exp( (*iSigTheta_)[k] ) );
-	}
-	// sum the A residuals into gM rows
-	for (size_t m = 0; m < Npop_; m++) {
-		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
-			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				gM.addToElem(m, jCol, Aresid[m].getElem(iRow, jCol));
-			}
-		}
 	}
 	// Population mean residual
 	vector<double> vPOPresid(theta.begin()+Adim, theta.begin()+Adim+Mdim);
@@ -445,7 +442,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// complete the M gradient
 	for (size_t jCol = 0; jCol < M.getNcols(); jCol++) {
 		for (size_t iRow = 0; iRow < M.getNrows(); iRow++) {
-			gM.subtractFromElem( iRow, jCol, POPresid.getElem(iRow, jCol) );
+			gM.subtractFromElem( iRow, jCol, POPresid.getElem(iRow, jCol) );  // gM already has the summed A residuals
 		}
 	}
 	// mu partial derivatives
@@ -459,14 +456,11 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	}
 	// Phi partial derivatives
 	for (size_t m = 0; m < Npop_; m++) {
-		// gPhi already has the kernel products stored from before; t_A element missing because we have one Sigma_A
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
 			double w   = Pw.getElem(iRow, m);
-			double phi = gPhi.getElem(iRow, m);
-			phi *= w - w*w;                                       // (p_jm/sum_m(p_jm) - [p_jm/sum_m(p_jm)]^2)(a_j - mu_m)Sigma^{-1}_A(a_j - mu_p)^T
-			phi += 2.0*(absPriorConst_);                          // (p_jm/sum_m(p_jm) - [p_jm/sum_m(p_jm)]^2)(a_j - mu_m)Sigma^{-1}_A(a_j - mu_p)^T + 2(alpha + beta - 2)
-			phi *= -0.5*P.getElem(iRow, m)*eP.getElem(iRow, m);   // -0.5*p_jm*exp(-phi_jm)[(p_jm/sum_m(p_jm) - [p_jm/sum_m(p_jm)]^2)(a_j - mu_m)Sigma^{-1}_A(a_j - mu_p)^T + 2(alpha + beta - 2)]
-			phi += betaPriorConst_;                               // -0.5*p_jm*exp(-phi_jm)[(p_jm/sum_m(p_jm) - [p_jm/sum_m(p_jm)]^2)(a_j - mu_m)Sigma^{-1}_A(a_j - mu_p)^T + 2(alpha + beta - 2)] + beta - 1
+			double phi = gPhi.getElem(iRow, m);  // gPhi already has the kernel products stored from before; t_A element missing because we have one Sigma_A
+			// -0.5*p_jm*exp(-phi_jm)[(p_jm/sum_m(p_jm) - [p_jm/sum_m(p_jm)]^2)(a_j - mu_m)Sigma^{-1}_A(a_j - mu_p)^T - 2(alpha + beta - 2)] - beta + 1
+			phi  = -0.5*P.getElem(iRow, m)*eP.getElem(iRow, m)*( (w - w*w)*phi - 2.0*absPriorConst_ ) - betaPriorConst_;
 			gPhi.setElem(iRow, m, phi);
 		}
 	}
