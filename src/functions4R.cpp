@@ -91,9 +91,9 @@ Rcpp::List gradTestLI(const std::vector<double> &yVec, const std::vector<int32_t
 	double thtVal  = theta[i];
 	double add     = -limit;
 	std::vector<double> gradVal;
-	std::vector<double> grad;
 	try {
 		while ( add <= limit ){
+			std::vector<double> grad;
 			theta[i] = thtVal + add;
 			test.gradient(theta, grad);
 			gradVal.push_back(grad[i]);
