@@ -45,7 +45,7 @@ double testLpostLoc(const std::vector<double> &yVec, const std::vector<int32_t> 
 	}
 	std::vector<BayesicSpace::Index> idx;
 	idx.push_back( BayesicSpace::Index(l1) );
-	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 1.2, 1.2);
+	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 1.2);
 	return test.logPost(theta);
 }
 //[[Rcpp::export(name="lpTestLI")]]
@@ -59,7 +59,7 @@ Rcpp::List lpTestLI(const std::vector<double> &yVec, const std::vector<int32_t> 
 	}
 	std::vector<BayesicSpace::Index> idx;
 	idx.push_back( BayesicSpace::Index(l1) );
-	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 1.2, 1.2);
+	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 1.2);
 	const size_t i = static_cast<size_t>(ind - 1);
 	double thtVal  = theta[i];
 	double add     = -limit;
@@ -86,7 +86,7 @@ Rcpp::List gradTestLI(const std::vector<double> &yVec, const std::vector<int32_t
 	}
 	std::vector<BayesicSpace::Index> idx;
 	idx.push_back( BayesicSpace::Index(l1) );
-	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 1.2, 1.2);
+	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 1.2);
 	const size_t i = static_cast<size_t>(ind - 1);
 	double thtVal  = theta[i];
 	double add     = -limit;

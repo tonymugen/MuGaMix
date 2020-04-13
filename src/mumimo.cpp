@@ -109,7 +109,7 @@ void sort(const vector<double> &target, vector<size_t> &outIdx){
 	} while (inc > 1);
 }
 
-MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &alphaPr, const double &betaPr) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops} {
+MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &alphaPr) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops} {
 	const size_t n = (*hierInd_)[0].size();
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%n) {
@@ -117,8 +117,7 @@ MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, cons
 	}
 #endif
 	const size_t d  = yVec->size()/n;
-	absPriorConst_  = alphaPr + betaPr - 2.0;
-	betaPriorConst_ = betaPr - 1.0;
+	alphaPrm1_      = alphaPr - 1.0;
 	Y_              = MatrixViewConst(yVec, 0, n, d);
 
 	vLx_.resize(2*d*d, 0.0);
@@ -138,19 +137,18 @@ MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, cons
 
 MumiLoc::MumiLoc(MumiLoc &&in) {
 	if (this != &in) {
-		Y_              = move(in.Y_);
-		tau0_           = in.tau0_;
-		hierInd_        = in.hierInd_;
-		Le_             = move(in.Le_);
-		La_             = move(in.La_);
-		vLx_            = move(in.vLx_);
-		fTeInd_         = in.fTeInd_;
-		fLaInd_         = in.fLaInd_;
-		fTaInd_         = in.fTaInd_;
-		PhiBegInd_      = in.PhiBegInd_;
-		Npop_           = in.Npop_;
-		absPriorConst_  = in.absPriorConst_;
-		betaPriorConst_ = in.betaPriorConst_;
+		Y_         = move(in.Y_);
+		tau0_      = in.tau0_;
+		hierInd_   = in.hierInd_;
+		Le_        = move(in.Le_);
+		La_        = move(in.La_);
+		vLx_       = move(in.vLx_);
+		fTeInd_    = in.fTeInd_;
+		fLaInd_    = in.fLaInd_;
+		fTaInd_    = in.fTaInd_;
+		PhiBegInd_ = in.PhiBegInd_;
+		Npop_      = in.Npop_;
+		alphaPrm1_ = in.alphaPrm1_;
 
 		in.hierInd_   = nullptr;
 		in.iSigTheta_ = nullptr;
@@ -159,19 +157,18 @@ MumiLoc::MumiLoc(MumiLoc &&in) {
 
 MumiLoc& MumiLoc::operator=(MumiLoc &&in){
 	if (this != &in) {
-		Y_              = move(in.Y_);
-		tau0_           = in.tau0_;
-		hierInd_        = in.hierInd_;
-		Le_             = move(in.Le_);
-		La_             = move(in.La_);
-		vLx_            = move(in.vLx_);
-		fTeInd_         = in.fTeInd_;
-		fLaInd_         = in.fLaInd_;
-		fTaInd_         = in.fTaInd_;
-		PhiBegInd_      = in.PhiBegInd_;
-		Npop_           = in.Npop_;
-		absPriorConst_  = in.absPriorConst_;
-		betaPriorConst_ = in.betaPriorConst_;
+		Y_         = move(in.Y_);
+		tau0_      = in.tau0_;
+		hierInd_   = in.hierInd_;
+		Le_        = move(in.Le_);
+		La_        = move(in.La_);
+		vLx_       = move(in.vLx_);
+		fTeInd_    = in.fTeInd_;
+		fLaInd_    = in.fLaInd_;
+		fTaInd_    = in.fTaInd_;
+		PhiBegInd_ = in.PhiBegInd_;
+		Npop_      = in.Npop_;
+		alphaPrm1_ = in.alphaPrm1_;
 
 		in.hierInd_   = nullptr;
 		in.iSigTheta_ = nullptr;
@@ -227,17 +224,19 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	vector<double> vP(Phi.getNrows()*Phi.getNcols());
 	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
 	vector<double> pPopSum(Nln, 0.0);
-	double phiSum = 0.0;                 // Sum_jm phi_{jm}
-	double lnEphi = 0.0;                 // Sum_jm ln(e^(-phi_jm) + 1)
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
-			double phi     = Phi.getElem(iRow, m);
-			phiSum        += phi;
-			double invP    = exp(-phi) + 1.0;
-			lnEphi        += log(invP);
-			double p       = 1.0/invP;
+			double p       = logistic( Phi.getElem(iRow, m) );
 			pPopSum[iRow] += p;
 			P.setElem(iRow, m, p);
+		}
+	}
+	// Re-weight the P and calculate sum(ln p); it may be possible to optimize this further by dividing by weight once after aTrace completion
+	double sumLnP = 0.0;
+	for (size_t m = 0; m < Phi.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+			P.divideElem(iRow, m, pPopSum[iRow]);
+			sumLnP += log( P.getElem(iRow, m) );
 		}
 	}
 	// Clear the Y residuals and re-use for A residuals
@@ -268,9 +267,6 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 			AtraceVec[j] += P.getElem(j, m)*locAtr[j];                             // P_m(A-mu_m)L_A T_A L_A^T(A-mu_m)^T
 		}
 	}
-	for (size_t j = 0; j < Nln; j++) {
-		AtraceVec[j] /= pPopSum[j];                                                // W Sum_m P_m(A-mu_m)L_A T_A L_A^T(A-mu_m)^T
-	}
 	double aTrace = 0.0;
 	for (auto &a : AtraceVec){
 		aTrace += a;
@@ -291,7 +287,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	}
 	trP *= tau0_;
 	// now sum to get the log-posterior
-	return -0.5*(eTrace + aTrace + trM + trP) - absPriorConst_*lnEphi - betaPriorConst_*phiSum;
+	return -0.5*(eTrace + aTrace + trM + trP) + alphaPrm1_*sumLnP;
 }
 
 void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
@@ -460,7 +456,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 			double w   = Pw.getElem(iRow, m);
 			double phi = gPhi.getElem(iRow, m);  // gPhi already has the kernel products stored from before; t_A element missing because we have one Sigma_A
 			// -0.5*p_jm*exp(-phi_jm)[(p_jm/sum_m(p_jm) - [p_jm/sum_m(p_jm)]^2)(a_j - mu_m)Sigma^{-1}_A(a_j - mu_p)^T - 2(alpha + beta - 2)] - beta + 1
-			phi  = -0.5*P.getElem(iRow, m)*eP.getElem(iRow, m)*( (w - w*w)*phi - 2.0*absPriorConst_ ) - betaPriorConst_;
+			phi  = -0.5*P.getElem(iRow, m)*eP.getElem(iRow, m)*( (w - w*w)*phi - 2.0*alphaPrm1_ );
 			gPhi.setElem(iRow, m, phi);
 		}
 	}
@@ -967,7 +963,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	for (auto &s : vISig_) {
 		s += 0.5*rng_.rnorm();
 	}
-	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alphaPr, betaPr) );
+	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alphaPr) );
 	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Npop) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
