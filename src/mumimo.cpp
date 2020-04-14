@@ -852,7 +852,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 }
 
 // WrapMM methods
-WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &betaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY} {
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY} {
 	hierInd_.push_back( Index(y2line) );
 	const size_t N = hierInd_[0].size();
 #ifndef PKG_DEBUG_OFF
@@ -886,16 +886,15 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	// use k-means for population assignment and starting values of logit(p_jp)
 	Index popInd(Npop);
 	kMeans_(A_, Npop, 50, popInd, Mp_);
-	for (size_t iLN = 0; iLN < Nln; iLN++) {
-		for (size_t jPOP = 0; jPOP < Npop; jPOP++) {
-			if (popInd.groupID(iLN) == jPOP) {
-				Phi_.setElem(iLN, jPOP, logit(0.8 + 0.15*rng_.runif()));
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t iRow = 0; iRow < Nln; iRow++) {
+			if (popInd.groupID(iRow) == m){
+				Phi_.setElem( iRow, m, logit( 0.8 + 0.15*rng_.runif() ) );
 			} else {
-				Phi_.setElem(iLN, jPOP, logit(0.1 + 0.4*rng_.runif()));
+				Phi_.setElem( iRow, m, logit( 0.1 + 0.15*rng_.runif() ) );
 			}
 		}
 	}
-
 	vector<double> tmpMu;
 	Mp_.colMeans(tmpMu);
 	for (size_t k = 0; k < d; k++) {
@@ -978,8 +977,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	Aresid_ = MatrixView(&vAresid_, 0, Nln, d);
 	sortPops_();
 	// add noise
-	for (auto &t : vTheta_) {
-		t += 0.5*rng_.rnorm();
+	for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) { // the Phi values already have added noise
+		vTheta_[iTht] += 0.5*rng_.rnorm();
 	}
 	for (auto &s : vISig_) {
 		s += 0.5*rng_.rnorm();
@@ -990,7 +989,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 }
 
-WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &alphaPr, const double &betaPr, const double &tau0, const double &nu0, const double &invAsq) : WrapMMM(vY, y2line, Npop, alphaPr, betaPr, tau0, nu0, invAsq) {
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : WrapMMM(vY, y2line, Npop, alphaPr, tau0, nu0, invAsq) {
 	for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
 		for (size_t iRow = 0; iRow < hierInd_[0].size(); iRow++) {
 			if (missIDs[jCol*hierInd_[0].size() + iRow]) {
