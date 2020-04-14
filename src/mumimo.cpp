@@ -1225,6 +1225,8 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 	std::fstream treeOut;
 	treeOut.open("treeTests.tsv", std::ios::app);
 	treeOut << "y\tvariable.group\tphase" << std::endl;
+	std::fstream phiOut;
+	phiOut.open("phiTests.tsv", std::ios::app);
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		size_t parGrp = 0;
 		for (auto &s : samplers_) {
@@ -1232,6 +1234,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
 			parGrp++;
 		}
+		phiOut << A_.getElem(60, 0) << " " << A_.getElem(60, 1) << " " << A_.getElem(60, 2) << std::endl;
 		//sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
@@ -1257,6 +1260,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		}
 	}
 	treeOut.close();
+	phiOut.close();
 }
 
 void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain, vector<double> &impYchain){
