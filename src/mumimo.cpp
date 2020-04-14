@@ -54,10 +54,21 @@ inline double logit(const double &p){ return log(p) - log(1.0 - p); }
 
 /** \brief Logistic function
  *
+ * There is a guard against under- and overflow: the function returns 0.0 for \f$ x \le -35.0\f$ and 1.0 for \f$x \ge 35.0\f$.
+ *
  * \param[in] x value to be projected to the (0, 1) interval
  * \return logistic transformation
  */
-inline double logistic(const double &x){ return 1.0/(1 + exp(-x)); }
+double logistic(const double &x){
+	// 35.0 is the magic number because logistic(-35) ~ EPS
+	if (x <= - 35.0){
+		return 0.0;
+	} else if (x >= 35.0){
+		return 1.0;
+	} else {
+		return 1.0/(1 + exp(-x));
+	}
+}
 
 /** \brief Shell sort
  *
@@ -109,7 +120,7 @@ void sort(const vector<double> &target, vector<size_t> &outIdx){
 	} while (inc > 1);
 }
 
-MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &alphaPr) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops} {
+MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &tauPrPhi) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops}, tauPrPhi_{tauPrPhi} {
 	const size_t n = (*hierInd_)[0].size();
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%n) {
@@ -117,7 +128,6 @@ MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, cons
 	}
 #endif
 	const size_t d  = yVec->size()/n;
-	alphaPrm1_      = alphaPr - 1.0;
 	Y_              = MatrixViewConst(yVec, 0, n, d);
 
 	vLx_.resize(2*d*d, 0.0);
@@ -148,7 +158,7 @@ MumiLoc::MumiLoc(MumiLoc &&in) {
 		fTaInd_    = in.fTaInd_;
 		PhiBegInd_ = in.PhiBegInd_;
 		Npop_      = in.Npop_;
-		alphaPrm1_ = in.alphaPrm1_;
+		tauPrPhi_ = in.tauPrPhi_;
 
 		in.hierInd_   = nullptr;
 		in.iSigTheta_ = nullptr;
@@ -168,7 +178,7 @@ MumiLoc& MumiLoc::operator=(MumiLoc &&in){
 		fTaInd_    = in.fTaInd_;
 		PhiBegInd_ = in.PhiBegInd_;
 		Npop_      = in.Npop_;
-		alphaPrm1_ = in.alphaPrm1_;
+		tauPrPhi_ = in.tauPrPhi_;
 
 		in.hierInd_   = nullptr;
 		in.iSigTheta_ = nullptr;
@@ -220,23 +230,24 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 		eTrace   += exp( (*iSigTheta_)[fTeInd_ + jCol] )*dp;
 	}
 
-	// backtransform the logit-p_jp and calculate row and column sums
+	// backtransform the logit-p_jp, calculate row sums and sum of squares
 	vector<double> vP(Phi.getNrows()*Phi.getNcols());
 	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
 	vector<double> pPopSum(Nln, 0.0);
+	double sumPhiSq = 0.0;
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
-			double p       = logistic( Phi.getElem(iRow, m) );
+			double phi     = Phi.getElem(iRow, m);
+			sumPhiSq      += phi*phi;
+			double p       = logistic(phi);
 			pPopSum[iRow] += p;
 			P.setElem(iRow, m, p);
 		}
 	}
 	// Re-weight the P and calculate sum(ln p); it may be possible to optimize this further by dividing by weight once after aTrace completion
-	double sumLnP = 0.0;
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
 			P.divideElem(iRow, m, pPopSum[iRow]);
-			sumLnP += log( P.getElem(iRow, m) );
 		}
 	}
 	// Clear the Y residuals and re-use for A residuals
@@ -287,7 +298,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	}
 	trP *= tau0_;
 	// now sum to get the log-posterior
-	return -0.5*(eTrace + aTrace + trM + trP) + alphaPrm1_*sumLnP;
+	return -0.5*(eTrace + aTrace + tauPrPhi_*sumPhiSq + trM + trP);
 }
 
 void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
@@ -451,10 +462,10 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// Phi partial derivatives
 	for (size_t m = 0; m < Npop_; m++) {
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-			double phi  = alphaPrm1_/P.getElem(iRow, m) - 0.5*gPhi.getElem(iRow, m);  // gPhi already has the kernel products stored from before; t_A element missing because we have one Sigma_A
+			double phi  = -0.5*gPhi.getElem(iRow, m);  // gPhi already has the kernel products stored from before; t_A element missing because we have one Sigma_A
 			double p_jm = P.getElem(iRow, m);
-			phi  *= (1.0 - p_jm)*p_jm*ePr.getElem(iRow, m); // [-0.5(a_j - mu_m)Sigma^{-1}(a_j - mu_m)^T + (alpha - 1)/p_jm](1-p_jm)p_jm e^{-phi}/(e^{-phi} + 1)
-			gPhi.setElem(iRow, m, phi);
+			phi  *= (1.0 - p_jm)*p_jm*ePr.getElem(iRow, m); // [-0.5(a_j - mu_m)Sigma^{-1}(a_j - mu_m)^T ](1-p_jm)p_jm e^{-phi}/(e^{-phi} + 1)
+			gPhi.setElem(iRow, m, phi - tauPrPhi_*Phi.getElem(iRow, m));
 		}
 	}
 }
@@ -1234,7 +1245,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
 			parGrp++;
 		}
-		phiOut << A_.getElem(60, 0) << " " << A_.getElem(60, 1) << " " << A_.getElem(60, 2) << std::endl;
+		phiOut << Phi_.getElem(60, 0) << " " << Phi_.getElem(60, 1) << " " << Phi_.getElem(60, 2) << std::endl;
 		//sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
@@ -1244,6 +1255,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tsample" << std::endl;
 			parGrp++;
 		}
+		phiOut << Phi_.getElem(60, 0) << " " << Phi_.getElem(60, 1) << " " << Phi_.getElem(60, 2) << std::endl;
 		//sortPops_();
 		if ( (b%Nthin) == 0) {
 			for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) {

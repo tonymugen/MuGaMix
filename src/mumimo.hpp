@@ -58,7 +58,7 @@ namespace BayesicSpace {
 	class MumiLoc final : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0}, Npop_{0}, alphaPrm1_{0.0} {};
+		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0}, Npop_{0}, tauPrPhi_{1.0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer vectorized data matrix
@@ -67,9 +67,9 @@ namespace BayesicSpace {
 		 * \param[in] hierInd pointer to vector of hierarchical indexes
 		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and overall mean (intercept)
 		 * \param[in] nPops number of populations
-		 * \param[in] alphaPr \f$ \alpha \f$ of the Beta prior on population assignment probabilities
+		 * \param[in] tauPrPhi \f$ \tau_{\phi} \f$ population assignment probability prior precision
 		 */
-		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &alphaPr);
+		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &tauPrPhi);
 		/** \brief Destructor */
 		~MumiLoc(){hierInd_ = nullptr; iSigTheta_ = nullptr; };
 
@@ -143,11 +143,12 @@ namespace BayesicSpace {
 		size_t PhiBegInd_;
 		/** \brief Number of populations */
 		size_t Npop_;
-		/** \brief The \f$ \alpha - 1\f$ constant*/
-		double alphaPrm1_;
+		/** \brief The \f$ \tau_{\phi} \f$ prior precision*/
+		double tauPrPhi_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
-		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
+		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector.
+		 * The input vector stores only the non-zero elements of these matrices.
 		 *
 		 */
 		void expandISvec_() const;
