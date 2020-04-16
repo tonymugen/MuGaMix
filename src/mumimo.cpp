@@ -44,7 +44,46 @@
 using std::vector;
 using std::string;
 using namespace BayesicSpace;
+/** \brief Swap two `size_t` values
+ *
+ * Uses the three XORs trick to swap two integers. Safe if the variables happen to refer to the same address.
+ *
+ * \param[in,out] i first integer
+ * \param[in,out] j second integer
+ */
+void swapXOR(size_t &i, size_t &j){
+	if (&i != &j) { // no move needed if this is actually the same variable
+		i ^= j;
+		j ^= i;
+		i ^= j;
+	}
+}
+/** \brief Insertion sort
+ *
+ * Performes an insertion sort on a vector, outputting the position of each element in a sorted vector. Sorting is done in order of increase.
+ *
+ * \param[in] vec vector to be sorted
+ * \param[out] ind vector of sorted indexes, will replace contents of non-empty vector
+ */
+void insertionSort(const vector<size_t> &vec, vector<size_t> &ind){
+	if ( ind.size() ){
+		ind.clear();
+	}
 
+	for (size_t l = 0; l < vec.size(); l++) {
+		ind.push_back(l);
+	}
+	for (size_t i = 1; i < vec.size(); i++) {
+		size_t j   = i;
+		size_t tmp = ind[i];
+		while ( (j > 0) && (vec[ ind[j-1] ] > vec[tmp]) ){
+			//swapXOR(ind[j], ind[j-1]);
+			ind[j] = ind[j-1];
+			j--;
+		}
+		ind[j] = tmp;
+	}
+}
 /** \brief Logit function
  *
  * \param[in] p probability in the (0, 1) interval
@@ -231,7 +270,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	}
 
 	// backtransform the logit-p_jp, calculate row sums and sum of squares
-	vector<double> vP(Phi.getNrows()*Phi.getNcols());
+	vector<double> vP(Phi.getNrows()*Phi.getNcols(), 0.0);
 	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
 	vector<double> pPopSum(Nln, 0.0);
 	double sumPhiSq = 0.0;
@@ -244,7 +283,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 			P.setElem(iRow, m, p);
 		}
 	}
-	// Re-weight the P and calculate sum(ln p); it may be possible to optimize this further by dividing by weight once after aTrace completion
+	// Re-weight the P; it may be possible to optimize this further by dividing by weight once after aTrace completion
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
 			P.divideElem(iRow, m, pPopSum[iRow]);
@@ -876,10 +915,6 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	const size_t Adim  = Nln*d;
 	const size_t Mpdim = Npop*d;
 
-	std::fstream tstStrm;
-	tstStrm.open("treeTests.tsv", std::ios::in|std::ios::trunc);
-	tstStrm.close();
-
 	// Calculate starting values for theta
 	Y_ = MatrixView(&vY_, 0, N, d);
 
@@ -894,9 +929,45 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	vector<double> vSig(d*d, 0.0);
 	MatrixView Sig(&vSig, 0, d, d);
 
+	vector<size_t> ind;
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t iLn = 0; iLn < Nln/Npop; iLn++) {
+			ind.push_back(m);
+		}
+	}
+	Index popInd(ind);
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t iRow = 0; iRow < Nln; iRow++) {
+			if (popInd.groupID(iRow) == m){
+				Phi_.setElem( iRow, m, logit(0.99) );
+			} else {
+				Phi_.setElem( iRow, m, logit(0.01) );
+			}
+		}
+	}
+	A_.colMeans(popInd, Mp_);
 	// use k-means for population assignment and starting values of logit(p_jp)
-	Index popInd(Npop);
+	//Index popInd(Npop);
+	//vector<double> vtM(Mpdim, 0.0);
+	//MatrixView tmpM(&vtM, 0, Npop, d);
+	/*
 	kMeans_(A_, Npop, 50, popInd, Mp_);
+	//kMeans_(A_, Npop, 50, popInd, tmpM);
+	std::fstream tstInd;
+	tstInd.open("yIndTst.txt", std::ios::trunc | std::ios::out);
+	vector<size_t> ind;
+	for (size_t m = 0; m < Npop; m++) {
+		ind.push_back(popInd[m][0]);
+		tstInd << popInd[m][0] << " " << std::flush;
+	}
+	tstInd << std::endl;
+	vector<size_t> trkInd;
+	insertionSort(ind, trkInd);
+	for (auto &i : trkInd){
+		tstInd << i << " " << std::flush;
+	}
+	tstInd << std::endl;
+	tstInd.close();
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < Nln; iRow++) {
 			if (popInd.groupID(iRow) == m){
@@ -906,6 +977,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 			}
 		}
 	}
+	*/
 	vector<double> tmpMu;
 	Mp_.colMeans(tmpMu);
 	for (size_t k = 0; k < d; k++) {
@@ -988,15 +1060,18 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	Aresid_ = MatrixView(&vAresid_, 0, Nln, d);
 	sortPops_();
 	// add noise
+	/*
 	for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) { // the Phi values already have added noise
 		vTheta_[iTht] += 0.5*rng_.rnorm();
 	}
+	*/
 	for (auto &s : vISig_) {
 		s += 0.5*rng_.rnorm();
 	}
 	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alphaPr) );
 	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Npop) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
 	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 }
 
@@ -1234,10 +1309,10 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 
 void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain){
 	std::fstream treeOut;
-	treeOut.open("treeTests.tsv", std::ios::app);
+	treeOut.open("treeTests.tsv", std::ios::trunc | std::ios::out);
 	treeOut << "y\tvariable.group\tphase" << std::endl;
-	std::fstream phiOut;
-	phiOut.open("phiTests.tsv", std::ios::app);
+	std::fstream parOut;
+	parOut.open("xParTests.tsv", std::ios::trunc | std::ios::out);
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		size_t parGrp = 0;
 		for (auto &s : samplers_) {
@@ -1245,7 +1320,10 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
 			parGrp++;
 		}
-		phiOut << Phi_.getElem(60, 0) << " " << Phi_.getElem(60, 1) << " " << Phi_.getElem(60, 2) << std::endl;
+		parOut << Phi_.getElem(60, 0) << " " << Phi_.getElem(60, 1) << " " << Phi_.getElem(60, 2) << std::endl;
+		parOut << Mp_.getElem(0, 0) << " " << Mp_.getElem(1, 0) << " " << Mp_.getElem(2, 0) << std::endl;
+		parOut << models_[0]->logPost(vTheta_) << " " << models_[1]->logPost(vISig_) << std::endl;
+		parOut << "-----------------" << std::endl;
 		//sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
@@ -1255,7 +1333,10 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tsample" << std::endl;
 			parGrp++;
 		}
-		phiOut << Phi_.getElem(60, 0) << " " << Phi_.getElem(60, 1) << " " << Phi_.getElem(60, 2) << std::endl;
+		parOut << Phi_.getElem(60, 0) << " " << Phi_.getElem(60, 1) << " " << Phi_.getElem(60, 2) << std::endl;
+		parOut << Mp_.getElem(0, 0) << " " << Mp_.getElem(1, 0) << " " << Mp_.getElem(2, 0) << std::endl;
+		parOut << models_[0]->logPost(vTheta_) << " " << models_[1]->logPost(vISig_) << std::endl;
+		parOut << "-----------------" << std::endl;
 		//sortPops_();
 		if ( (b%Nthin) == 0) {
 			for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) {
@@ -1272,7 +1353,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		}
 	}
 	treeOut.close();
-	phiOut.close();
+	parOut.close();
 }
 
 void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain, vector<double> &impYchain){

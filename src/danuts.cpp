@@ -713,7 +713,7 @@ uint32_t SamplerMetro::adapt(){
 uint32_t SamplerMetro::update(){
 	vector<double> thetaPrime = *theta_;
 	for (auto &t : thetaPrime) {
-		t += 0.01*rng_.rnorm();
+		t += 0.005*rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
 	double lU     = log(rng_.runifnz());

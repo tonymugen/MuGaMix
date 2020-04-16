@@ -391,7 +391,7 @@ namespace BayesicSpace {
 		MatrixView Aresid_;
 		/** \brief First principal component of \f$\boldsymbol{\Sigma}_A\f$
 		 *
-		 * The first prinicpal component vector of the initial estimate of the line (accesion) covariance matrix, to be used for projection ordering of population means.
+		 * The first principal component vector of the initial estimate of the line (accession) covariance matrix, to be used for projection ordering of population means.
 		 */
 		vector<double> pc1_;
 		/** \brief Missingness index
