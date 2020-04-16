@@ -98,29 +98,41 @@ double dotProd(const vector<double> &v1, const vector<double> &v2){
 	mu = (a + wn*xn)/w;
 }
 
-SamplerNUTS::SamplerNUTS(SamplerNUTS &&in) : epsilon_{in.epsilon_}, mu_{in.mu_}, nH0_{in.nH0_}, m_{in.m_}, Hprevious_{in.Hprevious_}, logEpsBarPrevious_{in.logEpsBarPrevious_}, epsWMN_{in.epsWMN_}, currW_{in.currW_}, firstAdapt_{in.firstAdapt_}, firstUpdate_{in.firstUpdate_}, model_{in.model_}, theta_{in.theta_} {
-	in.model_ = nullptr;
-	in.theta_ = nullptr;
+SamplerNUTS::SamplerNUTS(SamplerNUTS &&in) {
+	if (&in != this) {
+		epsilon_           = in.epsilon_;
+		mu_                = in.mu_;
+		nH0_               = in.nH0_;
+		m_                 = in.m_;
+		Hprevious_         = in.Hprevious_;
+		logEpsBarPrevious_ = in.logEpsBarPrevious_;
+		epsWMN_            = in.epsWMN_;
+		currW_             = in.currW_;
+		firstAdapt_        = in.firstAdapt_;
+		firstUpdate_       = in.firstUpdate_;
+		model_             = in.model_;
+		theta_             = in.theta_;
+		in.model_ = nullptr;
+		in.theta_ = nullptr;
+	}
 }
 SamplerNUTS& SamplerNUTS::operator=(SamplerNUTS &&in){
-	if (&in == this) {
-		return *this;
+	if (&in != this) {
+		epsilon_           = in.epsilon_;
+		mu_                = in.mu_;
+		nH0_               = in.nH0_;
+		m_                 = in.m_;
+		Hprevious_         = in.Hprevious_;
+		logEpsBarPrevious_ = in.logEpsBarPrevious_;
+		epsWMN_            = in.epsWMN_;
+		currW_             = in.currW_;
+		firstAdapt_        = in.firstAdapt_;
+		firstUpdate_       = in.firstUpdate_;
+		model_             = in.model_;
+		theta_             = in.theta_;
+		in.model_ = nullptr;
+		in.theta_ = nullptr;
 	}
-	epsilon_           = in.epsilon_;
-	mu_                = in.mu_;
-	nH0_               = in.nH0_;
-	m_                 = in.m_;
-	Hprevious_         = in.Hprevious_;
-	logEpsBarPrevious_ = in.logEpsBarPrevious_;
-	epsWMN_            = in.epsWMN_;
-	currW_             = in.currW_;
-	firstAdapt_        = in.firstAdapt_;
-	firstUpdate_       = in.firstUpdate_;
-	model_             = in.model_;
-	theta_             = in.theta_;
-	in.model_ = nullptr;
-	in.theta_ = nullptr;
-
 	return *this;
 }
 
@@ -218,6 +230,20 @@ void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const doub
 	vector<double> thtGrad;  // Make sure that the model implementing the gradient resizes it properly!
 	model_->gradient(theta, thtGrad);
 
+	/*
+	if (theta.size() == 1990){
+		for (size_t j = 0; j < 1540; j++) {
+			r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
+			theta[j] += epsilon*r[j];            // leapfrog update of theta
+		}
+		model_->gradient(theta, thtGrad);
+		// one more half-step update of r
+		for (size_t k = 0; k < 1540; k++) {
+			r[k] += 0.5*epsilon*thtGrad[k];
+		}
+		return;
+	}
+	*/
 	for (size_t j = 0; j < theta.size(); j++) {
 		r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
 		theta[j] += epsilon*r[j];            // leapfrog update of theta

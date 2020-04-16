@@ -415,10 +415,10 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
 			double expMp = exp( -Phi.getElem(iRow, m) );        // e^{-phi}
-			double p_im    = 1.0/(expMp + 1.0);
-			ePr.setElem(iRow, m, expMp*p_im);
-			pPopSum[iRow] += p_im;
-			P.setElem(iRow, m, p_im);
+			double p_jm  = 1.0/(expMp + 1.0);
+			ePr.setElem(iRow, m, expMp*p_jm);
+			pPopSum[iRow] += p_jm;
+			P.setElem(iRow, m, p_jm);
 		}
 	}
 	// Re-weight p_jm = p_jm/sum_m(p_jm)
@@ -448,23 +448,19 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 		}
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				AresISA.multiplyElem(iRow, jCol, P.getElem(iRow, m));                  // P_p(A - mu_m)Sigma^{-1}_A
+				AresISA.multiplyElem(iRow, jCol, P.getElem(iRow, m));                  // P_m(A - mu_m)Sigma^{-1}_A
 			}
 		}
 		// finish A partial derivatives
-		for (size_t m = 0; m < Npop_; m++) {
-			for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
-				for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-					gA.subtractFromElem(iRow, jCol, AresISA.getElem(iRow, jCol));       // subtracting each population's P_p(A - mu_m)Sigma^{-1}_A
-				}
+		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
+				gA.subtractFromElem(iRow, jCol, AresISA.getElem(iRow, jCol));          // subtracting each population's P_m(A - mu_m)Sigma^{-1}_A
 			}
 		}
 		// sum the A residuals into gM rows
-		for (size_t m = 0; m < Npop_; m++) {
-			for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
-				for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-					gM.addToElem(m, jCol, AresISA.getElem(iRow, jCol));
-				}
+		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
+				gM.addToElem(m, jCol, AresISA.getElem(iRow, jCol));
 			}
 		}
 	}
@@ -1064,15 +1060,16 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) { // the Phi values already have added noise
 		vTheta_[iTht] += 0.5*rng_.rnorm();
 	}
-	*/
 	for (auto &s : vISig_) {
 		s += 0.5*rng_.rnorm();
 	}
+	*/
 	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alphaPr) );
 	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Npop) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
 	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
+	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_) );
 }
 
 WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : WrapMMM(vY, y2line, Npop, alphaPr, tau0, nu0, invAsq) {
@@ -1313,6 +1310,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 	treeOut << "y\tvariable.group\tphase" << std::endl;
 	std::fstream parOut;
 	parOut.open("xParTests.tsv", std::ios::trunc | std::ios::out);
+	parOut << vTheta_.size() << " " << vISig_.size() << " " << PhiBegInd_ << std::endl;
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		size_t parGrp = 0;
 		for (auto &s : samplers_) {
