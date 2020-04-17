@@ -430,31 +430,45 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// Z^T(Y - ZA - XB)Sig[E]^-1 store in gA
 	mResISE.colSums((*hierInd_)[0], gA);
 	for (size_t m = 0; m < Npop_; m++) {
-		vector<double> vAresid(theta.begin(), theta.begin()+Adim);                     // copying A to the residual matrix
+		vector<double> vAresid(theta.begin(), theta.begin()+Adim);                           // copying A to the residual matrix
 		MatrixView Aresid( &vAresid, 0, A.getNrows(), A.getNcols() );
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				Aresid.subtractFromElem(iRow, jCol, M.getElem(m, jCol));               // A - mu_m
+				Aresid.subtractFromElem(iRow, jCol, M.getElem(m, jCol));                     // A - mu_m
 			}
 		}
 		vector<double> vAresISA(A.getNrows()*A.getNcols(), 0.0);
 		MatrixView AresISA( &vAresISA, 0, A.getNrows(), A.getNcols() );
-		Aresid.symm('l', 'r', 1.0, iSigA, 0.0, AresISA);                               // (A - mu_m)Sigma^{-1}_A
-		// store the (a_j - mu_m)Sigma^{-1}_A(a_j - mu_m)^T in gPhi
+		Aresid.symm('l', 'r', 1.0, iSigA, 0.0, AresISA);                                     // (A - mu_m)Sigma^{-1}_A
+
+		// accumulate appropriately weighted (a_j - mu_m)Sigma^{-1}_A(a_j - mu_m)^T in gPhi
+		vector<double> kern(P.getNrows(), 0.0);
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				gPhi.addToElem(iRow, m, Aresid.getElem(iRow, jCol)*AresISA.getElem(iRow, jCol));
+				kern[iRow] += Aresid.getElem(iRow, jCol)*AresISA.getElem(iRow, jCol);       // calculate the (j,m) kernel
 			}
 		}
+		for (size_t l = 0; l < Npop_; l++) {
+			if (l == m){
+				for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
+					gPhi.addToElem(iRow, l, ( 1.0 - P.getElem(iRow, m) )*kern[iRow]);
+				}
+			} else {
+				for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
+					gPhi.subtractFromElem(iRow, l, P.getElem(iRow, m)*kern[iRow] );
+				}
+			}
+		}
+
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				AresISA.multiplyElem(iRow, jCol, P.getElem(iRow, m));                  // P_m(A - mu_m)Sigma^{-1}_A
+				AresISA.multiplyElem(iRow, jCol, P.getElem(iRow, m));                        // P_m(A - mu_m)Sigma^{-1}_A
 			}
 		}
 		// finish A partial derivatives
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				gA.subtractFromElem(iRow, jCol, AresISA.getElem(iRow, jCol));          // subtracting each population's P_m(A - mu_m)Sigma^{-1}_A
+				gA.subtractFromElem(iRow, jCol, AresISA.getElem(iRow, jCol));                // subtracting each population's P_m(A - mu_m)Sigma^{-1}_A
 			}
 		}
 		// sum the A residuals into gM rows
@@ -497,9 +511,8 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// Phi partial derivatives
 	for (size_t m = 0; m < Npop_; m++) {
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-			double phi  = -0.5*gPhi.getElem(iRow, m);  // gPhi already has the kernel products stored from before; t_A element missing because we have one Sigma_A
-			double p_jm = P.getElem(iRow, m);
-			phi  *= (1.0 - p_jm)*p_jm*ePr.getElem(iRow, m); // [-0.5(a_j - mu_m)Sigma^{-1}(a_j - mu_m)^T ](1-p_jm)p_jm e^{-phi}/(e^{-phi} + 1)
+			double phi  = -0.5*gPhi.getElem(iRow, m);  // gPhi already has the weighted kernel product  sums stored from before; t_A element missing because we have one Sigma_A
+			phi        *= P.getElem(iRow, m)*ePr.getElem(iRow, m);
 			gPhi.setElem(iRow, m, phi - tauPrPhi_*Phi.getElem(iRow, m));
 		}
 	}
@@ -1308,9 +1321,6 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 	std::fstream treeOut;
 	treeOut.open("treeTests.tsv", std::ios::trunc | std::ios::out);
 	treeOut << "y\tvariable.group\tphase" << std::endl;
-	std::fstream parOut;
-	parOut.open("xParTests.tsv", std::ios::trunc | std::ios::out);
-	parOut << vTheta_.size() << " " << vISig_.size() << " " << PhiBegInd_ << std::endl;
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		size_t parGrp = 0;
 		for (auto &s : samplers_) {
@@ -1318,10 +1328,6 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
 			parGrp++;
 		}
-		parOut << Phi_.getElem(60, 0) << " " << Phi_.getElem(60, 1) << " " << Phi_.getElem(60, 2) << std::endl;
-		parOut << Mp_.getElem(0, 0) << " " << Mp_.getElem(1, 0) << " " << Mp_.getElem(2, 0) << std::endl;
-		parOut << models_[0]->logPost(vTheta_) << " " << models_[1]->logPost(vISig_) << std::endl;
-		parOut << "-----------------" << std::endl;
 		//sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
@@ -1331,10 +1337,6 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tsample" << std::endl;
 			parGrp++;
 		}
-		parOut << Phi_.getElem(60, 0) << " " << Phi_.getElem(60, 1) << " " << Phi_.getElem(60, 2) << std::endl;
-		parOut << Mp_.getElem(0, 0) << " " << Mp_.getElem(1, 0) << " " << Mp_.getElem(2, 0) << std::endl;
-		parOut << models_[0]->logPost(vTheta_) << " " << models_[1]->logPost(vISig_) << std::endl;
-		parOut << "-----------------" << std::endl;
 		//sortPops_();
 		if ( (b%Nthin) == 0) {
 			for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) {
@@ -1351,7 +1353,6 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		}
 	}
 	treeOut.close();
-	parOut.close();
 }
 
 void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain, vector<double> &impYchain){
