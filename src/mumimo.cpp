@@ -1342,9 +1342,18 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) {
 				thetaChain.push_back(vTheta_[iTht]);
 			}
+			vector<double> vW;
 			for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
 				for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-					piChain.push_back( logistic(Phi_.getElem(iRow, jCol)) );
+					vW.push_back( logistic(Phi_.getElem(iRow, jCol)) );
+				}
+			}
+			MatrixView W( &vW, 0, Phi_.getNrows(), Phi_.getNcols() );
+			vector<double> rowSums;
+			W.rowSums(rowSums);
+			for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
+				for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
+					piChain.push_back( W.getElem(iRow, jCol)/rowSums[iRow] );
 				}
 			}
 			for (auto &p : vISig_) {
