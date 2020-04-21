@@ -235,7 +235,7 @@ void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const doub
 			r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
 			theta[j] += epsilon*r[j];            // leapfrog update of theta
 		}
-		for (size_t j = 1530; j < 1990; j++) {
+		for (size_t j = 1540; j < 1990; j++) {
 			r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
 			theta[j] += epsilon*r[j];            // leapfrog update of theta
 		}
@@ -244,7 +244,7 @@ void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const doub
 		for (size_t k = 0; k < 1500; k++) {
 			r[k] += 0.5*epsilon*thtGrad[k];
 		}
-		for (size_t k = 1530; k < 1990; k++) {
+		for (size_t k = 1540; k < 1990; k++) {
 			r[k] += 0.5*epsilon*thtGrad[k];
 		}
 		return;
@@ -728,8 +728,13 @@ SamplerMetro& SamplerMetro::operator=(SamplerMetro &&in){
 
 uint32_t SamplerMetro::adapt(){
 	vector<double> thetaPrime = *theta_;
+	/*
 	for (auto &t : thetaPrime) {
 		t += rng_.rnorm();
+	}
+	*/
+	for (size_t i = 1500; i < thetaPrime.size(); i++) {
+		thetaPrime[i] += 0.1*rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
 	double lU     = log(rng_.runifnz());
@@ -743,8 +748,13 @@ uint32_t SamplerMetro::adapt(){
 
 uint32_t SamplerMetro::update(){
 	vector<double> thetaPrime = *theta_;
+	/*
 	for (auto &t : thetaPrime) {
-		t += 0.005*rng_.rnorm();
+		t += rng_.rnorm();
+	}
+	*/
+	for (size_t i = 1500; i < thetaPrime.size(); i++) {
+		thetaPrime[i] += 0.1*rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
 	double lU     = log(rng_.runifnz());

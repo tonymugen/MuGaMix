@@ -429,46 +429,38 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	}
 	// Z^T(Y - ZA - XB)Sig[E]^-1 store in gA
 	mResISE.colSums((*hierInd_)[0], gA);
+	vector<double> kernSum(P.getNrows(), 0.0);
 	for (size_t m = 0; m < Npop_; m++) {
-		vector<double> vAresid(theta.begin(), theta.begin()+Adim);                           // copying A to the residual matrix
+		vector<double> vAresid(theta.begin(), theta.begin()+Adim);                                  // copying A to the residual matrix
 		MatrixView Aresid( &vAresid, 0, A.getNrows(), A.getNcols() );
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				Aresid.subtractFromElem(iRow, jCol, M.getElem(m, jCol));                     // A - mu_m
+				Aresid.subtractFromElem(iRow, jCol, M.getElem(m, jCol));                            // A - mu_m
 			}
 		}
 		vector<double> vAresISA(A.getNrows()*A.getNcols(), 0.0);
 		MatrixView AresISA( &vAresISA, 0, A.getNrows(), A.getNcols() );
-		Aresid.symm('l', 'r', 1.0, iSigA, 0.0, AresISA);                                     // (A - mu_m)Sigma^{-1}_A
+		Aresid.symm('l', 'r', 1.0, iSigA, 0.0, AresISA);                                            // (A - mu_m)Sigma^{-1}_A
 
 		// accumulate appropriately weighted (a_j - mu_m)Sigma^{-1}_A(a_j - mu_m)^T in gPhi
-		vector<double> kern(P.getNrows(), 0.0);
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				kern[iRow] += Aresid.getElem(iRow, jCol)*AresISA.getElem(iRow, jCol);       // calculate the (j,m) kernel
+				gPhi.addToElem(iRow, m, Aresid.getElem(iRow, jCol)*AresISA.getElem(iRow, jCol));    // calculate the (j,m) kernel and store in gPhi
 			}
 		}
-		for (size_t l = 0; l < Npop_; l++) {
-			if (l == m){
-				for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-					gPhi.addToElem(iRow, l, ( 1.0 - P.getElem(iRow, m) )*kern[iRow]);
-				}
-			} else {
-				for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-					gPhi.subtractFromElem(iRow, l, P.getElem(iRow, m)*kern[iRow] );
-				}
-			}
+		for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
+			kernSum[iRow] += P.getElem(iRow, m)*gPhi.getElem(iRow, m);                              // add the kernels together
 		}
 
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				AresISA.multiplyElem(iRow, jCol, P.getElem(iRow, m));                        // P_m(A - mu_m)Sigma^{-1}_A
+				AresISA.multiplyElem(iRow, jCol, P.getElem(iRow, m));                               // P_m(A - mu_m)Sigma^{-1}_A
 			}
 		}
 		// finish A partial derivatives
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				gA.subtractFromElem(iRow, jCol, AresISA.getElem(iRow, jCol));                // subtracting each population's P_m(A - mu_m)Sigma^{-1}_A
+				gA.subtractFromElem(iRow, jCol, AresISA.getElem(iRow, jCol));                       // subtracting each population's P_m(A - mu_m)Sigma^{-1}_A
 			}
 		}
 		// sum the A residuals into gM rows
@@ -476,6 +468,12 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
 				gM.addToElem(m, jCol, AresISA.getElem(iRow, jCol));
 			}
+		}
+	}
+	// kernel_m - sum(kernel_l)
+	for (size_t m = 0; m < Npop_; m++) {
+		for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
+			gPhi.subtractFromElem(iRow, m, kernSum[iRow]);
 		}
 	}
 	// M partial derivatives
@@ -511,7 +509,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// Phi partial derivatives
 	for (size_t m = 0; m < Npop_; m++) {
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-			double phi  = -0.5*gPhi.getElem(iRow, m);  // gPhi already has the weighted kernel product  sums stored from before; t_A element missing because we have one Sigma_A
+			double phi  = -0.5*gPhi.getElem(iRow, m);  // gPhi already has the weighted kernel product sums stored from before; t_A element missing because we have one Sigma_A
 			phi        *= P.getElem(iRow, m)*ePr.getElem(iRow, m);
 			gPhi.setElem(iRow, m, phi - tauPrPhi_*Phi.getElem(iRow, m));
 		}
@@ -1079,8 +1077,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	*/
 	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alphaPr) );
 	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Npop) );
-	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
+	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
 	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_) );
 }
