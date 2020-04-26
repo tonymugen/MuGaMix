@@ -60,7 +60,7 @@ void swapXOR(size_t &i, size_t &j){
 }
 /** \brief Insertion sort
  *
- * Performes an insertion sort on a vector, outputting the position of each element in a sorted vector. Sorting is done in order of increase.
+ * Performs an insertion sort on a vector, outputting the position of each element in a sorted vector. Sorting is done in order of increase.
  *
  * \param[in] vec vector to be sorted
  * \param[out] ind vector of sorted indexes, will replace contents of non-empty vector
@@ -100,10 +100,15 @@ inline double logit(const double &p){ return log(p) - log(1.0 - p); }
  */
 double logistic(const double &x){
 	// 35.0 is the magic number because logistic(-35) ~ EPS
+	// the other cut-offs have been empirically determined
 	if (x <= - 35.0){
 		return 0.0;
 	} else if (x >= 35.0){
 		return 1.0;
+	} else if (x <= -7.0){ // approximation for smallish x
+		return exp(x);
+	} else if (x >= 3.5){  // approximation for largish x
+		return 1.0 - exp(-x);
 	} else {
 		return 1.0/(1 + exp(-x));
 	}
@@ -158,6 +163,9 @@ void sort(const vector<double> &target, vector<size_t> &outIdx){
 		}
 	} while (inc > 1);
 }
+
+// MumiLoc methods
+const double MumiLoc::pSumCutOff_ = 0.003;
 
 MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &tauPrPhi) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops}, tauPrPhi_{tauPrPhi} {
 	const size_t n = (*hierInd_)[0].size();
@@ -286,7 +294,20 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	// Re-weight the P; it may be possible to optimize this further by dividing by weight once after aTrace completion
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
-			P.divideElem(iRow, m, pPopSum[iRow]);
+			if (pPopSum[iRow] <= pSumCutOff_){  // approximation when all p_j are small
+				double aSum = 0.0;
+				double phiM = Phi.getElem(iRow, m);
+				for (size_t jCol = 0; jCol < Phi.getNcols(); jCol++) {
+					if (jCol == m){
+						aSum += 1.0;
+					} else {
+						aSum += exp(Phi.getElem(iRow, jCol) - phiM);
+					}
+					P.setElem(iRow, m, 1.0/aSum);
+				}
+			} else {
+				P.divideElem(iRow, m, pPopSum[iRow]);
+			}
 		}
 	}
 	// Clear the Y residuals and re-use for A residuals
@@ -909,6 +930,9 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 }
 
 // WrapMM methods
+const double WrapMMM::phiMin_ = -5.0;
+const double WrapMMM::addVal_ = 3.0;
+
 WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY} {
 	hierInd_.push_back( Index(y2line) );
 	const size_t N = hierInd_[0].size();
@@ -1234,6 +1258,33 @@ void WrapMMM::expandLa_(){
 }
 
 void WrapMMM::sortPops_(){}
+
+void WrapMMM::calibratePhi_(){
+	std::fstream tstRecal;
+	tstRecal.open("tstRecal.txt", std::ios::app);
+	for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
+		if (Phi_.getElem(iRow, 0) <= phiMin_){
+			uint8_t doCalibrate = 0;
+			for (size_t jCol = 1; jCol < Phi_.getNcols(); jCol++) {
+				if (Phi_.getElem(iRow, jCol) > phiMin_){            // any large enough element lets us bail
+					doCalibrate = 0;
+					break;
+				}
+				doCalibrate = 1;
+			}
+			if (doCalibrate){
+				tstRecal << iRow << ": " << std::flush;
+				for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
+					tstRecal << Phi_.getElem(iRow, jCol) << " " << std::flush;
+					Phi_.addToElem(iRow, jCol, addVal_);
+				}
+				tstRecal << std::endl;
+			}
+		}
+	}
+	tstRecal << "-----------" << std::endl;
+	tstRecal.close();
+}
 
 double WrapMMM::rowDistance_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){
 #ifndef PKG_DEBUG_OFF

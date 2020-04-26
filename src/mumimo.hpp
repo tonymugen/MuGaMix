@@ -131,6 +131,8 @@ namespace BayesicSpace {
 		 */
 		mutable vector<double> vLx_;
 		// Constants
+		/** \brief Cut-off for \f$ p_{jm} \f$ approximation */
+		static const double pSumCutOff_;
 		/** \brief Index of the first \f$\boldsymbol{T}_E\f$ element */
 		size_t fTeInd_;
 		/** \brief Index of the first \f$\boldsymbol{L}_A\f$ element */
@@ -375,6 +377,10 @@ namespace BayesicSpace {
 		size_t PhiBegInd_;
 		/** \brief Matrix view of logit-population assignment probabilities */
 		MatrixView Phi_;
+		/** \brief `Phi_` recalibration trigger value */
+		static const double phiMin_;
+		/** \brief Value to add for calibration */
+		static const double addVal_;
 		/** \brief Index of the first \f$\boldsymbol{T}_E\f$ element */
 		size_t fTeInd_;
 		/** \brief Index of the first \f$\boldsymbol{L}_A\f$ element */
@@ -418,6 +424,12 @@ namespace BayesicSpace {
 		 * Populations are sorted using a projection on the first PC of the initial line covariance matrix (`pc1_`). The rows in the population matrix `Mp_` are then re-arranged accordingly (in order of increase). The elements of the `pi_` mixture proportion vector are also rearranged.
 		 */
 		void sortPops_();
+		/** \brief Calibrate rows of `Phi_`
+		 *
+		 * Looks for rows of `Phi_` with all elements negative and below a threshold (currently - 5.0, determined empirically) and adds a constant to increase numerical stability.
+		 * This does not affect population assignment probabilities.
+		 */
+		void calibratePhi_();
 		/** \brief Expand lower triangle of the \f$ \boldsymbol{L}_A \f$ matrix
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix and multiplies its columns by the square root of \f$ \boldsymbol{T}_A \f$. The input vector `vISig_` stores only the non-zero elements of these matrices.
