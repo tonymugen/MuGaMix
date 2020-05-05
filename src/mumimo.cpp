@@ -430,22 +430,31 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// backtransform the logit-p_jp and calculate row sums
 	vector<double> vP(Phi.getNrows()*Phi.getNcols());
 	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
-	vector<double> vePr(Phi.getNrows()*Phi.getNcols());          // will have e^{-phi}/(e^{-phi} + 1)
-	MatrixView ePr( &vePr, 0, Phi.getNrows(), Phi.getNcols() );
 	vector<double> pPopSum(Nln, 0.0);
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
-			double expMp = exp( -Phi.getElem(iRow, m) );        // e^{-phi}
-			double p_jm  = 1.0/(expMp + 1.0);
-			ePr.setElem(iRow, m, expMp*p_jm);
-			pPopSum[iRow] += p_jm;
-			P.setElem(iRow, m, p_jm);
+			double p       = logistic(Phi.getElem(iRow, m));
+			pPopSum[iRow] += p;
+			P.setElem(iRow, m, p);
 		}
 	}
 	// Re-weight p_jm = p_jm/sum_m(p_jm)
-	for (size_t m = 0; m < P.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
-			P.divideElem(iRow, m, pPopSum[iRow]);
+	for (size_t m = 0; m < Phi.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+			if (pPopSum[iRow] <= pSumCutOff_){  // approximation when all p_j are small
+				double aSum = 0.0;
+				double phiM = Phi.getElem(iRow, m);
+				for (size_t jCol = 0; jCol < Phi.getNcols(); jCol++) {
+					if (jCol == m){
+						aSum += 1.0;
+					} else {
+						aSum += exp(Phi.getElem(iRow, jCol) - phiM);
+					}
+					P.setElem(iRow, m, 1.0/aSum);
+				}
+			} else {
+				P.divideElem(iRow, m, pPopSum[iRow]);
+			}
 		}
 	}
 	// Z^T(Y - ZA - XB)Sig[E]^-1 store in gA
@@ -531,7 +540,8 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	for (size_t m = 0; m < Npop_; m++) {
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
 			double phi  = -0.5*gPhi.getElem(iRow, m);  // gPhi already has the weighted kernel product sums stored from before; t_A element missing because we have one Sigma_A
-			phi        *= P.getElem(iRow, m)*ePr.getElem(iRow, m);
+			double p    = P.getElem(iRow, m);
+			phi        *= p*(1.0 - p);
 			gPhi.setElem(iRow, m, phi - tauPrPhi_*Phi.getElem(iRow, m));
 		}
 	}
@@ -1101,8 +1111,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	*/
 	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alphaPr) );
 	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Npop) );
-	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
+	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
 	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_) );
 }
@@ -1377,6 +1387,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
 			parGrp++;
 		}
+		calibratePhi_();
 		//sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
@@ -1386,6 +1397,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tsample" << std::endl;
 			parGrp++;
 		}
+		calibratePhi_();
 		//sortPops_();
 		if ( (b%Nthin) == 0) {
 			for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) {
