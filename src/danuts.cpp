@@ -235,7 +235,7 @@ void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const doub
 			r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
 			theta[j] += epsilon*r[j];            // leapfrog update of theta
 		}
-		for (size_t j = 1540; j < 1990; j++) {
+		for (size_t j = 1530; j < 1990; j++) {
 			r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
 			theta[j] += epsilon*r[j];            // leapfrog update of theta
 		}
@@ -244,7 +244,7 @@ void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const doub
 		for (size_t k = 0; k < 1500; k++) {
 			r[k] += 0.5*epsilon*thtGrad[k];
 		}
-		for (size_t k = 1540; k < 1990; k++) {
+		for (size_t k = 1530; k < 1990; k++) {
 			r[k] += 0.5*epsilon*thtGrad[k];
 		}
 		return;
@@ -389,7 +389,7 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 		double testVal = model_->logPost(thetaPrime);
 		int fpClsTV    = fpclassify(testVal);
 		if (fpClsTV == FP_NAN) {
-			throw string("log-posterior evluates to NaN in adaptive buildTreePos_");
+			throw string("log-posterior evaluates to NaN in adaptive buildTreePos_");
 		} else if (fpClsTV == FP_INFINITE) {
 			if (signbit(testVal)) { // log-post is -Inf
 				nPrime     = 0.0;
@@ -455,7 +455,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 		double testVal = model_->logPost(thetaPrime);
 		int fpClsTV    = fpclassify(testVal);
 		if (fpClsTV == FP_NAN) {
-			throw string("log-posterior evluates to NaN in adaptive buildTreeNeg_");
+			throw string("log-posterior evaluates to NaN in adaptive buildTreeNeg_");
 		} else if (fpClsTV == FP_INFINITE) {
 			if (signbit(testVal)) { // log-post is -Inf
 				nPrime     = 0.0;
@@ -537,7 +537,7 @@ uint32_t SamplerNUTS::adapt(){
 	int fpClsH0 = fpclassify(nH0_);
 	// check sanity of log-posterior evaluation
 	if (fpClsH0 == FP_NAN) {
-		throw string("log-posterior evluates to NaN in the adaptation phase");
+		throw string("log-posterior evaluates to NaN in the adaptation phase");
 	} else if (fpClsH0 == FP_INFINITE) {
 
 		if (signbit(nH0_)) { // logpost is -Inf
@@ -728,13 +728,8 @@ SamplerMetro& SamplerMetro::operator=(SamplerMetro &&in){
 
 uint32_t SamplerMetro::adapt(){
 	vector<double> thetaPrime = *theta_;
-	/*
 	for (auto &t : thetaPrime) {
-		t += rng_.rnorm();
-	}
-	*/
-	for (size_t i = 1500; i < thetaPrime.size(); i++) {
-		thetaPrime[i] += 0.1*rng_.rnorm();
+		t += 0.1*rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
 	double lU     = log(rng_.runifnz());
@@ -748,13 +743,8 @@ uint32_t SamplerMetro::adapt(){
 
 uint32_t SamplerMetro::update(){
 	vector<double> thetaPrime = *theta_;
-	/*
 	for (auto &t : thetaPrime) {
-		t += rng_.rnorm();
-	}
-	*/
-	for (size_t i = 1500; i < thetaPrime.size(); i++) {
-		thetaPrime[i] += 0.1*rng_.rnorm();
+		t += 0.1*rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
 	double lU     = log(rng_.runifnz());

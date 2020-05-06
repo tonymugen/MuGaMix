@@ -17,13 +17,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// Multitrait mixture models
+/// Multiplicative mixture models
 /** \file
  * \author Anthony J. Greenberg
  * \copyright Copyright (c) 2019 Anthony J. Greenberg
  * \version 1.0
  *
- * Class definition and interface documentation to generate Markov chains for inference from multitrait Gaussian mixture models. Dual-averaging NUTS and Metropolis samplers for parameters groups are included within a Gibbs sampler.
+ * Class definition and interface documentation to generate Markov chains for inference from multiplicative Gaussian mixture models. Dual-averaging NUTS and Metropolis samplers for parameters groups are included within a Gibbs sampler.
  *
  */
 #ifndef lme_hpp
@@ -58,7 +58,7 @@ namespace BayesicSpace {
 	class MumiLoc final : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0}, Npop_{0}, tauPrPhi_{1.0} {};
+		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0}, Npop_{0}, tauPrPhi_{1.0}, alphaPr_{1.0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer vectorized data matrix
@@ -68,8 +68,9 @@ namespace BayesicSpace {
 		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and overall mean (intercept)
 		 * \param[in] nPops number of populations
 		 * \param[in] tauPrPhi \f$ \tau_{\phi} \f$ population assignment probability prior precision
+		 * \param[in] alphaPr prior on \f$ \alpha \f$ on population assignment probabilities
 		 */
-		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &tauPrPhi);
+		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &tauPrPhi, const double &alphaPr);
 		/** \brief Destructor */
 		~MumiLoc(){hierInd_ = nullptr; iSigTheta_ = nullptr; };
 
@@ -120,7 +121,7 @@ namespace BayesicSpace {
 		 * Points to `vLx_`.
 		 */
 		mutable MatrixView Le_;
-		/** \brief Line factorized preficision matrix view
+		/** \brief Line factorized precision matrix view
 		 *
 		 * Points to `vLx_`.
 		 */
@@ -147,6 +148,8 @@ namespace BayesicSpace {
 		size_t Npop_;
 		/** \brief The \f$ \tau_{\phi} \f$ prior precision*/
 		double tauPrPhi_;
+		/** \brief Prior population assignment probability */
+		double alphaPr_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector.
@@ -245,7 +248,7 @@ namespace BayesicSpace {
 		 * Points to `vLx_`.
 		 */
 		mutable MatrixView Le_;
-		/** \brief Line factorized preficision matrix view
+		/** \brief Line factorized precision matrix view
 		 *
 		 * Points to `vLx_`.
 		 */
@@ -283,7 +286,7 @@ namespace BayesicSpace {
 
 	/** \brief Replicated mixture model analysis
 	 *
-	 * Builds a daNUTS within Gibbs sampler to fit a Gaussian mixture model for replicated data on multiple traits. Takes the data and factors for paramaters, sets the initial values, and performs the sampling.
+	 * Builds a daNUTS within Gibbs sampler to fit a Gaussian mixture model for replicated data on multiple traits. Takes the data and factors for parameters, sets the initial values, and performs the sampling.
 	 */
 	class WrapMMM {
 	public:
@@ -296,26 +299,28 @@ namespace BayesicSpace {
 		 * \param[in] vY vectorized data matrix
 		 * \param[in] y2line factor connecting data to lines (accessions)
 		 * \param[in] Npop number of populations
+		 * \param[in] tauPrPhi prior precision for \f$\phi \f$
 		 * \param[in] alphaPr \f$\alpha \f$ prior parameter for population assignment probabilities
 		 * \param[in] tau0 prior precision for the "fixed" effects
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
+		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Constructor for a one-level hierarchical model with missing data
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
 		 *
 		 * \param[in] vY vectorized data matrix
 		 * \param[in] y2line factor connecting data to lines (accessions)
-		 * \param[in] missIDs vecotized matrix (same dimenstions as `vY`) with 1 corresponding to a missing data point and 0 otherwise
+		 * \param[in] missIDs vectorized matrix (same dimensions as `vY`) with 1 corresponding to a missing data point and 0 otherwise
 		 * \param[in] Npop number of populations
+		 * \param[in] tauPrPhi prior precision for \f$\phi \f$
 		 * \param[in] alphaPr \f$\alpha \f$ prior parameter for population assignment probabilities
 		 * \param[in] tau0 prior precision for the "fixed" effects
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
+		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Copy constructor (deleted) */
 		WrapMMM(WrapMMM &in) = delete;
 		/** \brief Move constructor (deleted) */
@@ -367,7 +372,7 @@ namespace BayesicSpace {
 		vector<Index> hierInd_;
 		/** \brief Location parameters and mixture proportions */
 		vector<double> vTheta_;
-		/** \brief Inerese-covariances */
+		/** \brief Inverse-covariances */
 		vector<double> vISig_;
 		/** \brief Matrix view of line (accession) means */
 		MatrixView A_;

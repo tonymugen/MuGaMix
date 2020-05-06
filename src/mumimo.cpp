@@ -17,13 +17,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// Multitrait mixture models
+/// Multiplicative mixture models
 /** \file
  * \author Anthony J. Greenberg
  * \copyright Copyright (c) 2019 Anthony J. Greenberg
  * \version 1.0
  *
- * Class implementation to generate Markov chains for inference from multitrait Gaussian mixture models. Dual-averaging NUTS and Metropolis samplers for parameters groups are included within a Gibbs sampler.
+ * Class implementation to generate Markov chains for inference from multiplicative Gaussian mixture models. Dual-averaging NUTS and Metropolis samplers for parameters groups are included within a Gibbs sampler.
  *
  */
 
@@ -77,7 +77,6 @@ void insertionSort(const vector<size_t> &vec, vector<size_t> &ind){
 		size_t j   = i;
 		size_t tmp = ind[i];
 		while ( (j > 0) && (vec[ ind[j-1] ] > vec[tmp]) ){
-			//swapXOR(ind[j], ind[j-1]);
 			ind[j] = ind[j-1];
 			j--;
 		}
@@ -164,10 +163,39 @@ void sort(const vector<double> &target, vector<size_t> &outIdx){
 	} while (inc > 1);
 }
 
+/** \brief Logarithm of the Gamma function
+ *
+ * The log of the \f$ \Gamma(x) \f$ function. Implementing the Lanczos algorithm following Numerical Recipes in C++.
+ *
+ * \param[in] x value
+ * \return \f$ \log \Gamma(x) \f$
+ *
+ */
+double lnGamma(const double &x){
+	if (x <= 0.0) return nan("");
+
+	// define the weird magical coefficients
+	const double coeff[14] {57.1562356658629235,-59.5979603554754912,14.1360979747417471,-0.491913816097620199,0.339946499848118887e-4,0.465236289270485756e-4,-0.983744753048795646e-4,0.158088703224912494e-3,-0.210264441724104883e-3,0.217439618115212643e-3,-0.164318106536763890e-3,0.844182239838527433e-4,-0.261908384015814087e-4,0.368991826595316234e-5};
+	// save a copy of x for incrementing
+	double y     = x;
+	double gamma = 5.24218750000000000; // 671/128
+	double tmp   = x + gamma;
+	tmp          = (x + 0.5)*log(tmp) - tmp;
+	double logPi = 0.91893853320467267;  // 0.5*log(2.0*pi)
+	tmp         += logPi;
+	double cZero = 0.999999999999997092; // c_0
+
+	for (size_t i = 0; i < 14; i++) {
+		cZero += coeff[i]/(++y);
+	}
+
+	return tmp + log(cZero/x);
+}
+
 // MumiLoc methods
 const double MumiLoc::pSumCutOff_ = 0.003;
 
-MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &tauPrPhi) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops}, tauPrPhi_{tauPrPhi} {
+MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &tauPrPhi, const double &alphaPr) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops}, tauPrPhi_{tauPrPhi}, alphaPr_{alphaPr} {
 	const size_t n = (*hierInd_)[0].size();
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%n) {
@@ -310,6 +338,16 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 			}
 		}
 	}
+	vector<double> pLNsum(P.getNcols(), 0.0);
+	for (size_t m = 0; m < P.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
+			pLNsum[m] += P.getElem(iRow, m);
+		}
+	}
+	double gpSum = 0.0;
+	for (auto &s : pLNsum){
+		gpSum += lnGamma(s + alphaPr_);
+	}
 	// Clear the Y residuals and re-use for A residuals
 	vResid.clear();
 	vector<double> AtraceVec(Nln, 0.0); // accumulate A trace values here
@@ -343,22 +381,22 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 		aTrace += a;
 	}
 	// M[p] crossproduct trace
-	double trM = 0.0;
+	double mTrace = 0.0;
 	for (size_t jCol = 0; jCol < Mp.getNcols(); ++jCol) {
 		double dp = 0.0;
 		for (size_t iRow = 0; iRow < Mp.getNrows(); ++iRow) {
 			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
 			dp += diff*diff;
 		}
-		trM += exp( (*iSigTheta_)[fTpInd_ + jCol] )*dp;
+		mTrace += exp( (*iSigTheta_)[fTpInd_ + jCol] )*dp;
 	}
-	double trP = 0.0;
+	double pTrace = 0.0;
 	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
-		trP += mu.getElem(0, jCol)*mu.getElem(0, jCol);
+		pTrace += mu.getElem(0, jCol)*mu.getElem(0, jCol);
 	}
-	trP *= tau0_;
+	pTrace *= tau0_;
 	// now sum to get the log-posterior
-	return -0.5*(eTrace + aTrace + tauPrPhi_*sumPhiSq + trM + trP);
+	return -0.5*(eTrace + aTrace + tauPrPhi_*sumPhiSq + mTrace + pTrace) + gpSum;
 }
 
 void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
@@ -943,7 +981,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 const double WrapMMM::phiMin_ = -5.0;
 const double WrapMMM::addVal_ = 3.0;
 
-WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY} {
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY} {
 	hierInd_.push_back( Index(y2line) );
 	const size_t N = hierInd_[0].size();
 #ifndef PKG_DEBUG_OFF
@@ -1109,7 +1147,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		s += 0.5*rng_.rnorm();
 	}
 	*/
-	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alphaPr) );
+	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alphaPr, tauPrPhi) );
 	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Npop) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
@@ -1117,7 +1155,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_) );
 }
 
-WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : WrapMMM(vY, y2line, Npop, alphaPr, tau0, nu0, invAsq) {
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : WrapMMM(vY, y2line, Npop, tauPrPhi, alphaPr, tau0, nu0, invAsq) {
 	for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
 		for (size_t iRow = 0; iRow < hierInd_[0].size(); iRow++) {
 			if (missIDs[jCol*hierInd_[0].size() + iRow]) {
@@ -1322,7 +1360,7 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 		throw string("ERROR: Matrix of means must have one row per cluster in WrapMMM::kMeans_()");
 	}
 	if ( X.getNcols() != M.getNcols() ) {
-		throw string("ERROR: Matrix of oservations must have the same number of cloumns as the matrix of means in WrapMMM::kMeans_()");
+		throw string("ERROR: Matrix of observations must have the same number of columns as the matrix of means in WrapMMM::kMeans_()");
 	}
 	if ( M.getNrows() != x2m.groupNumber() ) {
 		throw string("ERROR: observation to cluster index must be the same number of groups as the number of populations in WrapMMM::kMeans_()");
@@ -1344,11 +1382,11 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 	}
 	// Iterate the k-means algorithm
 	vector<size_t> sPrevious;             // previous cluster assignment vector
-	vector<size_t> sNew(X.getNrows(), 0); // new cluster assigment vector
+	vector<size_t> sNew(X.getNrows(), 0); // new cluster assignment vector
 	for (uint32_t i = 0; i < maxIt; i++) {
 		// save the previous S vector
 		sPrevious = sNew;
-		// assign cluster IDs according to minimal diistance
+		// assign cluster IDs according to minimal distance
 		for (size_t iRow = 0; iRow < X.getNrows(); iRow++) {
 			sNew[iRow]  = 0;
 			double dist = rowDistance_(X, iRow, M, 0);
