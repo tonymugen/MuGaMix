@@ -106,6 +106,7 @@ namespace BayesicSpace {
 		 *
 		 */
 		void gradient(const vector<double> &theta, vector<double> &grad) const override;
+		double testDG(const double &x);
 
 	protected:
 		/** \brief Matrix view of data */

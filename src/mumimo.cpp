@@ -30,6 +30,7 @@
 #include <vector>
 #include <string>
 #include <cmath>
+#include <limits> // for numeric_limits
 
 #include <fstream>
 
@@ -43,6 +44,9 @@
 
 using std::vector;
 using std::string;
+using std::to_string;
+using std::numeric_limits;
+using std::isnan;
 using namespace BayesicSpace;
 /** \brief Swap two `size_t` values
  *
@@ -192,8 +196,123 @@ double lnGamma(const double &x){
 	return tmp + log(cZero/x);
 }
 
+/** \brief Digamma function
+ *
+ * Defined only for \f$ x > 0 \f$, will return _NaN_ otherwise. Adopted from the `dpsifn` function in R.
+ *
+ * \param[in] x function argument (must be positive)
+ * \return value of the digamma function
+ */
+double locDigamma(const double &x){
+	const double bvalues[] = {	/* Bernoulli Numbers */
+		1.00000000000000000e+00, -5.00000000000000000e-01,
+		1.66666666666666667e-01, -3.33333333333333333e-02,
+		2.38095238095238095e-02, -3.33333333333333333e-02,
+		7.57575757575757576e-02, -2.53113553113553114e-01,
+		1.16666666666666667e+00, -7.09215686274509804e+00,
+		5.49711779448621554e+01, -5.29124242424242424e+02,
+		6.19212318840579710e+03, -8.65802531135531136e+04,
+		1.42551716666666667e+06, -2.72982310678160920e+07,
+		6.01580873900642368e+08, -1.51163157670921569e+10,
+		4.29614643061166667e+11, -1.37116552050883328e+13,
+		4.88332318973593167e+14, -1.92965793419400681e+16
+	};
+	const int32_t nMax = 100;
+	if (x <= 0.0){
+		return nan("");
+	}
+	if (isnan(x)){
+		return x;
+	}
+	// very large x
+    double xln = log(x);
+	double lrg = 1/( 2.0*numeric_limits<double>::epsilon() );
+	if(x * xln > lrg) {
+		return xln;
+	}
+	const int32_t nx   = (-numeric_limits<double>::min_exponent < numeric_limits<double>::max_exponent ? -numeric_limits<double>::min_exponent : numeric_limits<double>::max_exponent);
+	const double r1m4  = 0.5*numeric_limits<double>::epsilon();
+	const double r1m5  = 0.301029995663981195213738894724;            // log_10(2)
+	const double wdtol = (r1m4 > 0.5e-18 ? r1m4 : 0.5e-18);
+    const double elim  = 2.302*(static_cast<double>(nx)*r1m5 - 3.0);  // = 700.6174...
+	double t           = xln;
+	// small x and underflow conditions
+	if ( (fabs(t) > elim) && (t <= 0.0) ){
+		return nan(""); // underflow
+	} else if (x < wdtol){
+		return -1.0/x;
+	}
+
+	// regular calculations
+	double rln   = r1m5*static_cast<double>(numeric_limits<double>::digits);
+	rln          = (rln < 18.06 ? rln : 18.06);
+	double fln   = (rln > 3.0 ? rln-3.0 : 0.0);
+	if (fln < 0.0){
+		throw string("ERROR: fln value ") + to_string(fln) + string(" less than 0 in locDigamma()");
+	}
+	const double yint = 3.50 + 0.40*fln;                                // fn = yint in our case (n==0)
+	const double xmin = yint + 1.0;
+	double xdmy       = x;
+	double xdmln      = xln;
+	double xinc       = 0.0;
+	if (x < xmin) {
+		xinc = xmin - floor(x);
+		xdmy = x + xinc;
+		xdmln = log(xdmy);
+	}
+	t             = yint*xdmln;
+	double t1     = xdmln + xdmln;
+	double t2     = t + xdmln;
+	double t12max = (t1 > t2 ? t1 : t2);
+	double tk     = (fabs(t) > t12max ? fabs(t) : t12max);
+	if (tk <= elim) { // for all but large x
+		//tss = exp(-t); tss == -x
+		double tt   = 0.5/xdmy;
+		t1          = tt;
+		double tst  = wdtol * tt;
+		double rxsq = 1.0/(xdmy*xdmy);
+		double ta   = 0.5*rxsq;
+		t           = (yint + 1.0) * ta;
+		double s    = t*bvalues[2];
+		if (fabs(s) >= tst) {
+			tk = 2.0;
+			for(uint16_t k = 4; k <= 22; k++) {
+				t         *= ( (tk + yint + 1)/(tk + 1.0) )*( (tk + yint)/(tk + 2.0) )*rxsq;
+				double tmp = t * bvalues[k-1];
+				if (fabs(tmp) < tst) {
+					break;
+				}
+				s += tmp;
+				tk += 2.0;
+			}
+		}
+		s = -(s + t1)*x;
+		if (xinc != 0.0) {
+			// backward recursion from xdmy to x
+			int32_t nx = static_cast<int32_t>(xinc);
+			if (nx > nMax) {
+				throw string("Increment ") + to_string(nx) + string(" too large in locDigamma()");
+			}
+			for(int32_t i = 1; i <= nx; i++){
+				s += 1.0/( x + static_cast<double>(nx - i) ); // avoid disastrous cancellation
+			}
+		}
+		return -s;
+	} else {
+		double s   = -x;
+		double den = x;
+		for(uint32_t i=0; i < static_cast<uint32_t>(fln) + 1; i++) { // checked fln for < 0.0, so this should be safe
+			den += 1.0;
+			s   += 1.0/den;
+		}
+		return -s;
+	}
+}
+
 // MumiLoc methods
 const double MumiLoc::pSumCutOff_ = 0.003;
+
+double MumiLoc::testDG(const double &x){return locDigamma(x); };
 
 MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &tauPrPhi, const double &alphaPr) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops}, tauPrPhi_{tauPrPhi}, alphaPr_{alphaPr} {
 	const size_t n = (*hierInd_)[0].size();
@@ -1149,8 +1268,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	*/
 	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alphaPr, tauPrPhi) );
 	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Npop) );
-	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
+	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
 	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_) );
 }

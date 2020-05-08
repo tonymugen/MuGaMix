@@ -5,6 +5,17 @@
 
 using namespace Rcpp;
 
+// myDigamma
+double myDigamma(const double x);
+RcppExport SEXP _MuGaMix_myDigamma(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const double >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(myDigamma(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // testLpostLoc
 double testLpostLoc(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const int32_t& Npop, const std::vector<double>& theta, const std::vector<double>& iSigTheta);
 RcppExport SEXP _MuGaMix_testLpostLoc(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP NpopSEXP, SEXP thetaSEXP, SEXP iSigThetaSEXP) {
@@ -129,6 +140,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_MuGaMix_myDigamma", (DL_FUNC) &_MuGaMix_myDigamma, 1},
     {"_MuGaMix_testLpostLoc", (DL_FUNC) &_MuGaMix_testLpostLoc, 5},
     {"_MuGaMix_lpTestLI", (DL_FUNC) &_MuGaMix_lpTestLI, 8},
     {"_MuGaMix_gradTestLI", (DL_FUNC) &_MuGaMix_gradTestLI, 8},
