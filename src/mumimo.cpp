@@ -230,14 +230,13 @@ double locDigamma(const double &x){
 	if(x * xln > lrg) {
 		return xln;
 	}
-	const int32_t nx   = (-numeric_limits<double>::min_exponent < numeric_limits<double>::max_exponent ? -numeric_limits<double>::min_exponent : numeric_limits<double>::max_exponent);
+	const int32_t n    = (-numeric_limits<double>::min_exponent < numeric_limits<double>::max_exponent ? -numeric_limits<double>::min_exponent : numeric_limits<double>::max_exponent);
 	const double r1m4  = 0.5*numeric_limits<double>::epsilon();
 	const double r1m5  = 0.301029995663981195213738894724;            // log_10(2)
 	const double wdtol = (r1m4 > 0.5e-18 ? r1m4 : 0.5e-18);
-    const double elim  = 2.302*(static_cast<double>(nx)*r1m5 - 3.0);  // = 700.6174...
-	double t           = xln;
+    const double elim  = 2.302*(static_cast<double>(n)*r1m5 - 3.0);  // = 700.6174...
 	// small x and underflow conditions
-	if ( (fabs(t) > elim) && (t <= 0.0) ){
+	if (xln < -elim){
 		return nan(""); // underflow
 	} else if (x < wdtol){
 		return -1.0/x;
@@ -250,34 +249,28 @@ double locDigamma(const double &x){
 	if (fln < 0.0){
 		throw string("ERROR: fln value ") + to_string(fln) + string(" less than 0 in locDigamma()");
 	}
-	const double yint = 3.50 + 0.40*fln;                                // fn = yint in our case (n==0)
-	const double xmin = yint + 1.0;
+	const double fn   = 3.50 + 0.40*fln;
+	const double xmin = ceil(fn);
 	double xdmy       = x;
 	double xdmln      = xln;
 	double xinc       = 0.0;
 	if (x < xmin) {
-		xinc = xmin - floor(x);
-		xdmy = x + xinc;
+		xinc  = xmin - floor(x);
+		xdmy  = x + xinc;
 		xdmln = log(xdmy);
 	}
-	t             = yint*xdmln;
-	double t1     = xdmln + xdmln;
-	double t2     = t + xdmln;
-	double t12max = (t1 > t2 ? t1 : t2);
-	double tk     = (fabs(t) > t12max ? fabs(t) : t12max);
-	if (tk <= elim) { // for all but large x
-		//tss = exp(-t); tss == -x
-		double tt   = 0.5/xdmy;
-		t1          = tt;
-		double tst  = wdtol * tt;
+
+	double tk     = 2.0*xdmln;
+	if (tk <= elim) { // for x not large
+		double t1   = 0.5/xdmy;
+		double tst  = wdtol*t1;
 		double rxsq = 1.0/(xdmy*xdmy);
-		double ta   = 0.5*rxsq;
-		t           = (yint + 1.0) * ta;
+		double t    = 0.5*rxsq;
 		double s    = t*bvalues[2];
 		if (fabs(s) >= tst) {
 			tk = 2.0;
 			for(uint16_t k = 4; k <= 22; k++) {
-				t         *= ( (tk + yint + 1)/(tk + 1.0) )*( (tk + yint)/(tk + 2.0) )*rxsq;
+				t         *= ( (tk + 1.0)/(tk + 1.0) )*( tk/(tk + 2.0) )*rxsq;
 				double tmp = t * bvalues[k-1];
 				if (fabs(tmp) < tst) {
 					break;
@@ -286,18 +279,18 @@ double locDigamma(const double &x){
 				tk += 2.0;
 			}
 		}
-		s = -(s + t1)*x;
-		if (xinc != 0.0) {
+		s += t1;
+		if (xinc > 0.0) {
 			// backward recursion from xdmy to x
 			int32_t nx = static_cast<int32_t>(xinc);
 			if (nx > nMax) {
 				throw string("Increment ") + to_string(nx) + string(" too large in locDigamma()");
 			}
 			for(int32_t i = 1; i <= nx; i++){
-				s += 1.0/( x + static_cast<double>(nx - i) ); // avoid disastrous cancellation
+				s += 1.0/( x + static_cast<double>(nx - i) ); // avoid disastrous cancellation, according to the comment in the R code
 			}
 		}
-		return -s;
+		return xdmln - s;
 	} else {
 		double s   = -x;
 		double den = x;
@@ -311,8 +304,6 @@ double locDigamma(const double &x){
 
 // MumiLoc methods
 const double MumiLoc::pSumCutOff_ = 0.003;
-
-double MumiLoc::testDG(const double &x){return locDigamma(x); };
 
 MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &tauPrPhi, const double &alphaPr) : Model(), hierInd_{hierInd}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops}, tauPrPhi_{tauPrPhi}, alphaPr_{alphaPr} {
 	const size_t n = (*hierInd_)[0].size();

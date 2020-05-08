@@ -38,17 +38,6 @@
 
 #include "mumimo.hpp"
 
-//[[Rcpp::export(name="myDigamma")]]
-double myDigamma(const double x){
-	BayesicSpace::MumiLoc test;
-	double res = 0.0;
-	try {
-		res = test.testDG(x);
-	} catch(std::string problem) {
-		Rcpp::stop(problem);
-	}
-	return res;
-}
 //[[Rcpp::export(name="testLpostLoc")]]
 double testLpostLoc(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const std::vector<double> &theta, const std::vector<double> &iSigTheta){
 	std::vector<size_t> l1;
