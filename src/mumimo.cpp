@@ -605,6 +605,11 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 			}
 		}
 	}
+	vector<double> digamLNsum;  // will be the digamma of line-wise sums; colSums will expand the vector to the right size
+	P.colSums(digamLNsum);
+	for (auto &l : digamLNsum){
+		l = locDigamma(l + alphaPr_);
+	}
 	// Z^T(Y - ZA - XB)Sig[E]^-1 store in gA
 	mResISE.colSums((*hierInd_)[0], gA);
 	vector<double> kernSum(P.getNrows(), 0.0);
@@ -620,10 +625,9 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 		MatrixView AresISA( &vAresISA, 0, A.getNrows(), A.getNcols() );
 		Aresid.symm('l', 'r', 1.0, iSigA, 0.0, AresISA);                                            // (A - mu_m)Sigma^{-1}_A
 
-		// accumulate appropriately weighted (a_j - mu_m)Sigma^{-1}_A(a_j - mu_m)^T in gPhi
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				gPhi.addToElem(iRow, m, Aresid.getElem(iRow, jCol)*AresISA.getElem(iRow, jCol));    // calculate the (j,m) kernel and store in gPhi
+				gPhi.addToElem(iRow, m, Aresid.getElem(iRow, jCol)*AresISA.getElem(iRow, jCol));    // calculate the (j,m) kernel and store in gPhi to calculate phi partials later
 			}
 		}
 		for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
@@ -687,9 +691,15 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// Phi partial derivatives
 	for (size_t m = 0; m < Npop_; m++) {
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-			double phi  = -0.5*gPhi.getElem(iRow, m);  // gPhi already has the weighted kernel product sums stored from before; t_A element missing because we have one Sigma_A
-			double p    = P.getElem(iRow, m);
-			phi        *= p*(1.0 - p);
+			// gPhi already has the weighted kernel product sums (with population sums subtracted) stored from before; t_A element missing because we have one Sigma_A
+			double phi     = -0.5*gPhi.getElem(iRow, m);
+			double wtDGsum = 0.0;
+			for (size_t mp = 0; mp < Npop_; mp++) {
+				wtDGsum += P.getElem(iRow, mp)*digamLNsum[mp];
+			}
+			phi     += digamLNsum[m] - wtDGsum;
+			double p = P.getElem(iRow, m);
+			phi     *= p*(1.0 - p);
 			gPhi.setElem(iRow, m, phi - tauPrPhi_*Phi.getElem(iRow, m));
 		}
 	}
@@ -1259,8 +1269,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	*/
 	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alphaPr, tauPrPhi) );
 	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Npop) );
-	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
+	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
 	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_) );
 }

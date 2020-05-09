@@ -230,6 +230,7 @@ void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const doub
 	vector<double> thtGrad;  // Make sure that the model implementing the gradient resizes it properly!
 	model_->gradient(theta, thtGrad);
 
+	/*
 	if (theta.size() == 1990){
 		for (size_t j = 0; j < 1500; j++) {
 			r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
@@ -249,6 +250,7 @@ void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const doub
 		}
 		return;
 	}
+	*/
 	for (size_t j = 0; j < theta.size(); j++) {
 		r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
 		theta[j] += epsilon*r[j];            // leapfrog update of theta
