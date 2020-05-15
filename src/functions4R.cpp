@@ -38,6 +38,11 @@
 
 #include "mumimo.hpp"
 
+//[[Rcpp::export(name="testLpostLocNR")]]
+double testLpostLocNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, const std::vector<double> &theta, const std::vector<double> &iSigTheta){
+	BayesicSpace::MumiLocNR test(&yVec, d, &iSigTheta, 1e-8, static_cast<size_t>(Npop), 1.2);
+	return test.logPost(theta);
+}
 //[[Rcpp::export(name="testLpostLoc")]]
 double testLpostLoc(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const std::vector<double> &theta, const std::vector<double> &iSigTheta){
 	std::vector<size_t> l1;

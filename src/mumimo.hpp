@@ -45,14 +45,111 @@ using std::map;
 
 namespace BayesicSpace {
 	// forward declarations
+	class MumiLocNR;
+	class MumiISigNR;
 	class MumiLoc;
 	class MumiISig;
 
+	class WrapMMMnr;
 	class WrapMMM;
 
+	/** \brief Mixture model for location parameters, no replication
+	 *
+	 * Implements log-posterior and gradient for the location parameters of the multiplicative mixture model with no replication.
+	 *
+	 */
+	class MumiLocNR final : public Model {
+	public:
+		/** \brief Default constructor */
+		MumiLocNR() : Model(), tau0_{0.0}, iSigTheta_{nullptr}, fTaInd_{0}, Npop_{0}, alphaPr_{1.0} {};
+		/** \brief Constructor
+		 *
+		 * \param[in] yVec pointer vectorized data matrix
+		 * \param[in] d number of traits
+		 * \param[in] iSigVec pointer to vectorized inverse-covariance matrix collection
+		 * \param[in] xVec pointer to vectorized covariate predictor matrix
+		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and overall mean (intercept)
+		 * \param[in] nPops number of populations
+		 * \param[in] alphaPr prior on \f$ \alpha \f$ on population assignment probabilities
+		 */
+		MumiLocNR(const vector<double> *yVec, const size_t &d, const vector<double> *iSigVec, const double &tau, const size_t &nPops, const double &alphaPr);
+		/** \brief Destructor */
+		~MumiLocNR(){iSigTheta_ = nullptr; };
+
+		/** \brief Copy constructor (deleted) */
+		MumiLocNR(const MumiLocNR &in) = delete;
+		/** \brief Copy assignment (deleted) */
+		MumiLocNR& operator=(const MumiLocNR &in) = delete;
+		/** \brief Move constructor
+		 *
+		 * \param[in] in object to move
+		 */
+		MumiLocNR(MumiLocNR &&in);
+		/** \brief Move assignment operator
+		 *
+		 * \param[in] in object to be moved
+		 * \return target object
+		 */
+		MumiLocNR& operator=(MumiLocNR &&in);
+		/** \brief Log-posterior function
+		 *
+		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector. The parameter vector has the covariates, line means, and population means in that order.
+		 *
+		 * \param[in] theta parameter vector
+		 * \return Value of the log-posterior
+		 */
+		double logPost(const vector<double> &theta) const override;
+		/** \brief Gradient of the log-posterior
+		 *
+		 * Calculates the partial derivative of the log-posterior for each element in the provided parameter vector.
+		 *
+		 * \param[in] theta parameter vector
+		 * \param[out] grad partial derivative (gradient) vector
+		 *
+		 */
+		void gradient(const vector<double> &theta, vector<double> &grad) const override;
+
+	protected:
+		/** \brief Pointer to the data vector */
+		const vector<double> *yVec_;
+		/** \brief Matrix view of data */
+		MatrixViewConst Y_;
+		/** \brief Fixed prior precision for unmodeled effects */
+		double tau0_;
+		/** \brief Pointer to a precision parameter vector */
+		const vector<double> *iSigTheta_;
+		/** \brief Line factorized precision matrix view
+		 *
+		 * Points to `vLa_`.
+		 */
+		mutable MatrixView La_;
+		/** \brief Expanded \f$ \boldsymbol{L}_A \f$ matrix
+		 *
+		 * Vectorized line unity triangular matrix (\f$\boldsymbol{L}_A\f$ in the model description).
+		 */
+		mutable vector<double> vLa_;
+		// Constants
+		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
+		size_t fTaInd_;
+		/** \brief Index of the first \f$\boldsymbol{T}_P\f$ element */
+		size_t fTpInd_;
+		/** \brief Index of the first probability element */
+		size_t PhiBegInd_;
+		/** \brief Number of populations */
+		size_t Npop_;
+		/** \brief Prior population assignment probability \f$\alpha_0 - 1\f$ */
+		double alphaPr_;
+		/** \brief Expand the vector of factorized precision matrices
+		 *
+		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector.
+		 * The input vector stores only the non-zero elements of these matrices.
+		 *
+		 */
+		void expandISvec_() const;
+	};
 	/** \brief Mixture model for location parameters
 	 *
-	 * Implements log-posterior and gradient for the location parameters of the multiplicative mixture model.
+	 * Implements log-posterior and gradient for the location parameters of the multiplicative mixture model with replicated observations.
 	 *
 	 */
 	class MumiLoc final : public Model {
@@ -99,7 +196,7 @@ namespace BayesicSpace {
 		double logPost(const vector<double> &theta) const override;
 		/** \brief Gradient of the log-posterior
 		 *
-		 * Calculates the patial derivative of the log-posterior for each element in the provided parameter vector.
+		 * Calculates the partial derivative of the log-posterior for each element in the provided parameter vector.
 		 *
 		 * \param[in] theta parameter vector
 		 * \param[out] grad partial derivative (gradient) vector
@@ -158,6 +255,117 @@ namespace BayesicSpace {
 		 */
 		void expandISvec_() const;
 	};
+	
+	/** \brief Model for inverse covariances with no replication
+	 *
+	 * Implements log-posterior and gradient for inverse covariances for the multiplicative mixture model with no replication.
+	 * The inverse-covariances are factorized and stored compactly in the vectors provided to the methods of this class.
+	 * The unit lower-triangular \f$\boldsymbol{L}_A\f$ is stored first (by column and excluding the diagonal), then the diagonal log-precision matrix \f$\boldsymbol{T}_A\f$, then \f$\boldsymbol{T}_M\f$ (see the model description for notation).
+	 *
+	 */
+	class MumiISigNR final : Model {
+	public:
+		/** \brief Default constructor */
+		MumiISigNR(): Model(), nu0_{2.0}, invAsq_{1e-10}, fTaInd_{0}, fTpInd_{0} {};
+		/** \brief Constructor
+		 *
+		 * \param[in] yVec pointer to data
+		 * \param[in] vTheta pointer to vector of location parameters
+		 * \param[in] xVec pointer to vectorized covariate matrix (with intercept)
+		 * \param[in] nu0 prior degrees of freedom \f$\nu_0\f$
+		 * \param[in] invAsq prior precision \f$a^{-2}\f$
+		 * \param[in] nPops number of populations
+		 *
+		 */
+		MumiISigNR(const vector<double> *yVec, const vector<double> *vTheta, const double &nu0, const double &invAsq, const size_t &nPops);
+
+		/** \brief Destructor */
+		~MumiISigNR(){ };
+		/** \brief Copy constructor (deleted) */
+		MumiISigNR(const MumiLocNR &in) = delete;
+		/** \brief Copy assignment (deleted) */
+		MumiISigNR& operator=(const MumiISigNR &in) = delete;
+		/** \brief Move constructor
+		 *
+		 * \param[in] in object to move
+		 */
+		MumiISigNR(MumiISigNR &&in);
+		/** \brief Move assignment operator
+		 *
+		 * \param[in] in object to be moved
+		 * \return target object
+		 */
+		MumiISigNR& operator=(MumiISigNR &&in);
+		/** \brief Log-posterior function
+		 *
+		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector.
+		 *
+		 * \param[in] viSig parameter vector
+		 * \return Value of the log-posterior
+		 */
+		double logPost(const vector<double> &viSig) const override;
+		/** \brief Gradient of the log-posterior
+		 *
+		 * Calculates the partial derivative of the log-posterior for each element in the provided parameter vector.
+		 *
+		 * \param[in] viSig parameter vector
+		 * \param[out] grad partial derivative (gradient) vector
+		 *
+		 */
+		void gradient(const vector<double> &viSig, vector<double> &grad) const override;
+
+	protected:
+		/** \brief Prior degrees of freedom
+		 *
+		 * Degrees of freedom of the half-\f$t\f$ prior distribution on the covariance matrix. If \f$\nu_0 = 2\f$, the prior is half-Cauchy. Should not be large for a vague prior.
+		 */
+		double nu0_;
+		/** \brief Prior inverse-variance
+		 *
+		 * Inverse variance of the prior. Should be set to a large value for a vague prior.
+		 */
+		double invAsq_;
+
+		/** \brief Data view */
+		MatrixViewConst Y_;
+		/** \brief Covariate effect view */
+		MatrixViewConst B_;
+		/** \brief Population mean view */
+		MatrixViewConst Mp_;
+		/** \brief Overall mean view */
+		MatrixViewConst mu_;
+		/** \brief Population assignment logit-probability view */
+		MatrixViewConst Phi_;
+
+		/** \brief Line factorized precision matrix view
+		 *
+		 * Points to `vLa_`.
+		 */
+		mutable MatrixView La_;
+		/** \brief Expanded \f$ \boldsymbol{L}_A \f$ matrix
+		 *
+		 * Vectorized line unity triangular matrix (\f$\boldsymbol{L}_A\f$ in the model description).
+		 */
+		mutable vector<double> vLx_;
+		// Constants
+		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
+		size_t fTaInd_;
+		/** \brief Index of the first \f$\boldsymbol{T}_P\f$ element */
+		size_t fTpInd_;
+		/** \brief nu0*(nu0 + 2d) */
+		double nxnd_;
+		/** \brief N_A + nu0 + 2d */
+		double NAnd_;
+		/** \brief N_P + nu0 + 2d */
+		double NPnd_;
+		/** \brief Expand the vector of factorized precision matrices
+		 *
+		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix contained in the provided vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
+		 *
+		 * \param[in] viSig compressed vector of factorized precision matrices
+		 */
+		void expandISvec_(const vector<double> &viSig) const;
+	};
 	/** \brief Model for inverse covariances
 	 *
 	 * Implements log-posterior and gradient for inverse covariances. The inverse-covariances are factorized and stored compactly in the vectors provided to the methods of this class.
@@ -167,7 +375,7 @@ namespace BayesicSpace {
 	class MumiISig final : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiISig(): Model(), hierInd_{nullptr}, nu0_{2.0}, invAsq_{1e-10}, fTeInd_{0}, fTaInd_{0} {};
+		MumiISig(): Model(), hierInd_{nullptr}, nu0_{2.0}, invAsq_{1e-10}, fTeInd_{0}, fTaInd_{0}, fTpInd_{0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer to data
@@ -208,7 +416,7 @@ namespace BayesicSpace {
 		double logPost(const vector<double> &viSig) const override;
 		/** \brief Gradient of the log-posterior
 		 *
-		 * Calculates the patial derivative of the log-posterior for each element in the provided parameter vector.
+		 * Calculates the partial derivative of the log-posterior for each element in the provided parameter vector.
 		 *
 		 * \param[in] viSig parameter vector
 		 * \param[out] grad partial derivative (gradient) vector

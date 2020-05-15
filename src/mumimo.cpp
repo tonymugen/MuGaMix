@@ -301,7 +301,164 @@ double locDigamma(const double &x){
 		return -s;
 	}
 }
+// MumiLocNR methods
+MumiLocNR::MumiLocNR(const vector<double> *yVec, const size_t &d, const vector<double> *iSigVec, const double &tau, const size_t &nPops, const double &alphaPr) : Model(), yVec_{yVec}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops}, alphaPr_{alphaPr - 1.0} {
+#ifndef PKG_DEBUG_OFF
+	if (yVec->size()%d) {
+		throw string("ERROR: Y dimensions not compatible with the number of traits supplied");
+	}
+#endif
+	const size_t n  = yVec->size()/d;
+	Y_              = MatrixViewConst(yVec, 0, n, d);
 
+	vLa_.resize(d*d, 0.0);
+	La_ = MatrixView(&vLa_, 0, d, d);
+	for (size_t k = 0; k < d; k++) {
+		La_.setElem(k, k, 1.0);
+	}
+	size_t trLen = d*(d-1)/2;
+	fTaInd_      = trLen;
+	fTpInd_      = fTaInd_ + d;
+	PhiBegInd_   = (Npop_ + 1)*d;
+}
+
+MumiLocNR::MumiLocNR(MumiLocNR &&in) {
+	if (this != &in) {
+		Y_         = move(in.Y_);
+		tau0_      = in.tau0_;
+		La_        = move(in.La_);
+		vLa_       = move(in.vLa_);
+		fTaInd_    = in.fTaInd_;
+		PhiBegInd_ = in.PhiBegInd_;
+		Npop_      = in.Npop_;
+
+		in.yVec_      = nullptr;
+		in.iSigTheta_ = nullptr;
+	}
+}
+
+MumiLocNR& MumiLocNR::operator=(MumiLocNR &&in){
+	if (this != &in) {
+		Y_         = move(in.Y_);
+		tau0_      = in.tau0_;
+		La_        = move(in.La_);
+		vLa_       = move(in.vLa_);
+		fTaInd_    = in.fTaInd_;
+		PhiBegInd_ = in.PhiBegInd_;
+		Npop_      = in.Npop_;
+
+		in.yVec_      = nullptr;
+		in.iSigTheta_ = nullptr;
+	}
+	return *this;
+}
+
+void MumiLocNR::expandISvec_() const{
+	size_t aInd = 0;                                                      // index of the Le lower triangle in the input vector
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {             // the last column is all 0, except the last element = 1.0
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+			La_.setElem(iRow, jCol, (*iSigTheta_)[aInd]);
+			aInd++;
+		}
+	}
+}
+
+double MumiLocNR::logPost(const vector<double> &theta) const{
+	// make L matrices
+	expandISvec_();
+	const size_t Nln  = Y_.getNrows();
+	MatrixViewConst Mp( &theta, 0, Npop_, Y_.getNcols() );
+	MatrixViewConst mu( &theta, Npop_*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
+	MatrixViewConst Phi( &theta, PhiBegInd_, Nln, Npop_ );
+
+	// backtransform the logit-psi_jp
+	vector<double> vP(Phi.getNrows()*Phi.getNcols(), 0.0);
+	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
+	for (size_t m = 0; m < Phi.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+			P.setElem( iRow, m, logistic( Phi.getElem(iRow, m) ) );
+		}
+	}
+	// Re-weight the P using the Betancourt (2012) algorithm
+	vector<double> rowProd(Nln, 0.0);
+	for (size_t m = 0; m < Phi.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+			if (m == 0){
+				rowProd[iRow] = P.getElem(iRow, m);
+				P.setElem(iRow, m, 1.0 - rowProd[iRow]);
+			} else if (m == Phi.getNcols() - 1){
+				P.setElem(iRow, m, rowProd[iRow]);
+			} else {
+				double psi = P.getElem(iRow, m);
+				P.setElem(iRow, m, rowProd[iRow]*(1.0 - psi));
+				rowProd[iRow] *= psi;
+			}
+		}
+	}
+	double dirPr = 0.0;      // calculate the Dirichlet prior on P
+	if (alphaPr_ != 0.0){    // alphaPr_ is actually the Dirichlet prior - 1.0 (see constructor), no need for this if it is 0
+		for (size_t m = 0; m < P.getNcols(); m++) {
+			for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
+				double p = P.getElem(iRow, m);
+				dirPr += ( p <= numeric_limits<double>::epsilon() ? -36.04365339 : log(p) ); // -36.04... is log(EPS)
+			}
+		}
+	}
+	dirPr *= alphaPr_;
+	// Clear the Y residuals and re-use for A residuals
+	vector<double> vResid;
+	vector<double> AtraceVec(Nln, 0.0); // accumulate A trace values here
+	// calculate T_A
+	vector<double> Ta;
+	for (size_t k = fTaInd_; k < fTpInd_; k++) {
+		Ta.push_back( exp( (*iSigTheta_)[k] ) );
+	}
+	for (size_t m = 0; m < Npop_; m++) {                                                  // m is the population index as in the model description document
+		vector<double> locAtr(Nln, 0.0);
+		vResid.assign( yVec_->begin(), yVec_->begin() + Y_.getNrows()*Y_.getNcols() );    // copy over Y_
+		MatrixView mResid = MatrixView( &vResid, 0, Y_.getNrows(), Y_.getNcols() );       // mResid now has the Y values
+		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+				mResid.subtractFromElem(iRow, jCol, Mp.getElem(m, jCol));                 // mResid now Y - mu_m
+			}
+		}
+		mResid.trm('l', 'r', false, true, 1.0, La_);                                      // mResid now (Y-mu_m)L_A
+		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+				double rsd    = mResid.getElem(iRow, jCol);
+				locAtr[iRow] += Ta[jCol]*rsd*rsd;                                         // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+			}
+		}
+		for (size_t j = 0; j < Nln; j++) {
+			AtraceVec[j] += P.getElem(j, m)*locAtr[j];                                    // P_m(Y-mu_m)L_A T_A L_A^T(Y-mu_m)^T
+		}
+	}
+	double aTrace = 0.0;
+	for (auto &a : AtraceVec){
+		aTrace += a;
+	}
+	// M[p] crossproduct trace
+	double mTrace = 0.0;
+	for (size_t jCol = 0; jCol < Mp.getNcols(); ++jCol) {
+		double dp = 0.0;
+		for (size_t iRow = 0; iRow < Mp.getNrows(); ++iRow) {
+			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
+			dp += diff*diff;
+		}
+		mTrace += exp( (*iSigTheta_)[fTpInd_ + jCol] )*dp;
+	}
+	double pTrace = 0.0;
+	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+		pTrace += mu.getElem(0, jCol)*mu.getElem(0, jCol);
+	}
+	pTrace *= tau0_;
+	// now sum to get the log-posterior
+	return -0.5*(aTrace + mTrace + pTrace) + dirPr;
+}
+
+void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) const {
+
+}
 // MumiLoc methods
 const double MumiLoc::pSumCutOff_ = 0.003;
 
