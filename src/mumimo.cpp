@@ -326,9 +326,11 @@ MumiLocNR::MumiLocNR(MumiLocNR &&in) {
 	if (this != &in) {
 		Y_         = move(in.Y_);
 		tau0_      = in.tau0_;
+		alphaPr_   = in.alphaPr_;
 		La_        = move(in.La_);
 		vLa_       = move(in.vLa_);
 		fTaInd_    = in.fTaInd_;
+		fTpInd_    = in.fTpInd_;
 		PhiBegInd_ = in.PhiBegInd_;
 		Npop_      = in.Npop_;
 
@@ -341,9 +343,11 @@ MumiLocNR& MumiLocNR::operator=(MumiLocNR &&in){
 	if (this != &in) {
 		Y_         = move(in.Y_);
 		tau0_      = in.tau0_;
+		alphaPr_   = in.alphaPr_;
 		La_        = move(in.La_);
 		vLa_       = move(in.vLa_);
 		fTaInd_    = in.fTaInd_;
+		fTpInd_    = in.fTpInd_;
 		PhiBegInd_ = in.PhiBegInd_;
 		Npop_      = in.Npop_;
 
@@ -366,27 +370,29 @@ void MumiLocNR::expandISvec_() const{
 double MumiLocNR::logPost(const vector<double> &theta) const{
 	// make L matrices
 	expandISvec_();
-	const size_t Nln  = Y_.getNrows();
-	MatrixViewConst Mp( &theta, 0, Npop_, Y_.getNcols() );
-	MatrixViewConst mu( &theta, Npop_*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
-	MatrixViewConst Phi( &theta, PhiBegInd_, Nln, Npop_ );
+	const size_t N    = Y_.getNrows();
+	const size_t d    = Y_.getNcols();
+	const size_t Ndim = N*d;
+	MatrixViewConst Mp(&theta, 0, Npop_, d);
+	MatrixViewConst mu(&theta, Npop_*d, 1, d); // overall mean
+	MatrixViewConst Phi(&theta, PhiBegInd_, N, Npop_);
 
 	// backtransform the logit-psi_jp
-	vector<double> vP(Phi.getNrows()*Phi.getNcols(), 0.0);
-	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
-	for (size_t m = 0; m < Phi.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+	vector<double> vP(N*Npop_, 0.0);
+	MatrixView P(&vP, 0, N, Npop_);
+	for (size_t m = 0; m < Npop_; m++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
 			P.setElem( iRow, m, logistic( Phi.getElem(iRow, m) ) );
 		}
 	}
 	// Re-weight the P using the Betancourt (2012) algorithm
-	vector<double> rowProd(Nln, 0.0);
-	for (size_t m = 0; m < Phi.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+	vector<double> rowProd(N, 0.0);
+	for (size_t m = 0; m < Npop_; m++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
 			if (m == 0){
 				rowProd[iRow] = P.getElem(iRow, m);
 				P.setElem(iRow, m, 1.0 - rowProd[iRow]);
-			} else if (m == Phi.getNcols() - 1){
+			} else if (m == Npop_ - 1){
 				P.setElem(iRow, m, rowProd[iRow]);
 			} else {
 				double psi = P.getElem(iRow, m);
@@ -395,10 +401,11 @@ double MumiLocNR::logPost(const vector<double> &theta) const{
 			}
 		}
 	}
+
 	double dirPr = 0.0;      // calculate the Dirichlet prior on P
 	if (alphaPr_ != 0.0){    // alphaPr_ is actually the Dirichlet prior - 1.0 (see constructor), no need for this if it is 0
-		for (size_t m = 0; m < P.getNcols(); m++) {
-			for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
+		for (size_t m = 0; m < Npop_; m++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
 				double p = P.getElem(iRow, m);
 				dirPr += ( p <= numeric_limits<double>::epsilon() ? -36.04365339 : log(p) ); // -36.04... is log(EPS)
 			}
@@ -407,30 +414,30 @@ double MumiLocNR::logPost(const vector<double> &theta) const{
 	dirPr *= alphaPr_;
 	// Clear the Y residuals and re-use for A residuals
 	vector<double> vResid;
-	vector<double> AtraceVec(Nln, 0.0); // accumulate A trace values here
+	vector<double> AtraceVec(N, 0.0); // accumulate A trace values here
 	// calculate T_A
 	vector<double> Ta;
 	for (size_t k = fTaInd_; k < fTpInd_; k++) {
 		Ta.push_back( exp( (*iSigTheta_)[k] ) );
 	}
-	for (size_t m = 0; m < Npop_; m++) {                                                  // m is the population index as in the model description document
-		vector<double> locAtr(Nln, 0.0);
-		vResid.assign( yVec_->begin(), yVec_->begin() + Y_.getNrows()*Y_.getNcols() );    // copy over Y_
-		MatrixView mResid = MatrixView( &vResid, 0, Y_.getNrows(), Y_.getNcols() );       // mResid now has the Y values
-		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
-			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
-				mResid.subtractFromElem(iRow, jCol, Mp.getElem(m, jCol));                 // mResid now Y - mu_m
+	for (size_t m = 0; m < Npop_; m++) {                                         // m is the population index as in the model description document
+		vector<double> locAtr(N, 0.0);
+		vResid.assign( yVec_->begin(), yVec_->begin() + Ndim );                  // copy over Y_
+		MatrixView mResid = MatrixView(&vResid, 0, N, d);                        // mResid now has the Y values
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				mResid.subtractFromElem(iRow, jCol, Mp.getElem(m, jCol));        // mResid now Y - mu_m
 			}
 		}
-		mResid.trm('l', 'r', false, true, 1.0, La_);                                      // mResid now (Y-mu_m)L_A
-		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
-			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+		mResid.trm('l', 'r', false, true, 1.0, La_);                             // mResid now (Y-mu_m)L_A
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
 				double rsd    = mResid.getElem(iRow, jCol);
-				locAtr[iRow] += Ta[jCol]*rsd*rsd;                                         // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+				locAtr[iRow] += Ta[jCol]*rsd*rsd;                                // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
 			}
 		}
-		for (size_t j = 0; j < Nln; j++) {
-			AtraceVec[j] += P.getElem(j, m)*locAtr[j];                                    // P_m(Y-mu_m)L_A T_A L_A^T(Y-mu_m)^T
+		for (size_t j = 0; j < N; j++) {
+			AtraceVec[j] += P.getElem(j, m)*locAtr[j];                           // P_m(Y-mu_m)L_A T_A L_A^T(Y-mu_m)^T
 		}
 	}
 	double aTrace = 0.0;
@@ -439,16 +446,16 @@ double MumiLocNR::logPost(const vector<double> &theta) const{
 	}
 	// M[p] crossproduct trace
 	double mTrace = 0.0;
-	for (size_t jCol = 0; jCol < Mp.getNcols(); ++jCol) {
+	for (size_t jCol = 0; jCol < d; ++jCol) {
 		double dp = 0.0;
-		for (size_t iRow = 0; iRow < Mp.getNrows(); ++iRow) {
+		for (size_t iRow = 0; iRow < Npop_; ++iRow) {
 			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
 			dp += diff*diff;
 		}
 		mTrace += exp( (*iSigTheta_)[fTpInd_ + jCol] )*dp;
 	}
 	double pTrace = 0.0;
-	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+	for (size_t jCol = 0; jCol < d; jCol++) {
 		pTrace += mu.getElem(0, jCol)*mu.getElem(0, jCol);
 	}
 	pTrace *= tau0_;

@@ -6,17 +6,20 @@
 using namespace Rcpp;
 
 // testLpostLocNR
-double testLpostLocNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Npop, const std::vector<double>& theta, const std::vector<double>& iSigTheta);
-RcppExport SEXP _MuGaMix_testLpostLocNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NpopSEXP, SEXP thetaSEXP, SEXP iSigThetaSEXP) {
+Rcpp::List testLpostLocNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Npop, std::vector<double>& theta, const std::vector<double>& iSigTheta, const int32_t& ind, const double& limit, const double& incr);
+RcppExport SEXP _MuGaMix_testLpostLocNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NpopSEXP, SEXP thetaSEXP, SEXP iSigThetaSEXP, SEXP indSEXP, SEXP limitSEXP, SEXP incrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type theta(thetaSEXP);
+    Rcpp::traits::input_parameter< std::vector<double>& >::type theta(thetaSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type iSigTheta(iSigThetaSEXP);
-    rcpp_result_gen = Rcpp::wrap(testLpostLocNR(yVec, d, Npop, theta, iSigTheta));
+    Rcpp::traits::input_parameter< const int32_t& >::type ind(indSEXP);
+    Rcpp::traits::input_parameter< const double& >::type limit(limitSEXP);
+    Rcpp::traits::input_parameter< const double& >::type incr(incrSEXP);
+    rcpp_result_gen = Rcpp::wrap(testLpostLocNR(yVec, d, Npop, theta, iSigTheta, ind, limit, incr));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -144,7 +147,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_MuGaMix_testLpostLocNR", (DL_FUNC) &_MuGaMix_testLpostLocNR, 5},
+    {"_MuGaMix_testLpostLocNR", (DL_FUNC) &_MuGaMix_testLpostLocNR, 8},
     {"_MuGaMix_testLpostLoc", (DL_FUNC) &_MuGaMix_testLpostLoc, 5},
     {"_MuGaMix_lpTestLI", (DL_FUNC) &_MuGaMix_lpTestLI, 8},
     {"_MuGaMix_gradTestLI", (DL_FUNC) &_MuGaMix_gradTestLI, 8},
