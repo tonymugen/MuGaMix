@@ -500,6 +500,19 @@ namespace BayesicSpace {
 	public:
 		/** \brief Default constructor */
 		WrapMMM() {};
+		/** \brief Constructor for a model with no replication
+		 *
+		 * Establishes the initial parameter values and the sampler kind.
+		 *
+		 * \param[in] vY vectorized data matrix
+		 * \param[in] d number of traits
+		 * \param[in] Npop number of populations
+		 * \param[in] alphaPr \f$\alpha \f$ prior parameter for population assignment probabilities
+		 * \param[in] tau0 prior precision for the "fixed" effects
+		 * \param[in] nu0 prior degrees of freedom for precision matrices
+		 * \param[in] invAsq prior inverse variance for precision matrices
+		 */
+		WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Constructor for a one-level hierarchical model
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
