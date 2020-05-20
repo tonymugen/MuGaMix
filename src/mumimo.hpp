@@ -270,6 +270,7 @@ namespace BayesicSpace {
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer to data
+		 * \param[in] d number of traits
 		 * \param[in] vTheta pointer to vector of location parameters
 		 * \param[in] xVec pointer to vectorized covariate matrix (with intercept)
 		 * \param[in] nu0 prior degrees of freedom \f$\nu_0\f$
@@ -277,7 +278,7 @@ namespace BayesicSpace {
 		 * \param[in] nPops number of populations
 		 *
 		 */
-		MumiISigNR(const vector<double> *yVec, const vector<double> *vTheta, const double &nu0, const double &invAsq, const size_t &nPops);
+		MumiISigNR(const vector<double> *yVec, const size_t &d, const vector<double> *vTheta, const double &nu0, const double &invAsq, const size_t &nPops);
 
 		/** \brief Destructor */
 		~MumiISigNR(){ };
@@ -346,7 +347,7 @@ namespace BayesicSpace {
 		 *
 		 * Vectorized line unity triangular matrix (\f$\boldsymbol{L}_A\f$ in the model description).
 		 */
-		mutable vector<double> vLx_;
+		mutable vector<double> vLa_;
 		// Constants
 		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
 		size_t fTaInd_;
@@ -656,6 +657,12 @@ namespace BayesicSpace {
 		 * This does not affect population assignment probabilities.
 		 */
 		void calibratePhi_();
+		/** \brief Convert probabilities to logit-scores
+		 *
+		 * Uses the Betancourt (2012) method of transforming population assignment probabilities to hyper-spherical coordinates. I then apply a logit transformation to further map scores to the \f$(-\infty, \infty ) \f$ interval.
+		 * 
+		 */
+		void p2phi_();
 		/** \brief Expand lower triangle of the \f$ \boldsymbol{L}_A \f$ matrix
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix and multiplies its columns by the square root of \f$ \boldsymbol{T}_A \f$. The input vector `vISig_` stores only the non-zero elements of these matrices.

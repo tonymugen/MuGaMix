@@ -42,12 +42,12 @@ using std::fpclassify;
 using std::signbit;
 
 // static members
-const double SamplerNUTS::deltaMax_ = 1000.0;
-const double SamplerNUTS::delta_    = 0.6;
-const double SamplerNUTS::t0_       = 10.0;
-const double SamplerNUTS::gamma_    = 0.05;
-const double SamplerNUTS::negKappa_ = -0.75;
-const uint64_t SamplerNUTS::mask_   = static_cast<uint64_t>(0x01);
+const double   SamplerNUTS::deltaMax_ = 1000.0;
+const double   SamplerNUTS::delta_    = 0.6;
+const double   SamplerNUTS::t0_       = 10.0;
+const double   SamplerNUTS::gamma_    = 0.05;
+const double   SamplerNUTS::negKappa_ = -0.75;
+const uint64_t SamplerNUTS::mask_     = static_cast<uint64_t>(0x01);
 
 /** \brief Vector self-dot-product
  *
@@ -731,7 +731,7 @@ SamplerMetro& SamplerMetro::operator=(SamplerMetro &&in){
 uint32_t SamplerMetro::adapt(){
 	vector<double> thetaPrime = *theta_;
 	for (auto &t : thetaPrime) {
-		t += 0.001*rng_.rnorm();
+		t += 0.1*rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
 	double lU     = log(rng_.runifnz());
@@ -746,7 +746,7 @@ uint32_t SamplerMetro::adapt(){
 uint32_t SamplerMetro::update(){
 	vector<double> thetaPrime = *theta_;
 	for (auto &t : thetaPrime) {
-		t += 0.001*rng_.rnorm();
+		t += 0.1*rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
 	double lU     = log(rng_.runifnz());

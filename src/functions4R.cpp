@@ -182,7 +182,60 @@ Rcpp::List gradTestSI(const std::vector<double> &yVec, const std::vector<int32_t
 	}
 	return Rcpp::List::create(Rcpp::Named("gradVal", gradVal));
 }
-//' Run the sampler
+//' Run the sampler with no replication
+//'
+//' Runs the sampler on the data assuming no fixed effects, missing trait data, or replication.
+//'
+//' @param yVec   vectorized data matrix
+//' @param d      number of traits
+//' @param Npop   number of populations
+//' @param Nadapt number of adaptation (burn-in) steps
+//' @param Nsamp  number of sampling steps
+//' @param Nthin  thinning number
+//'
+//' @keywords internal
+//'
+//[[Rcpp::export(name="runSamplerNR")]]
+Rcpp::List runSamplerNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
+	if (d <= 1){
+		Rcpp::stop("ERROR: there must be at least two traits");
+	}
+	const size_t dd = static_cast<size_t>(d);
+	if (yVec.size()%d) {
+		Rcpp::stop("ERROR: number of traits implies a non-integer number of individuals in the data vector");
+	}
+	if (Npop <= 1) {
+		Rcpp::stop("ERROR: there must be at least two populations");
+	}
+	if (Nadapt < 0) {
+		Rcpp::stop("ERROR: Number of adaptation (burn-in) steps must be non-negative");
+	}
+	if (Nsamp < 0) {
+		Rcpp::stop("ERROR: Number of sampling steps must be non-negative");
+	}
+	if (Nchains <= 0) {
+		Rcpp::stop("ERROR: Number of chains must be positive");
+	}
+	std::vector<double> thetaChain; // location parameter chain
+	std::vector<double> iSigChain; // inverse-covariance chain
+	std::vector<double> piChain;    // population probability chain
+	const uint32_t Na = static_cast<uint32_t>(Nadapt);
+	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
+	const uint32_t Nt = static_cast<uint32_t>(Nthin);
+	const uint32_t Np = static_cast<uint32_t>(Npop);
+
+	try {
+		for (int32_t i = 0; i < Nchains; i++) {
+			BayesicSpace::WrapMMM modelObj(yVec, dd, Np, 1.2, 1e-8, 2.5, 1e-6);
+			modelObj.runSampler(Na, Ns, Nt, thetaChain, iSigChain, piChain);
+		}
+		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("iSigChain", iSigChain));
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("iSigChain", iSigChain));
+}
+//' Run the sampler with one replication level
 //'
 //' Runs the sampler on the data assuming no fixed effects or missing trait data and one replication level.
 //'
@@ -239,7 +292,7 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 	return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("iSigChain", iSigChain));
 }
 
-//' Run the sampler with missing data
+//' Run the sampler with missing data and one replication level
 //'
 //' Runs the sampler on the data assuming no fixed effects, but allowing for missing phenotype data, and one replication level.
 //' The missingness indicator should have 1 for missing data points and 0 otherwise, however any non-0 value is treated as 1.

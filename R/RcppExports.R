@@ -25,7 +25,24 @@ gradTestSI <- function(yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr) {
     .Call(`_MuGaMix_gradTestSI`, yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr)
 }
 
-#' Run the sampler
+#' Run the sampler with no replication
+#'
+#' Runs the sampler on the data assuming no fixed effects, missing trait data, or replication.
+#'
+#' @param yVec   vectorized data matrix
+#' @param d      number of traits
+#' @param Npop   number of populations
+#' @param Nadapt number of adaptation (burn-in) steps
+#' @param Nsamp  number of sampling steps
+#' @param Nthin  thinning number
+#'
+#' @keywords internal
+#'
+runSamplerNR <- function(yVec, d, Npop, Nadapt, Nsamp, Nthin, Nchains) {
+    .Call(`_MuGaMix_runSamplerNR`, yVec, d, Npop, Nadapt, Nsamp, Nthin, Nchains)
+}
+
+#' Run the sampler with one replication level
 #'
 #' Runs the sampler on the data assuming no fixed effects or missing trait data and one replication level.
 #'
@@ -42,7 +59,7 @@ runSampler <- function(yVec, lnFac, Npop, Nadapt, Nsamp, Nthin, Nchains) {
     .Call(`_MuGaMix_runSampler`, yVec, lnFac, Npop, Nadapt, Nsamp, Nthin, Nchains)
 }
 
-#' Run the sampler with missing data
+#' Run the sampler with missing data and one replication level
 #'
 #' Runs the sampler on the data assuming no fixed effects, but allowing for missing phenotype data, and one replication level.
 #' The missingness indicator should have 1 for missing data points and 0 otherwise, however any non-0 value is treated as 1.

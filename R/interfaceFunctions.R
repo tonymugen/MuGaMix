@@ -23,72 +23,91 @@
 #'
 #' Missing phenotype data are allowed. It is recommended that rows with all trait data missing are eliminated before running the function. If such rows are present, they will be eliminated by the function and a warning is issued. If all data for a given line are missing, this line is also dropped from consideration. The function does its best to retain the user provided factor level ordering, however such behavior may not be desired by some users, hence the warning. The (potentially modified) line factor is returned by the function to aid in trouble shooting.
 #'
-#' @note Currently exactly one level of replication is supported.
-#'
 #' @param data data frame with the data
 #' @param trait.columns list of columns in \code{data} that contain trait values
-#' @param factor.column name of the column that contains the factor connecting replicates to lines
 #' @param n.pop number of populations to fit, must be two ro greater
+#' @param factor.column name of the column that contains the factor connecting replicates to lines (if omitted, no replication is assumed)
 #' @param n.burnin number of iterations of butnin (adaptation)
 #' @param n.sampling number of sampling steps
 #' @param n.thin thinning number (if, e.g., set to five then every fifth chain sample is saved)
 #' @param n.chains number of chains
-#' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{parChains}, each chain a column), a matrix of population assignments (named \code{popChains}), a matrix of population numbers (named \code{nPopsChain}), a matrix of imputed missing data (if any; named \code{imputed}), the list of lines used in model fitting (ordered the same as in the output and possibly modified from the user's input if missing rows are eliminated; named \code{lineIDs}), the number of retained samples per chain (named \code{n.samples})
+#' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{thetaChain}, each chain a column), a matrix of population assignments (named \code{piChain}), a matrix of inverse-covariances (named \code{iSigChain}), a matrix of imputed missing data (if any; named \code{imputed}), the list of lines used in model fitting (ordered the same as in the output and possibly modified from the user's input if missing rows are eliminated; named \code{lineIDs}), the number of retained samples per chain (named \code{n.samples}), and the number of population specified in the model (named \code{n.pops})
 #'
 #' @export
-fitModel <- function(data, trait.colums, factor.column, n.pop, n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5){
-	yVec <- as.double(unlist(data[, trait.colums]))
-	if (is.factor(data[, factor.column])) {
-		lnFac <- data[, factor.column]
-		lnInd <- as.integer(lnFac)
-	} else {
-		lnFac <- factor(data[, factor.column], levels=unique(data[, factor.column]))
-		lnInd <- as.integer(lnFac)
+fitModel <- function(data, trait.colums, n.pop, factor.column = NULL, n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5){
+	d    <- length(trait.colums)
+	if (d <= 1) {
+		stop("Must have at least two traits")
 	}
+	yVec <- as.double(unlist(data[, trait.colums]))
 	if (n.pop < 2) {
 		stop("Must specify more than one population")
 	}
-	if (any(is.na(yVec))) {
-		missRowCount <- apply(data[,trait.colums], 1, function(vec){sum(is.na(vec))})
-		d            <- length(trait.colums)
-		if (any(missRowCount == d)) {
-			warning("WARNING: sime rows have only missing data; deleting them. This may result in loss of some lines")
-			data <- data[-which(missRowCount == d),]
-			# re-define the line factor, since there is no guarantee every line has data
-			if (is.factor(data[, factor.column])) {
-				oldLev <- levels(data[, factor.column]) # want to preserve the user's level order
-				lnFac  <- as.character(data[, factor.column])
-				lnFac  <- factor(lnFac, levels=oldLev[oldLev %in% unique(lnFac)])
-				lnInd  <- as.integer(lnFac)
-			} else {
-				lnFac <- factor(data[, factor.column], levels=unique(data[, factor.column]))
-				lnInd <- as.integer(lnFac)
-			}
+	if (is.null(factor.column)) { # no replication
+		if (any(is.na(yVec))) {
+			stop("Missing data with no replication not supported yet")
+		} else {
+			res            <- runSamplerNR(yVec, d, n.pop, n.burnin, n.sampling, n.thin, n.chains)
+			res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
+			res$piChain    <- matrix(res$piChain, ncol=n.chains)
+			res$iSigChain  <- matrix(res$iSigChain, ncol=n.chains)
+			res$imputed    <- NULL
+			res$lineIDs    <- rownames(data)
+			res$n.samples  <- n.sampling/n.thin
+			res$n.pops     <- n.pop
+			class(res)     <- "mugamix"
+			return(res)
 		}
-		missInd <- rep(0, times=length(yVec))
-		missInd[which(is.na(yVec))] <- 1
-		yVec[which(missInd == 1)]   <- 0.0 # lazy "imputation"; the right thing will be done by the model
-		res            <- runSamplerMiss(yVec, lnInd, as.integer(missInd), n.pop, n.burnin, n.sampling, n.thin, n.chains)
-		res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
-		res$piChain    <- matrix(res$piChain, ncol=n.chains)
-		res$nPopsChain <- matrix(res$iSigChain, ncol=n.chains)
-		res$imputed    <- matrix(res$imputed, ncol=n.chains)
-		res$lineIDs    <- levels(lnFac)
-		res$n.samples  <- n.sampling/n.thin
-		res$n.pops     <- n.pop
-		class(res)     <- "mugamix"
-		return(res)
 	} else {
-		res            <- runSampler(yVec, lnInd, n.pop, n.burnin, n.sampling, n.thin, n.chains)
-		res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
-		res$piChain    <- matrix(res$piChain, ncol=n.chains)
-		res$nPopsChain <- matrix(res$iSigChain, ncol=n.chains)
-		res$imputed    <- NULL
-		res$lineIDs    <- levels(lnFac)
-		res$n.samples  <- n.sampling/n.thin
-		res$n.pops     <- n.pop
-		class(res)     <- "mugamix"
-		return(res)
+		if (is.factor(data[, factor.column])) {
+			lnFac <- data[, factor.column]
+			lnInd <- as.integer(lnFac)
+		} else {
+			lnFac <- factor(data[, factor.column], levels=unique(data[, factor.column]))
+			lnInd <- as.integer(lnFac)
+		}
+		if (any(is.na(yVec))) {
+			missRowCount <- apply(data[,trait.colums], 1, function(vec){sum(is.na(vec))})
+			d            <- length(trait.colums)
+			if (any(missRowCount == d)) {
+				warning("WARNING: sime rows have only missing data; deleting them. This may result in loss of some lines")
+				data <- data[-which(missRowCount == d),]
+				# re-define the line factor, since there is no guarantee every line has data
+				if (is.factor(data[, factor.column])) {
+					oldLev <- levels(data[, factor.column]) # want to preserve the user's level order
+					lnFac  <- as.character(data[, factor.column])
+					lnFac  <- factor(lnFac, levels=oldLev[oldLev %in% unique(lnFac)])
+					lnInd  <- as.integer(lnFac)
+				} else {
+					lnFac <- factor(data[, factor.column], levels=unique(data[, factor.column]))
+					lnInd <- as.integer(lnFac)
+				}
+			}
+			missInd <- rep(0, times=length(yVec))
+			missInd[which(is.na(yVec))] <- 1
+			yVec[which(missInd == 1)]   <- 0.0 # lazy "imputation"; the right thing will be done by the model
+			res            <- runSamplerMiss(yVec, lnInd, as.integer(missInd), n.pop, n.burnin, n.sampling, n.thin, n.chains)
+			res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
+			res$piChain    <- matrix(res$piChain, ncol=n.chains)
+			res$iSigChain  <- matrix(res$iSigChain, ncol=n.chains)
+			res$imputed    <- matrix(res$imputed, ncol=n.chains)
+			res$lineIDs    <- levels(lnFac)
+			res$n.samples  <- n.sampling/n.thin
+			res$n.pops     <- n.pop
+			class(res)     <- "mugamix"
+			return(res)
+		} else {
+			res            <- runSampler(yVec, lnInd, n.pop, n.burnin, n.sampling, n.thin, n.chains)
+			res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
+			res$piChain    <- matrix(res$piChain, ncol=n.chains)
+			res$iSigChain  <- matrix(res$iSigChain, ncol=n.chains)
+			res$imputed    <- NULL
+			res$lineIDs    <- levels(lnFac)
+			res$n.samples  <- n.sampling/n.thin
+			res$n.pops     <- n.pop
+			class(res)     <- "mugamix"
+			return(res)
+		}
 	}
 }
 

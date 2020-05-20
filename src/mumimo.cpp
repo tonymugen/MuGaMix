@@ -301,11 +301,86 @@ double locDigamma(const double &x){
 		return -s;
 	}
 }
+/** brief Unrestricted \f$ \boldsymbol{\Phi} \f$  to probability matrix conversion
+ *
+ * Does the hyper-spherical back-transformation of the free logit-space population assignment probability matrix to the true probability matrix (with all rows summing to 1).
+ *
+ * \param[in] Phi the free-parameter matrix
+ * \param[out] P the population assignment probability matrix
+ *
+ */
+void phi2p(const MatrixViewConst &Phi, MatrixView &P){
+#ifndef PKG_DEBUG_OFF
+	if ( (Phi.getNcols() != P.getNcols()) || (Phi.getNrows() != P.getNrows()) ){
+		throw string("ERROR: Phi and P dimensions in incompatible in phi2p(MatrixViewConst &, MatrixView &)");
+	}
+#endif
+	for (size_t m = 0; m < Phi.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+			P.setElem( iRow, m, logistic( Phi.getElem(iRow, m) ) );
+		}
+	}
+	// Re-weight the P using the Betancourt (2012) algorithm
+	vector<double> rowProd(Phi.getNrows(), 0.0);
+	for (size_t m = 0; m < Phi.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+			if (m == 0){
+				rowProd[iRow] = P.getElem(iRow, m);
+				P.setElem(iRow, m, 1.0 - rowProd[iRow]);
+			} else if (m == Phi.getNcols() - 1){
+				P.setElem(iRow, m, rowProd[iRow]);
+			} else {
+				double psi = P.getElem(iRow, m);
+				P.setElem(iRow, m, rowProd[iRow]*(1.0 - psi));
+				rowProd[iRow] *= psi;
+			}
+		}
+	}
+}
+
+/** brief Unrestricted \f$ \boldsymbol{\Phi} \f$  to probability matrix conversion
+ *
+ * Does the hyper-spherical back-transformation of the free logit-space population assignment probability matrix to the true probability matrix (with all rows summing to 1).
+ *
+ * \param[in] Phi the free-parameter matrix
+ * \param[out] P the population assignment probability matrix
+ *
+ */
+void phi2p(const MatrixView &Phi, MatrixView &P){
+#ifndef PKG_DEBUG_OFF
+	if ( (Phi.getNcols() != P.getNcols()) || (Phi.getNrows() != P.getNrows()) ){
+		throw string("ERROR: Phi and P dimensions in incompatible in phi2p(const MatrixView &, MatrixView &)");
+	}
+#endif
+	for (size_t m = 0; m < Phi.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+			P.setElem( iRow, m, logistic( Phi.getElem(iRow, m) ) );
+		}
+	}
+	// Re-weight the P using the Betancourt (2012) algorithm
+	vector<double> rowProd(Phi.getNrows(), 0.0);
+	for (size_t m = 0; m < Phi.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+			if (m == 0){
+				rowProd[iRow] = P.getElem(iRow, m);
+				P.setElem(iRow, m, 1.0 - rowProd[iRow]);
+			} else if (m == Phi.getNcols() - 1){
+				P.setElem(iRow, m, rowProd[iRow]);
+			} else {
+				double psi = P.getElem(iRow, m);
+				P.setElem(iRow, m, rowProd[iRow]*(1.0 - psi));
+				rowProd[iRow] *= psi;
+			}
+		}
+	}
+}
+
+
 // MumiLocNR methods
 MumiLocNR::MumiLocNR(const vector<double> *yVec, const size_t &d, const vector<double> *iSigVec, const double &tau, const size_t &nPops, const double &alphaPr) : Model(), yVec_{yVec}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops}, alphaPr_{alphaPr - 1.0} {
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%d) {
-		throw string("ERROR: Y dimensions not compatible with the number of traits supplied");
+		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the MumiLocNR constructor");
 	}
 #endif
 	const size_t n  = yVec->size()/d;
@@ -380,27 +455,7 @@ double MumiLocNR::logPost(const vector<double> &theta) const{
 	// backtransform the logit-psi_jp
 	vector<double> vP(N*Npop_, 0.0);
 	MatrixView P(&vP, 0, N, Npop_);
-	for (size_t m = 0; m < Npop_; m++) {
-		for (size_t iRow = 0; iRow < N; iRow++) {
-			P.setElem( iRow, m, logistic( Phi.getElem(iRow, m) ) );
-		}
-	}
-	// Re-weight the P using the Betancourt (2012) algorithm
-	vector<double> rowProd(N, 0.0);
-	for (size_t m = 0; m < Npop_; m++) {
-		for (size_t iRow = 0; iRow < N; iRow++) {
-			if (m == 0){
-				rowProd[iRow] = P.getElem(iRow, m);
-				P.setElem(iRow, m, 1.0 - rowProd[iRow]);
-			} else if (m == Npop_ - 1){
-				P.setElem(iRow, m, rowProd[iRow]);
-			} else {
-				double psi = P.getElem(iRow, m);
-				P.setElem(iRow, m, rowProd[iRow]*(1.0 - psi));
-				rowProd[iRow] *= psi;
-			}
-		}
-	}
+	phi2p(Phi, P);
 
 	double dirPr = 0.0;      // calculate the Dirichlet prior on P
 	if (alphaPr_ != 0.0){    // alphaPr_ is actually the Dirichlet prior - 1.0 (see constructor), no need for this if it is 0
@@ -869,6 +924,161 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	}
 }
 
+//MumiISigNR methods
+MumiISigNR::MumiISigNR(const vector<double> *yVec, const size_t &d, const vector<double> *vTheta, const double &nu0, const double &invAsq, const size_t &nPops) : Model(), nu0_{nu0}, invAsq_{invAsq} {
+#ifndef PKG_DEBUG_OFF
+	if (yVec->size()%d) {
+		throw string("MumiISigNR constructor ERROR: vectorized data length not divisible by the number of traits");
+	}
+	if (vTheta->size()%d) {
+		throw string("MumiISigNR constructor ERROR: vectorized parameter set length not divisible by number of traits");
+	}
+#endif
+	const size_t N = yVec->size()/d;
+	Y_   = MatrixViewConst(yVec, 0, N, d);
+	Mp_  = MatrixViewConst(vTheta, 0, nPops, d);
+	mu_  = MatrixViewConst(vTheta, nPops*d, 1, d);
+	Phi_ = MatrixViewConst(vTheta, (nPops+1)*d, N, nPops);
+	vLa_.resize(d*d, 0.0);
+	La_ = MatrixView(&vLa_, 0, d, d);
+	for (size_t k = 0; k < d; k++) {
+		La_.setElem(k, k, 1.0);
+	}
+	size_t trLen = d*(d-1)/2;
+	fTaInd_      = trLen;
+	fTpInd_      = fTaInd_ + d;
+	nxnd_        = nu0_*( nu0_ + 2.0*static_cast<double>(d) );
+	NAnd_        = static_cast<double>( Y_.getNrows() ) + nu0_ + 2.0*static_cast<double>(d);
+	NPnd_        = static_cast<double>(nPops) + nu0_ + 2.0*static_cast<double>(d);
+}
+
+MumiISigNR::MumiISigNR(MumiISigNR &&in) {
+	if (this != &in) {
+		nu0_     = in.nu0_;
+		invAsq_  = in.invAsq_;
+		Y_       = move(in.Y_);
+		B_       = move(in.B_);
+		Mp_      = move(in.Mp_);
+		mu_      = move(in.mu_);
+		Phi_     = move(in.Phi_);
+		vLa_     = move(in.vLa_);
+		La_      = MatrixView( &vLa_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
+		fTaInd_  = in.fTaInd_;
+		nxnd_    = in.nxnd_;
+		NAnd_    = in.NAnd_;
+		NPnd_    = in.NPnd_;
+	}
+}
+
+MumiISigNR& MumiISigNR::operator=(MumiISigNR &&in){
+	if (this != &in) {
+		nu0_     = in.nu0_;
+		invAsq_  = in.invAsq_;
+		Y_       = move(in.Y_);
+		B_       = move(in.B_);
+		Mp_      = move(in.Mp_);
+		mu_      = move(in.mu_);
+		Phi_     = move(in.Phi_);
+		vLa_     = move(in.vLa_);
+		La_      = MatrixView( &vLa_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
+		fTaInd_  = in.fTaInd_;
+		fTpInd_  = in.fTpInd_;
+		nxnd_    = in.nxnd_;
+		NAnd_    = in.NAnd_;
+		NPnd_    = in.NPnd_;
+	}
+	return *this;
+}
+
+void MumiISigNR::expandISvec_(const vector<double> &viSig) const{
+	size_t aInd = 0;                                                    // index of the La lower triangle in the input vector
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {           // the last column is all 0, except the last element = 1.0
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+			La_.setElem(iRow, jCol, viSig[aInd]);
+			aInd++;
+		}
+	}
+}
+
+double MumiISigNR::logPost(const vector<double> &viSig) const{
+	// expand the element vector to make the L matrices
+	expandISvec_(viSig);
+	// backtransform the logit-p_jp and sum
+	vector<double> vP(Phi_.getNrows()*Phi_.getNcols(), 0.0);
+	MatrixView P( &vP, 0, Phi_.getNrows(), Phi_.getNcols() );
+	phi2p(Phi_, P);
+
+	// Clear the Y residuals and re-use for A residuals
+	vector<double> vResid(Y_.getNrows()*Y_.getNcols(), 0.0);
+	MatrixView mResid( &vResid, 0, Y_.getNrows(), Y_.getNcols() );
+	vector<double> AtraceVec(Y_.getNrows(), 0.0); // accumulate A trace values here
+	// calculate T_A
+	vector<double> Ta;
+	for (size_t k = fTaInd_; k < fTpInd_; k++) {
+		Ta.push_back( exp(viSig[k]) );
+	}
+	for (size_t m = 0; m < Phi_.getNcols(); m++) {                                 // m is the population index as in the model description document
+		vector<double> locAtr(Y_.getNrows(), 0.0);
+		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+				double diff = Y_.getElem(iRow, jCol) - Mp_.getElem(m, jCol);
+				mResid.setElem(iRow, jCol, diff);                                  // mResid now A - mu_m
+			}
+		}
+		mResid.trm('l', 'r', false, true, 1.0, La_);                               // mResid now (A-mu_m)L_A
+		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+				double rsd    = mResid.getElem(iRow, jCol);
+				locAtr[iRow] += Ta[jCol]*rsd*rsd;                                  // (A-mu_m)L_A T_A L_A^T(A - mu_p)^T
+			}
+		}
+		for (size_t j = 0; j < Y_.getNrows(); j++) {
+			AtraceVec[j] += P.getElem(j, m)*locAtr[j];                             // P_m(A-mu_m)L_A T_A L_A^T(A-mu_m)^T
+		}
+	}
+	double aTrace = 0.0;
+	for (auto &a : AtraceVec){
+		aTrace += a;
+	}
+	// M[p] crossproduct trace
+	double trM = 0.0;
+	for (size_t jCol = 0; jCol < Mp_.getNcols(); ++jCol) {
+		double dp = 0.0;
+		for (size_t iRow = 0; iRow < Mp_.getNrows(); ++iRow) {
+			double diff = Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol);
+			dp += diff*diff;
+		}
+		trM += exp(viSig[fTpInd_ + jCol])*dp;
+	}
+	// Sum of log-determinants
+	double ldetSumE = 0.0;
+	double ldetSumA = 0.0;
+	double ldetSumP = 0.0;
+	for (size_t k = 0; k < Y_.getNcols(); k++) {
+		ldetSumA += viSig[fTaInd_ + k];
+		ldetSumP += viSig[fTpInd_ + k];
+	}
+	ldetSumA *= NAnd_;
+	ldetSumP *= NPnd_;
+	// Calculate the prior components; k and m are as in the derivation document; doing the L_E and L_A in one pass
+	// first element has just the diagonal
+	double pTrace = log(nu0_*exp(viSig[fTaInd_]) + invAsq_);
+	for (size_t k = 1; k < La_.getNcols(); k++) { // k starts from the second element (k=1)
+		double sA = 0.0;
+		for (size_t m = 0; m <= k - 1; m++) { // the <= is intentional; excluding only m = k
+			sA += exp(viSig[fTaInd_ + m])*La_.getElem(k, m)*La_.getElem(k, m);
+		}
+		sA += exp(viSig[fTaInd_ + k]);
+		pTrace += log(nu0_*sA + invAsq_) + log(nu0_*exp(viSig[fTpInd_ + k]) + invAsq_);
+	}
+	pTrace *= nu0_ + 2.0*static_cast<double>( Y_.getNcols() );
+	return -0.5*(aTrace + trM - ldetSumE - ldetSumA - ldetSumP + pTrace);
+}
+
+void MumiISigNR::gradient(const vector<double> &viSig, vector<double> &grad) const {
+
+}
+
 // MumiISig methods
 MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<Index> *hierInd, const double &nu0, const double &invAsq, const size_t &nPops) : Model(), hierInd_{hierInd}, nu0_{nu0}, invAsq_{invAsq} {
 	const size_t N = (*hierInd_)[0].size(); // first index is data to lines
@@ -1265,6 +1475,96 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 const double WrapMMM::phiMin_ = -5.0;
 const double WrapMMM::addVal_ = 3.0;
 
+WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : vY_{vY} {
+#ifndef PKG_DEBUG_OFF
+	if (vY_.size()%d) {
+		throw string("WrapMMM constructor ERROR: length of response vector not divisible by number of traits");
+	}
+#endif
+	const size_t N = vY_.size()/d;
+	// Calculate starting values for theta
+	Y_ = MatrixView(&vY_, 0, N, d);
+
+	vTheta_.resize( (Npop + 1)*d + N*Npop, 0.0 );
+	Mp_ = MatrixView(&vTheta_, 0, Npop, d);
+	MatrixView mu(&vTheta_, Npop*d, 1, d);
+	PhiBegInd_ = (Npop + 1)*d;
+	Phi_       = MatrixView(&vTheta_, PhiBegInd_, N, Npop);
+
+	vector<size_t> ind;
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t iLn = 0; iLn < N/Npop; iLn++) {
+			ind.push_back(m);
+		}
+	}
+	Index popInd(ind);
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			if (popInd.groupID(iRow) == m){
+				Phi_.setElem( iRow, m, 0.95 );
+			} else {
+				Phi_.setElem( iRow, m, 0.05/static_cast<double>(Npop - 1) );
+			}
+		}
+	}
+	p2phi_();
+	Y_.colMeans(popInd, Mp_);
+
+	vector<double> tmpMu;
+	Mp_.colMeans(tmpMu);
+	for (size_t k = 0; k < d; k++) {
+		mu.setElem(0, k, tmpMu[k]);
+	}
+
+	// Calculate starting precision matrix values; do that before adding noise to theta
+	//
+	const double Ninv = 1.0/static_cast<double>(N-1);
+	vector<double> vSig(d*d, 0.0);
+	MatrixView Sig(&vSig, 0, d, d);
+
+	// Y residual
+	vector<double> vZM(N*d, 0.0);
+	MatrixView ZM(&vZM, 0, N, d);
+	Mp_.colExpand(popInd, ZM);
+	for (size_t jCol = 0; jCol < d; jCol++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			double diff = Y_.getElem(iRow, jCol) - ZM.getElem(iRow, jCol);
+			ZM.setElem(iRow, jCol, diff); // ZM now Y - ZM
+		}
+	}
+	ZM.syrk('l', Ninv, 0.0, Sig); // making covariances in one step
+	Sig.pseudoInv();
+	// save the scaled precision matrix lower triangle and log-diagonals to the precision parameter vector
+	vector<double> sqrT;
+	for (size_t k = 0; k < d; k++) {
+		sqrT.push_back( sqrt(Sig.getElem(k, k)) );
+	}
+	for (size_t jCol = 0; jCol < d-1; jCol++) {
+		for (size_t iRow = jCol+1; iRow < d; iRow++) {
+			vISig_.push_back( Sig.getElem(iRow, jCol)/(sqrT[iRow]*sqrT[jCol]) );
+		}
+	}
+	for (size_t k = 0; k < d; k++) {
+		vISig_.push_back( log(Sig.getElem(k, k)) );
+	}
+	// tau_p
+	double dNp = static_cast<double>(Npop - 1);
+	for (size_t jCol = 0; jCol < d; jCol++) {
+		double sSq = 0.0;
+		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) {
+			double diff = Mp_.getElem(iRow, jCol) - mu.getElem(0, jCol);
+			sSq += diff*diff;
+		}
+		vISig_.push_back( log(dNp/sSq) );
+	}
+	models_.push_back( new MumiLocNR(&vY_, d, &vISig_, tau0, Npop, alphaPr) );
+	//models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Npop) );
+	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
+	//samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
+	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_) );
+}
+
 WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY} {
 	hierInd_.push_back( Index(y2line) );
 	const size_t N = hierInd_[0].size();
@@ -1574,6 +1874,22 @@ void WrapMMM::imputeMissing_(){
 	}
 }
 
+void WrapMMM::p2phi_(){
+	vector<double> sSq(Phi_.getNrows(), 0.0);
+	for (size_t m = 0; m < Phi_.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
+			sSq[iRow] += Phi_.getElem(iRow, m);
+		}
+	}
+	for (size_t m = 0; m < Phi_.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
+			double y = sqrt( Phi_.getElem(iRow, m) );
+			y        = sin( acos( y/sqrt(sSq[iRow]) ) );
+			Phi_.setElem( iRow, m, logit(y*y) );
+		}
+	}
+}
+
 void WrapMMM::expandLa_(){
 	vector <double> Ta;
 	for (size_t k = fTaInd_; k < fTaInd_ + La_.getNcols(); k++) {
@@ -1709,7 +2025,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
 			parGrp++;
 		}
-		calibratePhi_();
+		//calibratePhi_();
 		//sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
@@ -1719,25 +2035,17 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tsample" << std::endl;
 			parGrp++;
 		}
-		calibratePhi_();
+		//calibratePhi_();
 		//sortPops_();
 		if ( (b%Nthin) == 0) {
 			for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) {
 				thetaChain.push_back(vTheta_[iTht]);
 			}
-			vector<double> vW;
-			for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
-				for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-					vW.push_back( logistic(Phi_.getElem(iRow, jCol)) );
-				}
-			}
-			MatrixView W( &vW, 0, Phi_.getNrows(), Phi_.getNcols() );
-			vector<double> rowSums;
-			W.rowSums(rowSums);
-			for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
-				for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-					piChain.push_back( W.getElem(iRow, jCol)/rowSums[iRow] );
-				}
+			vector<double> vP(Phi_.getNrows()*Phi_.getNcols(), 0.0);
+			MatrixView P( &vP, 0, Phi_.getNrows(), Phi_.getNcols() );
+			phi2p(Phi_, P);
+			for (auto &p : vP){
+				piChain.push_back(p);
 			}
 			for (auto &p : vISig_) {
 				isigChain.push_back(p);
