@@ -31,6 +31,8 @@
 #include <string>
 #include <cmath>
 
+#include <fstream>
+
 #include "danuts.hpp"
 #include "random.hpp"
 
@@ -557,6 +559,10 @@ uint32_t SamplerNUTS::adapt(){
 			const double mPwr   = pow(m_, negKappa_);
 			logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
 			updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
+			std::fstream fsEPS;
+			fsEPS.open("tstEPS.txt", std::ios::app);
+			fsEPS << epsilon_ << "\n";
+			fsEPS.close();
 			m_ += 1.0;
 			return 0;
 		} else { // logpost is +Inf, which is bad
@@ -618,6 +624,10 @@ uint32_t SamplerNUTS::adapt(){
 	epsilon_            = exp(logEps);
 	const double mPwr   = pow(m_, negKappa_);
 	logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
+	std::fstream fsEPS;
+	fsEPS.open("tstEPS.txt", std::ios::app);
+	fsEPS << epsilon_ << "\n";
+	fsEPS.close();
 	updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
 	m_ += 1.0;
 
@@ -630,7 +640,8 @@ uint32_t SamplerNUTS::update() {
 		if (firstAdapt_) {
 			firstUpdate_ = false;   // in case there were no adapt runs, leave epsilon_ as the constructor-assigned value
 		} else {
-			epsilon_     = epsWMN_;
+			//epsilon_     = epsWMN_;
+			epsilon_     = 0.1;
 			firstUpdate_ = false;
 		}
 	}
@@ -712,26 +723,31 @@ uint32_t SamplerNUTS::update() {
 }
 
 // SamplerMetro methods
-SamplerMetro::SamplerMetro(SamplerMetro &&in) :  model_{in.model_}, theta_{in.theta_} {
-	in.model_ = nullptr;
-	in.theta_ = nullptr;
-}
-SamplerMetro& SamplerMetro::operator=(SamplerMetro &&in){
-	if (&in == this) {
-		return *this;
+SamplerMetro::SamplerMetro(SamplerMetro &&in){
+	if (&in != this) {
+		model_    = in.model_;
+		theta_    = in.theta_;
+		incr_     = in.incr_;
+		in.model_ = nullptr;
+		in.theta_ = nullptr;
 	}
-	model_    = in.model_;
-	theta_    = in.theta_;
-	in.model_ = nullptr;
-	in.theta_ = nullptr;
+}
 
+SamplerMetro& SamplerMetro::operator=(SamplerMetro &&in){
+	if (&in != this) {
+		model_    = in.model_;
+		theta_    = in.theta_;
+		incr_     = in.incr_;
+		in.model_ = nullptr;
+		in.theta_ = nullptr;
+	}
 	return *this;
 }
 
 uint32_t SamplerMetro::adapt(){
 	vector<double> thetaPrime = *theta_;
 	for (auto &t : thetaPrime) {
-		t += 0.1*rng_.rnorm();
+		t += incr_*rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
 	double lU     = log(rng_.runifnz());
@@ -746,7 +762,7 @@ uint32_t SamplerMetro::adapt(){
 uint32_t SamplerMetro::update(){
 	vector<double> thetaPrime = *theta_;
 	for (auto &t : thetaPrime) {
-		t += 0.1*rng_.rnorm();
+		t += incr_*rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
 	double lU     = log(rng_.runifnz());

@@ -251,23 +251,64 @@ namespace BayesicSpace {
 		vector<double> *theta_;
 	};
 
+	/** \brief Metropolis sampler
+	 *
+	 * Simple Metropolis sampler with a Gaussian proposal.
+	 *
+	 */
 	class SamplerMetro : public Sampler {
 	public:
-		SamplerMetro() : Sampler(), model_{nullptr}, theta_{nullptr} {};
-		SamplerMetro(const Model *model, vector<double> *theta) : Sampler(), model_{model}, theta_{theta} {};
+		/** \brief Default constructor */
+		SamplerMetro() : Sampler(), model_{nullptr}, theta_{nullptr}, incr_{1.0} {};
+		/** \brief Constructor
+		 *
+		 * \param[in] model pointer to a model object that has a logPost() function
+		 * \param[in] theta pointer to a parameter vector
+		 * \param[in] incr standard deviation of the Gaussian proposal
+		 *
+		 */
+		SamplerMetro(const Model *model, vector<double> *theta, const double &incr) : Sampler(), model_{model}, theta_{theta}, incr_{incr} {};
 
+		/** \brief Copy constructor (deleted) */
 		SamplerMetro(const SamplerMetro &in) = delete;
+		/** \brief Copy assignment operator (deleted) */
 		SamplerMetro& operator=(const SamplerMetro &in) = delete;
+		/** \brief Move constructor
+		 *
+		 * \param[in] in object to be moved
+		 */
 		SamplerMetro(SamplerMetro &&in);
+		/** \brief Move assignment operator
+		 *
+		 * \param[in] in object to be moved
+		 * \return Output object
+		 *
+		 */
 		SamplerMetro& operator=(SamplerMetro &&in);
 
+		/** \brief Destructor */
 		~SamplerMetro() {model_ = nullptr; theta_ = nullptr; };
 
+		/** \brief Adaptation step
+		 *
+		 * \return accept/reject indicator (1 for accept, 0 for reject)
+		 *
+		 */
 		virtual uint32_t adapt();
+		/** \brief Sampling step
+		 *
+		 * \return accept/reject indicator (1 for accept, 0 for reject)
+		 *
+		 */
 		virtual uint32_t update();
 	protected:
+		/** \brief Pointer to a model object */
 		const Model *model_;
+		/** \brief Pointer to the parameter vector */
 		vector<double> *theta_;
+		/** \brief Gaussian proposal standard deviation (step size) */
+		double incr_;
+		/** \brief Random number generator */
 		RanDraw rng_;
 	};
 }

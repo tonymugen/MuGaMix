@@ -23,6 +23,24 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// testLpostSigNR
+Rcpp::List testLpostSigNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Npop, const std::vector<double>& theta, std::vector<double>& iSigTheta, const int32_t& ind, const double& limit, const double& incr);
+RcppExport SEXP _MuGaMix_testLpostSigNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NpopSEXP, SEXP thetaSEXP, SEXP iSigThetaSEXP, SEXP indSEXP, SEXP limitSEXP, SEXP incrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type theta(thetaSEXP);
+    Rcpp::traits::input_parameter< std::vector<double>& >::type iSigTheta(iSigThetaSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type ind(indSEXP);
+    Rcpp::traits::input_parameter< const double& >::type limit(limitSEXP);
+    Rcpp::traits::input_parameter< const double& >::type incr(incrSEXP);
+    rcpp_result_gen = Rcpp::wrap(testLpostSigNR(yVec, d, Npop, theta, iSigTheta, ind, limit, incr));
+    return rcpp_result_gen;
+END_RCPP
+}
 // testLpostLoc
 double testLpostLoc(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const int32_t& Npop, const std::vector<double>& theta, const std::vector<double>& iSigTheta);
 RcppExport SEXP _MuGaMix_testLpostLoc(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP NpopSEXP, SEXP thetaSEXP, SEXP iSigThetaSEXP) {
@@ -89,6 +107,24 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const double& >::type limit(limitSEXP);
     Rcpp::traits::input_parameter< const double& >::type incr(incrSEXP);
     rcpp_result_gen = Rcpp::wrap(lpTestSI(yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gradTestSInr
+Rcpp::List gradTestSInr(const std::vector<double>& yVec, const int32_t& d, const int32_t& Npop, const std::vector<double>& theta, std::vector<double>& iSigTheta, const int32_t& ind, const double& limit, const double& incr);
+RcppExport SEXP _MuGaMix_gradTestSInr(SEXP yVecSEXP, SEXP dSEXP, SEXP NpopSEXP, SEXP thetaSEXP, SEXP iSigThetaSEXP, SEXP indSEXP, SEXP limitSEXP, SEXP incrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type theta(thetaSEXP);
+    Rcpp::traits::input_parameter< std::vector<double>& >::type iSigTheta(iSigThetaSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type ind(indSEXP);
+    Rcpp::traits::input_parameter< const double& >::type limit(limitSEXP);
+    Rcpp::traits::input_parameter< const double& >::type incr(incrSEXP);
+    rcpp_result_gen = Rcpp::wrap(gradTestSInr(yVec, d, Npop, theta, iSigTheta, ind, limit, incr));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -165,10 +201,12 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_MuGaMix_testLpostLocNR", (DL_FUNC) &_MuGaMix_testLpostLocNR, 8},
+    {"_MuGaMix_testLpostSigNR", (DL_FUNC) &_MuGaMix_testLpostSigNR, 8},
     {"_MuGaMix_testLpostLoc", (DL_FUNC) &_MuGaMix_testLpostLoc, 5},
     {"_MuGaMix_lpTestLI", (DL_FUNC) &_MuGaMix_lpTestLI, 8},
     {"_MuGaMix_gradTestLI", (DL_FUNC) &_MuGaMix_gradTestLI, 8},
     {"_MuGaMix_lpTestSI", (DL_FUNC) &_MuGaMix_lpTestSI, 8},
+    {"_MuGaMix_gradTestSInr", (DL_FUNC) &_MuGaMix_gradTestSInr, 8},
     {"_MuGaMix_gradTestSI", (DL_FUNC) &_MuGaMix_gradTestSI, 8},
     {"_MuGaMix_runSamplerNR", (DL_FUNC) &_MuGaMix_runSamplerNR, 7},
     {"_MuGaMix_runSampler", (DL_FUNC) &_MuGaMix_runSampler, 7},

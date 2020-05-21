@@ -56,6 +56,24 @@ Rcpp::List testLpostLocNR(const std::vector<double> &yVec, const int32_t &d, con
 	}
 	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
 }
+//[[Rcpp::export(name="testLpostSigNR")]]
+Rcpp::List testLpostSigNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, const std::vector<double> &theta, std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
+	BayesicSpace::MumiISigNR test( &yVec, d, &theta, 2.5, 1e-8, static_cast<size_t>(Npop) );
+	const size_t i = static_cast<size_t>(ind - 1);
+	double thtVal  = iSigTheta[i];
+	double add     = -limit;
+	std::vector<double> lPost;
+	try {
+		while ( add <= limit ){
+			iSigTheta[i] = thtVal + add;
+			lPost.push_back( test.logPost(iSigTheta) );
+			add += incr;
+		}
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
+}
 //[[Rcpp::export(name="testLpostLoc")]]
 double testLpostLoc(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const std::vector<double> &theta, const std::vector<double> &iSigTheta){
 	std::vector<size_t> l1;
@@ -152,6 +170,26 @@ Rcpp::List lpTestSI(const std::vector<double> &yVec, const std::vector<int32_t> 
 		Rcpp::stop(problem);
 	}
 	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
+}
+//[[Rcpp::export(name="gradTestSInr")]]
+Rcpp::List gradTestSInr(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, const std::vector<double> &theta, std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
+	BayesicSpace::MumiISigNR test(&yVec, d, &theta, 2.5, 1e-8, static_cast<size_t>(Npop));
+	const size_t i = static_cast<size_t>(ind - 1);
+	double isVal  = iSigTheta[i];
+	double add     = -limit;
+	std::vector<double> gradVal;
+	std::vector<double> grad;
+	try {
+		while ( add <= limit ){
+			iSigTheta[i] = isVal + add;
+			test.gradient(iSigTheta, grad);
+			gradVal.push_back(grad[i]);
+			add += incr;
+		}
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("gradVal", gradVal));
 }
 //[[Rcpp::export(name="gradTestSI")]]
 Rcpp::List gradTestSI(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const std::vector<double> &theta, std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){

@@ -944,12 +944,11 @@ MumiISigNR::MumiISigNR(const vector<double> *yVec, const size_t &d, const vector
 	for (size_t k = 0; k < d; k++) {
 		La_.setElem(k, k, 1.0);
 	}
-	size_t trLen = d*(d-1)/2;
-	fTaInd_      = trLen;
-	fTpInd_      = fTaInd_ + d;
-	nxnd_        = nu0_*( nu0_ + 2.0*static_cast<double>(d) );
-	NAnd_        = static_cast<double>( Y_.getNrows() ) + nu0_ + 2.0*static_cast<double>(d);
-	NPnd_        = static_cast<double>(nPops) + nu0_ + 2.0*static_cast<double>(d);
+	fTaInd_ = d*(d-1)/2;
+	fTpInd_ = fTaInd_ + d;
+	nxnd_   = nu0_*( nu0_ + 2.0*static_cast<double>(d) );
+	NAnd_   = static_cast<double>( Y_.getNrows() ) + nu0_ + 2.0*static_cast<double>(d);
+	NPnd_   = static_cast<double>(nPops) + nu0_ + 2.0*static_cast<double>(d);
 }
 
 MumiISigNR::MumiISigNR(MumiISigNR &&in) {
@@ -1017,6 +1016,10 @@ double MumiISigNR::logPost(const vector<double> &viSig) const{
 	for (size_t k = fTaInd_; k < fTpInd_; k++) {
 		Ta.push_back( exp(viSig[k]) );
 	}
+	vector<double> Tp;
+	for (size_t k = fTpInd_; k < viSig.size(); k++) {
+		Tp.push_back( exp(viSig[k]) );
+	}
 	for (size_t m = 0; m < Phi_.getNcols(); m++) {                                 // m is the population index as in the model description document
 		vector<double> locAtr(Y_.getNrows(), 0.0);
 		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
@@ -1041,17 +1044,16 @@ double MumiISigNR::logPost(const vector<double> &viSig) const{
 		aTrace += a;
 	}
 	// M[p] crossproduct trace
-	double trM = 0.0;
+	double mTrace = 0.0;
 	for (size_t jCol = 0; jCol < Mp_.getNcols(); ++jCol) {
 		double dp = 0.0;
 		for (size_t iRow = 0; iRow < Mp_.getNrows(); ++iRow) {
 			double diff = Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol);
 			dp += diff*diff;
 		}
-		trM += exp(viSig[fTpInd_ + jCol])*dp;
+		mTrace += exp(viSig[fTpInd_ + jCol])*dp;
 	}
 	// Sum of log-determinants
-	double ldetSumE = 0.0;
 	double ldetSumA = 0.0;
 	double ldetSumP = 0.0;
 	for (size_t k = 0; k < Y_.getNcols(); k++) {
@@ -1062,20 +1064,118 @@ double MumiISigNR::logPost(const vector<double> &viSig) const{
 	ldetSumP *= NPnd_;
 	// Calculate the prior components; k and m are as in the derivation document; doing the L_E and L_A in one pass
 	// first element has just the diagonal
-	double pTrace = log(nu0_*exp(viSig[fTaInd_]) + invAsq_);
+	double pTrace = log(nu0_*Ta[0] + invAsq_) + log(nu0_*Tp[0] + invAsq_);
 	for (size_t k = 1; k < La_.getNcols(); k++) { // k starts from the second element (k=1)
 		double sA = 0.0;
 		for (size_t m = 0; m <= k - 1; m++) { // the <= is intentional; excluding only m = k
-			sA += exp(viSig[fTaInd_ + m])*La_.getElem(k, m)*La_.getElem(k, m);
+			sA += Ta[m]*La_.getElem(k, m)*La_.getElem(k, m);
 		}
-		sA += exp(viSig[fTaInd_ + k]);
-		pTrace += log(nu0_*sA + invAsq_) + log(nu0_*exp(viSig[fTpInd_ + k]) + invAsq_);
+		sA += Ta[k];
+		pTrace += log(nu0_*sA + invAsq_) + log(nu0_*Tp[k] + invAsq_);
 	}
 	pTrace *= nu0_ + 2.0*static_cast<double>( Y_.getNcols() );
-	return -0.5*(aTrace + trM - ldetSumE - ldetSumA - ldetSumP + pTrace);
+	return -0.5*(aTrace + mTrace - ldetSumA - ldetSumP + pTrace);
 }
 
 void MumiISigNR::gradient(const vector<double> &viSig, vector<double> &grad) const {
+	// expand the element vector to make the L matrices
+	expandISvec_(viSig);
+	if ( grad.size() ){
+		grad.clear();
+	}
+	grad.resize(viSig.size(), 0.0);
+
+	// backtransform phi_jp and scale
+	vector<double> vP(Phi_.getNrows()*Phi_.getNcols(), 0.0);
+	MatrixView P( &vP, 0, Phi_.getNrows(), Phi_.getNcols() );
+	phi2p(Phi_, P);
+
+	// Clear the Y residuals and re-use for A residuals
+	vector<double> vResid(Y_.getNrows()*Y_.getNcols(), 0.0);
+	MatrixView mResid( &vResid, 0, Y_.getNrows(), Y_.getNcols() );
+	vector<double> vRtR(Y_.getNcols()*Y_.getNcols(), 0.0);
+	MatrixView mRtR( &vRtR, 0, Y_.getNcols(), Y_.getNcols() );
+	for (size_t m = 0; m < Phi_.getNcols(); m++) {
+		for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
+			for (size_t iRow = 0; iRow < Y_.getNrows(); ++iRow) {
+				double diff =  P.getElem(iRow, m)*( Y_.getElem(iRow, jCol) - Mp_.getElem(m, jCol) );
+				mResid.setElem(iRow, jCol, diff); // sqrt(P[.p])(A - M[p.])
+			}
+		}
+		mResid.syrk('l', 1.0, 1.0, mRtR); // adding to the mRtR that's from other populations
+	}
+	vector<double> vRtRLT(Y_.getNcols()*Y_.getNcols(), 0.0);
+	MatrixView mRtRLT( &vRtRLT, 0, Y_.getNcols(), Y_.getNcols() );
+	La_.symm('l', 'l', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_A; R = sum(P_p(A - M_p))
+	// make a vector of T_A (provided values are on the log scale)
+	vector<double> Tx;
+	// start with unweighted values because they can be used in weight calculations
+	for (size_t k = 0; k < Y_.getNcols(); k++) {
+		Tx.push_back( exp(viSig[fTaInd_ + k]) );
+	}
+	// mutiply by T_A (the whole matrix because I will need it for left-multiplication later)
+	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+		for (size_t iRow = 0; iRow < Y_.getNcols(); iRow++) {
+			double prod = mRtRLT.getElem(iRow, jCol)*Tx[jCol];
+			mRtRLT.setElem(iRow, jCol, prod);
+		}
+	}
+	vector<double> vechLwA;                                     // vech(L^w_A)
+	vector<double> weights(Y_.getNcols(), 0.0);                 // will become a d-vector of weights (each element corresponding to a row of L_X; the first element is weighted T_E[1,1])
+	size_t vechInd = 0;
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {   // nothing to be done for the last column (it only has a diagonal element)
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+			double prod1 = Tx[jCol]*La_.getElem(iRow, jCol);
+			vechLwA.push_back(prod1);
+			weights[iRow] += prod1*La_.getElem(iRow, jCol); // unweighted for now
+			vechInd++;
+		}
+	}
+	for (size_t k = 0; k < Y_.getNcols(); k++) {
+		weights[k] = nu0_*(weights[k] + Tx[k]) + invAsq_;
+	}
+	vechInd = 0;
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+			vechLwA[vechInd] = vechLwA[vechInd]/weights[iRow];
+			vechInd++;
+		}
+	}
+	// add the lower triangles and store the results in the gradient vector
+	vechInd = 0;
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+			grad[vechInd] = -mRtRLT.getElem(iRow, jCol) - nxnd_*vechLwA[vechInd];
+			vechInd++;
+		}
+	}
+	// The T_A gradient
+	// Starting with the first matrix: mRtRLT becomes L_A^TR^TRL_AT_A
+	mRtRLT.trm('l', 'l', true, true, 1.0, La_);
+	// now sum everything and store the result in the gradient vector
+	for (size_t k = 0; k < Y_.getNcols(); k++) {
+		grad[fTaInd_ + k] = 0.5*(NAnd_ - mRtRLT.getElem(k, k) - nxnd_*Tx[k]/weights[k]);
+	}
+	// The T_P gradient
+	// Start with calculating the residual, replacing the old one
+	vResid.clear();
+	for (size_t jCol = 0; jCol < Mp_.getNcols(); jCol++) {
+		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) { // even if the population is empty; prior still has an effect
+			vResid.push_back( Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol) );
+		}
+	}
+	mResid = MatrixView( &vResid, 0, Mp_.getNrows(), Mp_.getNcols() );
+	mResid.syrk('l', 1.0, 0.0, mRtR);
+	for (size_t k = 0; k < Y_.getNcols(); k++) {
+		Tx[k] = exp(viSig[fTpInd_ + k]);
+	}
+	for (size_t k = 0; k < Mp_.getNcols(); k++) {
+		weights[k] = nu0_*Tx[k] + invAsq_;
+	}
+	// now sum everything and store the result in the gradient vector
+	for (size_t k = 0; k < Mp_.getNcols(); k++) {
+		grad[fTpInd_ + k] = 0.5*(NPnd_ - mRtR.getElem(k, k)*Tx[k] - nxnd_*Tx[k]/weights[k]);
+	}
 
 }
 
@@ -1558,11 +1658,11 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 		vISig_.push_back( log(dNp/sSq) );
 	}
 	models_.push_back( new MumiLocNR(&vY_, d, &vISig_, tau0, Npop, alphaPr) );
-	//models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Npop) );
+	models_.push_back( new MumiISigNR(&vY_, d, &vTheta_, nu0, invAsq, Npop) );
 	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
-	//samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
-	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_) );
+	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.1) );
+	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
+	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_, 0.3) );
 }
 
 WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY} {

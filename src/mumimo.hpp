@@ -263,7 +263,7 @@ namespace BayesicSpace {
 	 * The unit lower-triangular \f$\boldsymbol{L}_A\f$ is stored first (by column and excluding the diagonal), then the diagonal log-precision matrix \f$\boldsymbol{T}_A\f$, then \f$\boldsymbol{T}_M\f$ (see the model description for notation).
 	 *
 	 */
-	class MumiISigNR final : Model {
+	class MumiISigNR final : public Model {
 	public:
 		/** \brief Default constructor */
 		MumiISigNR(): Model(), nu0_{2.0}, invAsq_{1e-10}, fTaInd_{0}, fTpInd_{0} {};
