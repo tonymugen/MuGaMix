@@ -31,8 +31,6 @@
 #include <string>
 #include <cmath>
 
-#include <fstream>
-
 #include "danuts.hpp"
 #include "random.hpp"
 
@@ -523,12 +521,9 @@ uint32_t SamplerNUTS::adapt(){
 		firstAdapt_ = false;
 	}
 	// following the notation in Hoffman and Gelman
-	// epsilon_0 and mu already set in the constructor (calling FindInitialEpsilon)
 	char s        = '1'; // the stopping condition; since sizeof(bool) is implementation-defined, I opt for using one byte for sure
 	uint16_t j    = 0;   // tree depth
 	double n      = 1.0; // n; using a double straight away so that I do not have to re-cast for division
-	double alpha  = 0.0;
-	double nAlpha = 0.0;
 	// sampling r_0
 	vector<double> r0;
 	for (size_t i = 0; i < theta_->size(); i++) {
@@ -537,14 +532,14 @@ uint32_t SamplerNUTS::adapt(){
 	vector<double> rPlus(r0);
 	vector<double> rMinus(r0);
 	// sampling the log-slice variable
-	nH0_        = model_->logPost(*theta_);
-	int fpClsH0 = fpclassify(nH0_);
+	const double lPost = model_->logPost(*theta_);
+	int fpClsH0        = fpclassify(nH0_);
 	// check sanity of log-posterior evaluation
 	if (fpClsH0 == FP_NAN) {
 		throw string("log-posterior evaluates to NaN in the adaptation phase");
 	} else if (fpClsH0 == FP_INFINITE) {
 
-		if (signbit(nH0_)) { // logpost is -Inf
+		if (signbit(lPost)) { // logpost is -Inf
 			// try to find theta values that give a finite log-posterior. Stop when this happens, but give up after 100 attempts and hope the next round will be better. Return 0 as tree depth.
 			for (uint16_t i = 0; i < 100; i++) {
 				leapfrog_(*theta_, r0, epsilon_);
@@ -559,10 +554,6 @@ uint32_t SamplerNUTS::adapt(){
 			const double mPwr   = pow(m_, negKappa_);
 			logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
 			updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
-			std::fstream fsEPS;
-			fsEPS.open("tstEPS.txt", std::ios::app);
-			fsEPS << epsilon_ << "\n";
-			fsEPS.close();
 			m_ += 1.0;
 			return 0;
 		} else { // logpost is +Inf, which is bad
@@ -570,26 +561,36 @@ uint32_t SamplerNUTS::adapt(){
 		}
 
 	}
-	nH0_ -= 0.5*dotProd(r0);
-	const double lu = log(rng_.runifnz()) + nH0_;   // log(slice variable)
+	const double lu = log(rng_.runifnz()) + lPost - 0.5*dotProd(rPlus);   // log(slice variable)
 
 	vector<double> thetaPlus(*theta_);
 	vector<double> thetaMinus(*theta_);
 	vector<double> thetaPrime;
+	// I optimize the "acceptance rate", which reflects the number of times *theta_ is replaced by thetaPrime.
+	// This is different from the Hoffman and Gelman approach. Their method was giving me epsilon_ values far too small.
+	// To estimate the acceptance rate, I multiply all the probabilities of rejection and then subtract from one.
+	double accRate = 1.0;
 	// theta_ will be theta^{m-1}
 	while (s) {
 		double nPrime = 0.0;
 		char sPrime   = '\0';
 		if (rng_.ranInt()&static_cast<uint64_t>(0x01)) { // testing if the last bit is set; should be a 50/50 chance, so in effect sampling U{-1,1}
 			// positive step; copy negative variables to prevent modification
-			buildTreePos_(thetaPlus, rPlus, lu, epsilon_, j, thetaPlus, rPlus, thetaMinus, rMinus, thetaPrime, nPrime, sPrime, alpha, nAlpha);
+			buildTreePos_(thetaPlus, rPlus, lu, epsilon_, j, thetaPlus, rPlus, thetaMinus, rMinus, thetaPrime, nPrime, sPrime);
 		} else {
 			// negative step; copy positive variables to prevent modification
-			buildTreeNeg_(thetaMinus, rMinus, lu, -epsilon_, j, thetaPlus, rPlus, thetaMinus, rMinus, thetaPrime, nPrime, sPrime, alpha, nAlpha);
+			buildTreeNeg_(thetaMinus, rMinus, lu, -epsilon_, j, thetaPlus, rPlus, thetaMinus, rMinus, thetaPrime, nPrime, sPrime);
 		}
 		if (sPrime) {
-			if ( (nPrime >= n) || (rng_.runif() <= nPrime/n) ) {
+			double nRat = nPrime/n;
+			if (nPrime >= n){
+				accRate = 0.0;                // definitely accepted; the overall acceptance probability estimate will then be 1
 				(*theta_) = move(thetaPrime);
+			} else if (rng_.runif() <= nRat){
+				accRate *= 1.0 - nRat;
+				(*theta_) = move(thetaPrime);
+			} else {
+				accRate *= 1.0 - nRat;
 			}
 			vector<double> thetaDiff;
 			// theta^+ - theta^-
@@ -611,23 +612,19 @@ uint32_t SamplerNUTS::adapt(){
 		n += nPrime;
 
 		if (j >= 6) { // too many doublings; nudge the epsilon to a larger value
-			alpha  = 1.0;
-			nAlpha = 1.0;
+			accRate = 0.0;
 			break;
 		}
 		j++;
 	}
+	accRate = 1.0 - accRate;
 
 	const double mt0    = m_ + t0_;
-	Hprevious_          = (1.0 - 1.0/mt0)*Hprevious_ + (delta_ - alpha/nAlpha)/mt0; // buildTree_ execution guarantees that nAlpha >= 1.0
+	Hprevious_          = (1.0 - 1.0/mt0)*Hprevious_ + (delta_ - accRate)/mt0;
 	const double logEps = mu_ - (sqrt(m_)*Hprevious_)/gamma_;
 	epsilon_            = exp(logEps);
 	const double mPwr   = pow(m_, negKappa_);
 	logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
-	std::fstream fsEPS;
-	fsEPS.open("tstEPS.txt", std::ios::app);
-	fsEPS << epsilon_ << "\n";
-	fsEPS.close();
 	updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
 	m_ += 1.0;
 
@@ -640,8 +637,7 @@ uint32_t SamplerNUTS::update() {
 		if (firstAdapt_) {
 			firstUpdate_ = false;   // in case there were no adapt runs, leave epsilon_ as the constructor-assigned value
 		} else {
-			//epsilon_     = epsWMN_;
-			epsilon_     = 0.1;
+			epsilon_     = epsWMN_;
 			firstUpdate_ = false;
 		}
 	}
@@ -719,7 +715,6 @@ uint32_t SamplerNUTS::update() {
 		j++;
 	}
 	return j;
-
 }
 
 // SamplerMetro methods
