@@ -301,7 +301,7 @@ double locDigamma(const double &x){
 		return -s;
 	}
 }
-/** brief Unrestricted \f$ \boldsymbol{\Phi} \f$  to probability matrix conversion
+/** brief Unrestricted \f$ \boldsymbol{\Phi} \f$ to probability matrix conversion
  *
  * Does the hyper-spherical back-transformation of the free logit-space population assignment probability matrix to the true probability matrix (with all rows summing to 1).
  *
@@ -331,6 +331,38 @@ void phi2p(const MatrixViewConst &Phi, MatrixView &P){
 				P.setElem(iRow, m, rowProd[iRow]);
 			} else {
 				double psi = P.getElem(iRow, m);
+				P.setElem(iRow, m, rowProd[iRow]*(1.0 - psi));
+				rowProd[iRow] *= psi;
+			}
+		}
+	}
+}
+
+/** brief Weight matrix \f$ \boldsymbol{W} \f$ to probability matrix conversion
+ *
+ * Does the hyper-spherical back-transformation of the free population assignment weight (\f$ w = \mathrm{logistic}(\phi)\f$) matrix to the true probability matrix (with all rows summing to 1).
+ *
+ * \param[in] W the free-parameter matrix
+ * \param[out] P the population assignment probability matrix
+ *
+ */
+void w2p(const MatrixViewConst &W, MatrixView &P){
+#ifndef PKG_DEBUG_OFF
+	if ( (W.getNcols() != P.getNcols()) || (W.getNrows() != P.getNrows()) ){
+		throw string("ERROR: W and P dimensions in incompatible in w2p(MatrixViewConst &, MatrixView &)");
+	}
+#endif
+	// Re-weight the P using the Betancourt (2012) algorithm
+	vector<double> rowProd(W.getNrows(), 0.0);
+	for (size_t m = 0; m < W.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < W.getNrows(); iRow++) {
+			if (m == 0){
+				rowProd[iRow] = W.getElem(iRow, m);
+				P.setElem(iRow, m, 1.0 - rowProd[iRow]);
+			} else if (m == W.getNcols() - 1){
+				P.setElem(iRow, m, rowProd[iRow]);
+			} else {
+				double psi = W.getElem(iRow, m);
 				P.setElem(iRow, m, rowProd[iRow]*(1.0 - psi));
 				rowProd[iRow] *= psi;
 			}
@@ -375,6 +407,37 @@ void phi2p(const MatrixView &Phi, MatrixView &P){
 	}
 }
 
+/** brief Weight matrix to probability matrix conversion
+ *
+ * Does the hyper-spherical back-transformation of the free population assignment weight (\f$ w = \mathrm{logistic}(\phi)\f$) matrix to the true probability matrix (with all rows summing to 1).
+ *
+ * \param[in] W the free-parameter matrix
+ * \param[out] P the population assignment probability matrix
+ *
+ */
+void w2p(const MatrixView &W, MatrixView &P){
+#ifndef PKG_DEBUG_OFF
+	if ( (W.getNcols() != P.getNcols()) || (W.getNrows() != P.getNrows()) ){
+		throw string("ERROR: W and P dimensions in incompatible in w2p(MatrixView &, MatrixView &)");
+	}
+#endif
+	// Re-weight the P using the Betancourt (2012) algorithm
+	vector<double> rowProd(W.getNrows(), 0.0);
+	for (size_t m = 0; m < W.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < W.getNrows(); iRow++) {
+			if (m == 0){
+				rowProd[iRow] = W.getElem(iRow, m);
+				P.setElem(iRow, m, 1.0 - rowProd[iRow]);
+			} else if (m == W.getNcols() - 1){
+				P.setElem(iRow, m, rowProd[iRow]);
+			} else {
+				double psi = W.getElem(iRow, m);
+				P.setElem(iRow, m, rowProd[iRow]*(1.0 - psi));
+				rowProd[iRow] *= psi;
+			}
+		}
+	}
+}
 
 // MumiLocNR methods
 MumiLocNR::MumiLocNR(const vector<double> *yVec, const size_t &d, const vector<double> *iSigVec, const double &tau, const size_t &nPops, const double &alphaPr) : Model(), yVec_{yVec}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops}, alphaPr_{alphaPr - 1.0} {
@@ -519,7 +582,127 @@ double MumiLocNR::logPost(const vector<double> &theta) const{
 }
 
 void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) const {
+	expandISvec_();
+	if ( grad.size() ) {
+		grad.clear();
+	}
+	grad.resize(theta.size(), 0.0);
+	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
+	const size_t Mdim = Npop_*Y_.getNcols();
+	MatrixViewConst M( &theta, 0, Npop_, Y_.getNcols() );
+	MatrixViewConst mu( &theta, Mdim, 1, Y_.getNcols() ); // overall mean
+	MatrixViewConst Phi(&theta, PhiBegInd_, Y_.getNrows(), Npop_);
 
+	// Matrix views of the gradient
+	MatrixView gM( &grad, 0, Npop_, Y_.getNcols() );
+	MatrixView gmu( &grad, Mdim, 1, Y_.getNcols() ); // overall mean
+	MatrixView gPhi(&grad, PhiBegInd_, Y_.getNrows(), Npop_);
+
+	// L_AxT_A
+	vector<double> vISigA(Y_.getNcols()*Y_.getNcols(), 0.0);
+	vector<double> Tx;
+	MatrixView iSigA( &vISigA, 0, Y_.getNcols(), Y_.getNcols() );
+	for (size_t k = 0; k < iSigA.getNcols(); k++) {
+		Tx.push_back( exp( (*iSigTheta_)[k + fTaInd_] ) );
+	}
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
+		iSigA.setElem(jCol, jCol, Tx[jCol]);
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+			iSigA.setElem(iRow, jCol, La_.getElem(iRow, jCol)*Tx[jCol]);
+		}
+	}
+	vISigA.back() = Tx.back();
+	iSigA.trm('l', 'r', true, true, 1.0, La_);
+
+	// backtransform the logit-p_jp and calculate row sums
+	vector<double> vP(Phi.getNrows()*Phi.getNcols());
+	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
+	vector<double> vW(Phi.getNrows()*Phi.getNcols());
+	MatrixView W( &vW, 0, Phi.getNrows(), Phi.getNcols() );
+	for (size_t m = 0; m < Phi.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
+			W.setElem(iRow, m, logistic(Phi.getElem(iRow, m)));
+		}
+	}
+	// Re-weight p_jm using the Betancourt (2012) method
+	w2p(W, P);
+	vector<double> vYresid(yVec_->size(), 0.0);
+	for (size_t m = 0; m < Npop_; m++) {
+		vYresid.assign( yVec_->begin(), yVec_->begin() + Ydim );                                    // copy over Y_
+		MatrixView Yresid( &vYresid, 0, Y_.getNrows(), Y_.getNcols() );
+		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+				Yresid.subtractFromElem(iRow, jCol, M.getElem(m, jCol));                            // Y - mu_m
+			}
+		}
+		vector<double> vYresISA(Y_.getNrows()*Y_.getNcols(), 0.0);
+		MatrixView YresISA( &vYresISA, 0, Y_.getNrows(), Y_.getNcols() );
+		Yresid.symm('l', 'r', 1.0, iSigA, 0.0, YresISA);                                            // (Y - mu_m)Sigma^{-1}_A
+
+		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+				gPhi.addToElem(iRow, m, Yresid.getElem(iRow, jCol)*YresISA.getElem(iRow, jCol));    // calculate the (j,m) kernel and store in gPhi to calculate phi partials later
+			}
+		}
+
+		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+				YresISA.multiplyElem(iRow, jCol, P.getElem(iRow, m));                               // P_m(Y - mu_m)Sigma^{-1}_A
+			}
+		}
+		// sum the A residuals into gM rows
+		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+				gM.addToElem(m, jCol, YresISA.getElem(iRow, jCol));
+			}
+		}
+	}
+	// M partial derivatives
+	// make tau_p
+	vector<double> tauP;
+	for (size_t k = fTpInd_; k < iSigTheta_->size(); k++) {
+		tauP.push_back( exp( (*iSigTheta_)[k] ) );
+	}
+	// Population mean residual
+	vector<double> vPOPresid(theta.begin(), theta.begin()+Mdim);
+	MatrixView POPresid( &vPOPresid, 0, M.getNrows(), M.getNcols() );
+	for (size_t jCol = 0; jCol < POPresid.getNcols(); jCol++) {
+		for (size_t iRow = 0; iRow < POPresid.getNrows(); iRow++) {
+			POPresid.subtractFromElem( iRow, jCol, mu.getElem(0, jCol) );
+			POPresid.multiplyElem(iRow, jCol, tauP[jCol]); // (M-mu)T_M
+		}
+	}
+	// complete the M gradient
+	for (size_t jCol = 0; jCol < M.getNcols(); jCol++) {
+		for (size_t iRow = 0; iRow < M.getNrows(); iRow++) {
+			gM.subtractFromElem( iRow, jCol, POPresid.getElem(iRow, jCol) );  // gM already has the summed A residuals
+		}
+	}
+	// mu partial derivatives
+	vector <double> PresSum; // colSums will resize
+	POPresid.colSums(PresSum);
+	for (size_t jCol = 0; jCol < M.getNcols(); jCol++) {
+		PresSum[jCol] -= mu.getElem(0, jCol)*tau0_;
+	}
+	for (size_t jCol = 0; jCol < gmu.getNcols(); jCol++) {
+		gmu.setElem(0, jCol, PresSum[jCol]);
+	}
+	// Phi partial derivatives
+	for (size_t m = 0; m < Npop_; m++) {
+		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
+			// gPhi already has kernels
+			double w   = W.getElem(iRow, m); 
+			double oMw = 1.0 - w;
+			double phi = P.getElem(iRow, m)*w*gPhi.getElem(iRow, m);
+			double pl  = 0.0;
+			for (size_t l = m+1; l < Npop_; l++) {
+				pl += P.getElem(iRow, l)*gPhi.getElem(iRow, l); // these values of gPhi not modified yet, so it is safe to modify gPhi in place
+			}
+			phi -= oMw*pl;
+			phi += alphaPr_*(w + oMw*( (Npop_ > m+1) ? static_cast<double>(Npop_ - m - 1) : 0.0)); // alphaPr_ already with 1.0 subtracted
+			gPhi.setElem(iRow, m, phi);
+		}
+	}
 }
 // MumiLoc methods
 const double MumiLoc::pSumCutOff_ = 0.003;

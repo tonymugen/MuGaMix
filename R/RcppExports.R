@@ -5,6 +5,10 @@ testLpostLocNR <- function(yVec, d, Npop, theta, iSigTheta, ind, limit, incr) {
     .Call(`_MuGaMix_testLpostLocNR`, yVec, d, Npop, theta, iSigTheta, ind, limit, incr)
 }
 
+testGradLocNR <- function(yVec, d, Npop, theta, iSigTheta, ind, limit, incr) {
+    .Call(`_MuGaMix_testGradLocNR`, yVec, d, Npop, theta, iSigTheta, ind, limit, incr)
+}
+
 testLpostSigNR <- function(yVec, d, Npop, theta, iSigTheta, ind, limit, incr) {
     .Call(`_MuGaMix_testLpostSigNR`, yVec, d, Npop, theta, iSigTheta, ind, limit, incr)
 }
