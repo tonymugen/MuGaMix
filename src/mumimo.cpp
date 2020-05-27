@@ -688,20 +688,31 @@ void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) cons
 		gmu.setElem(0, jCol, PresSum[jCol]);
 	}
 	// Phi partial derivatives
-	for (size_t m = 0; m < Npop_; m++) {
+	for (size_t m = 0; m < (Npop_-1); m++) { // last m is a special case
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
 			// gPhi already has kernels
-			double w   = W.getElem(iRow, m); 
+			double w   = W.getElem(iRow, m);
 			double oMw = 1.0 - w;
 			double phi = P.getElem(iRow, m)*w*gPhi.getElem(iRow, m);
 			double pl  = 0.0;
 			for (size_t l = m+1; l < Npop_; l++) {
-				pl += P.getElem(iRow, l)*gPhi.getElem(iRow, l); // these values of gPhi not modified yet, so it is safe to modify gPhi in place
+				pl += P.getElem(iRow, l)*gPhi.getElem(iRow, l);                        // these values of gPhi not modified yet, so it is safe to modify gPhi in place
 			}
 			phi -= oMw*pl;
-			phi += alphaPr_*(w + oMw*( (Npop_ > m+1) ? static_cast<double>(Npop_ - m - 1) : 0.0)); // alphaPr_ already with 1.0 subtracted
+			if ( Npop_ > (m+2) ){
+				phi = 0.5*phi - alphaPr_*(w - oMw*static_cast<double>(Npop_ - m - 2)); // alphaPr_ already with 1.0 subtracted; - 2 because of the base-0 adjustment
+			} else {
+				phi  = 0.5*phi - alphaPr_*w;                                           // alphaPr_ already with 1.0 subtracted
+			}
 			gPhi.setElem(iRow, m, phi);
 		}
+	}
+	const size_t m = Npop_ - 1;
+	for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
+		double phi = gPhi.getElem(iRow, m);
+		phi       *= -0.5*P.getElem(iRow, m);
+		phi        = ( 1.0 - W.getElem(iRow, m) )*(phi + alphaPr_);
+		gPhi.setElem(iRow, m, phi);
 	}
 }
 // MumiLoc methods

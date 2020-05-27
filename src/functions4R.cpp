@@ -67,7 +67,7 @@ Rcpp::List testGradLocNR(const std::vector<double> &yVec, const int32_t &d, cons
 	try {
 		while ( add <= limit ){
 			theta[i] = thtVal + add;
-			test.gradient(theta, grad); 
+			test.gradient(theta, grad);
 			gradVal.push_back(grad[i]);
 			add += incr;
 		}
