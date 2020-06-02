@@ -45,6 +45,8 @@ using std::map;
 
 namespace BayesicSpace {
 	// forward declarations
+	class MumiNR;
+	class MumiP;
 	class MumiLocNR;
 	class MumiISigNR;
 	class MumiLoc;
@@ -53,6 +55,107 @@ namespace BayesicSpace {
 	class WrapMMMnr;
 	class WrapMMM;
 
+	/** \brief No-replication multiplicative mixture model parameter component
+	 *
+	 * Models all mixture model components given population assignment probabilities. Implements the log-posterior and gradient methods.
+	 *
+	 */
+	class MumiNR final : public Model {
+	public:
+		/** \brief Default constructor */
+		MumiNR() : Model(), yVec_{nullptr}, tau0_{0.0}, nu0_{0.0}, invAsq_{0.0}, LaInd_{0}, TaInd_{0}, TpInd_{0} {};
+		/** \brief Constructor
+		 *
+		 * \param[in] yVec pointer to the data vector
+		 * \param[in] pVec pointer to the population assignment probability vector
+		 * \param[in] d number of traits
+		 * \param[in] Npop number of populations
+		 * \param[in] tau0 grand mean prior precision
+		 * \param[in] nu0 inverse covariance prior degrees of freedom
+		 * \param[in] invAsq inverse covariance prior precision
+		 */
+		MumiNR(const vector<double> *yVec, const vector<double> *pVec, const size_t &d, const size_t &Npop, const double &tau0, const double &nu0, const double &invAsq);
+		/** \brief Destructor */
+		~MumiNR(){yVec_ = nullptr; };
+
+		/** \brief Copy constructor (deleted) */
+		MumiNR(const MumiNR &in) = delete;
+		/** \brief Copy assignment (deleted) */
+		MumiNR& operator=(const MumiNR &in) = delete;
+		/** \brief Move constructor
+		 *
+		 * \param[in] in object to move
+		 */
+		MumiNR(MumiNR &&in);
+		/** \brief Move assignment operator
+		 *
+		 * \param[in] in object to be moved
+		 * \return target object
+		 */
+		MumiNR& operator=(MumiNR &&in);
+		/** \brief Log-posterior function
+		 *
+		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector.
+		 * The parameter vector has population means, among-individual inverse covariances, among-individual precisions, and among-population precisions in that order.
+		 *
+		 * \param[in] theta parameter vector
+		 * \return Value of the log-posterior
+		 */
+		double logPost(const vector<double> &theta) const override;
+		/** \brief Gradient of the log-posterior
+		 *
+		 * Calculates the partial derivative of the log-posterior for each element in the provided parameter vector.
+		 *
+		 * \param[in] theta parameter vector
+		 * \param[out] grad partial derivative (gradient) vector
+		 *
+		 */
+		void gradient(const vector<double> &theta, vector<double> &grad) const override;
+	protected:
+		/** \brief Pointer to the data vector */
+		const vector<double> *yVec_;
+		/** \brief Matrix view of data */
+		MatrixViewConst Y_;
+		/** \brief Population assignment probability matrix */
+		MatrixViewConst P_;
+		/** \brief Line factorized precision matrix view
+		 *
+		 * Points to `vLa_`.
+		 */
+		mutable MatrixView La_;
+		/** \brief Expanded \f$ \boldsymbol{L}_A \f$ matrix
+		 *
+		 * Vectorized line unity triangular matrix (\f$\boldsymbol{L}_A\f$ in the model description).
+		 */
+		mutable vector<double> vLa_;
+		/** \brief Grand mean prior precision */
+		double tau0_;
+		/** \brief Prior degrees of freedom
+		 *
+		 * Degrees of freedom of the half-\f$t\f$ prior distribution on the covariance matrix. If \f$\nu_0 = 2\f$, the prior is half-Cauchy. Should not be large for a vague prior.
+		 */
+		double nu0_;
+		/** \brief Prior inverse-variance
+		 *
+		 * Inverse variance of the prior. Should be set to a large value for a vague prior.
+		 */
+		double invAsq_;
+		// the following indices refer to the theta passed to the log-post and gradient functions
+		/** \brief First element of the among-individual inverse-covariances */
+		size_t LaInd_;
+		/** \brief First element of the among-individual precisions */
+		size_t TaInd_;
+		/** \brief First element of the among-population precisions */
+		size_t TpInd_;
+		/** \brief Expand the vector of factorized precision matrices
+		 *
+		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix contained in the precision matrix potion of the parameter vector into the internal `L_` vector.
+		 * The parameter vector stores only the non-zero elements of these matrix.
+		 *
+		 * \param[in] theta the parameter vector
+		 */
+		void expandISvec_(const vector<double> &theta) const;
+	};
 	/** \brief Mixture model for location parameters, no replication
 	 *
 	 * Implements log-posterior and gradient for the location parameters of the multiplicative mixture model with no replication.
@@ -74,7 +177,7 @@ namespace BayesicSpace {
 		 */
 		MumiLocNR(const vector<double> *yVec, const size_t &d, const vector<double> *iSigVec, const double &tau, const size_t &nPops, const double &alphaPr);
 		/** \brief Destructor */
-		~MumiLocNR(){iSigTheta_ = nullptr; };
+		~MumiLocNR(){iSigTheta_ = nullptr; yVec_ = nullptr; };
 
 		/** \brief Copy constructor (deleted) */
 		MumiLocNR(const MumiLocNR &in) = delete;
@@ -93,7 +196,7 @@ namespace BayesicSpace {
 		MumiLocNR& operator=(MumiLocNR &&in);
 		/** \brief Log-posterior function
 		 *
-		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector. The parameter vector has the covariates, line means, and population means in that order.
+		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector. The parameter vector has the population means and population assignment probabilities in that order.
 		 *
 		 * \param[in] theta parameter vector
 		 * \return Value of the log-posterior
@@ -255,7 +358,7 @@ namespace BayesicSpace {
 		 */
 		void expandISvec_() const;
 	};
-	
+
 	/** \brief Model for inverse covariances with no replication
 	 *
 	 * Implements log-posterior and gradient for inverse covariances for the multiplicative mixture model with no replication.
@@ -660,7 +763,7 @@ namespace BayesicSpace {
 		/** \brief Convert probabilities to logit-scores
 		 *
 		 * Uses the Betancourt (2012) method of transforming population assignment probabilities to hyper-spherical coordinates. I then apply a logit transformation to further map scores to the \f$(-\infty, \infty ) \f$ interval.
-		 * 
+		 *
 		 * \param[in,out] P matrix to convert in place
 		 */
 		void p2phi_(MatrixView &P);

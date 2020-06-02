@@ -439,7 +439,78 @@ void w2p(const MatrixView &W, MatrixView &P){
 		}
 	}
 }
+// MumiNR methods
+MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *pVec, const size_t &d, const size_t &Npop, const double &tau0, const double &nu0, const double &invAsq) : Model(), tau0_{tau0}, nu0_{nu0}, invAsq_{invAsq} {
+#ifndef PKG_DEBUG_OFF
+	if (yVec->size()%d) {
+		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the MumiNR constructor");
+	}
+#endif
+	const size_t n  = yVec->size()/d;
+	Y_              = MatrixViewConst(yVec, 0, n, d);
+	P_              = MatrixViewConst(pVec, 0, n, Npop);
 
+	vLa_.resize(d*d, 0.0);
+	La_ = MatrixView(&vLa_, 0, d, d);
+	for (size_t k = 0; k < d; k++) {
+		La_.setElem(k, k, 1.0);
+	}
+	LaInd_ = Npop*d;
+	TaInd_ = LaInd_ + d*(d-1)/2;
+	TpInd_ = TaInd_ + d;
+}
+MumiNR::MumiNR(MumiNR &&in) {
+	if (this != &in) {
+		yVec_   = in.yVec_;
+		Y_      = move(in.Y_);
+		P_      = move(in.P_);
+		tau0_   = in.tau0_;
+		nu0_    = in.nu0_;
+		invAsq_ = in.invAsq_;
+		La_     = move(in.La_);
+		vLa_    = move(in.vLa_);
+		LaInd_  = in.LaInd_;
+		TaInd_  = in.TaInd_;
+		TpInd_  = in.TpInd_;
+
+		in.yVec_ = nullptr;
+	}
+}
+
+MumiNR& MumiNR::operator=(MumiNR &&in){
+	if (this != &in) {
+		yVec_   = in.yVec_;
+		Y_      = move(in.Y_);
+		P_      = move(in.P_);
+		tau0_   = in.tau0_;
+		nu0_    = in.nu0_;
+		invAsq_ = in.invAsq_;
+		La_     = move(in.La_);
+		vLa_    = move(in.vLa_);
+		LaInd_  = in.LaInd_;
+		TaInd_  = in.TaInd_;
+		TpInd_  = in.TpInd_;
+
+		in.yVec_ = nullptr;
+	}
+	return *this;
+}
+
+void MumiNR::expandISvec_(const vector<double> &theta) const{
+	size_t aInd = LaInd_;                                                 // index of the Le lower triangle in the input vector
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {             // the last column is all 0, except the last element = 1.0
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+			La_.setElem(iRow, jCol, theta[aInd]);
+			aInd++;
+		}
+	}
+}
+double MumiNR::logPost(const vector<double> &theta) const{
+
+}
+void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
+
+}
 // MumiLocNR methods
 MumiLocNR::MumiLocNR(const vector<double> *yVec, const size_t &d, const vector<double> *iSigVec, const double &tau, const size_t &nPops, const double &alphaPr) : Model(), yVec_{yVec}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops}, alphaPr_{alphaPr - 1.0} {
 #ifndef PKG_DEBUG_OFF
@@ -464,6 +535,8 @@ MumiLocNR::MumiLocNR(const vector<double> *yVec, const size_t &d, const vector<d
 MumiLocNR::MumiLocNR(MumiLocNR &&in) {
 	if (this != &in) {
 		Y_         = move(in.Y_);
+		yVec_      = in.yVec_;
+		iSigTheta_ = in.iSigTheta_;
 		tau0_      = in.tau0_;
 		alphaPr_   = in.alphaPr_;
 		La_        = move(in.La_);
