@@ -701,11 +701,7 @@ void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) cons
 				pl += P.getElem(iRow, l)*Km.getElem(iRow, l);
 			}
 			phi -= oMw*pl;
-			if ( Npop_ > (m+2) ){
-				phi = 0.5*phi - alphaPr_*( w - oMw*static_cast<double>(Npop_ - m - 2) );  // alphaPr_ already with 1.0 subtracted; - 2 because of the base-0 adjustment
-			} else {
-				phi  = 0.5*phi - alphaPr_*w;                                              // alphaPr_ already with 1.0 subtracted
-			}
+			phi  = 0.5*phi - alphaPr_*( w - oMw*static_cast<double>(Npop_ - m - 1) );  // alphaPr_ already with 1.0 subtracted; Npop_ guaranteed > m+1
 			gPhi.setElem(iRow, m, phi);
 		}
 	}
