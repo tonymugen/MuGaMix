@@ -63,7 +63,7 @@ namespace BayesicSpace {
 	class MumiNR final : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiNR() : Model(), yVec_{nullptr}, tau0_{0.0}, nu0_{0.0}, invAsq_{0.0}, LaInd_{0}, TaInd_{0}, TpInd_{0} {};
+		MumiNR() : Model(), yVec_{nullptr}, tau0_{0.0}, nu0_{0.0}, invAsq_{0.0}, LaInd_{0}, TaInd_{0}, TpInd_{0}, NAnd_{0}, NPnd_{0}, nxnd_{0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer to the data vector
@@ -147,6 +147,12 @@ namespace BayesicSpace {
 		size_t TaInd_;
 		/** \brief First element of the among-population precisions */
 		size_t TpInd_;
+		/** \brief N_A + nu0 + 2d */
+		double NAnd_;
+		/** \brief N_P + nu0 + 2d */
+		double NPnd_;
+		/** \brief nu0*(nu0 + 2d) */
+		double nxnd_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix contained in the precision matrix potion of the parameter vector into the internal `L_` vector.

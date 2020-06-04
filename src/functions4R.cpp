@@ -38,6 +38,24 @@
 
 #include "mumimo.hpp"
 
+//[[Rcpp::export(name="testLpostNR")]]
+Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &P, const int32_t &ind, const double &limit, const double &incr){
+	BayesicSpace::MumiNR test(&yVec, &P, d, Npop, 1e-8, 2.5, 1e-8);
+	const size_t i = static_cast<size_t>(ind - 1);
+	double thtVal  = theta[i];
+	double add     = -limit;
+	std::vector<double> lPost;
+	try {
+		while ( add <= limit ){
+			theta[i] = thtVal + add;
+			lPost.push_back( test.logPost(theta) );
+			add += incr;
+		}
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
+}
 //[[Rcpp::export(name="testLpostLocNR")]]
 Rcpp::List testLpostLocNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
 	BayesicSpace::MumiLocNR test(&yVec, d, &iSigTheta, 1e-8, static_cast<size_t>(Npop), 1.2);
@@ -55,6 +73,26 @@ Rcpp::List testLpostLocNR(const std::vector<double> &yVec, const int32_t &d, con
 		Rcpp::stop(problem);
 	}
 	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
+}
+//[[Rcpp::export(name="testGradNR")]]
+Rcpp::List testGradNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &P, const int32_t &ind, const double &limit, const double &incr){
+	BayesicSpace::MumiNR test(&yVec, &P, d, Npop, 1e-8, 2.5, 1e-8);
+	const size_t i = static_cast<size_t>(ind - 1);
+	double thtVal  = theta[i];
+	double add     = -limit;
+	std::vector<double> gradVal;
+	std::vector<double> grad;
+	try {
+		while ( add <= limit ){
+			theta[i] = thtVal + add;
+			test.gradient(theta, grad);
+			gradVal.push_back(grad[i]);
+			add += incr;
+		}
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("gradVal", gradVal));
 }
 //[[Rcpp::export(name="testGradLocNR")]]
 Rcpp::List testGradLocNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
