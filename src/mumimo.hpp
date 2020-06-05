@@ -701,10 +701,14 @@ namespace BayesicSpace {
 		 *
 		 */
 		vector<Index> hierInd_;
-		/** \brief Location parameters and mixture proportions */
+		/** \brief Model paramaters */
 		vector<double> vTheta_;
 		/** \brief Inverse-covariances */
 		vector<double> vISig_;
+		/** \brief Transformed population assignment probabilities */
+		vector<double> vPhi_;
+		/** \brief Population assignment probabilities */
+		vector<double> vP_;
 		/** \brief Matrix view of line (accession) means */
 		MatrixView A_;
 		/** \brief Matrix view of population means */
@@ -713,6 +717,8 @@ namespace BayesicSpace {
 		size_t PhiBegInd_;
 		/** \brief Matrix view of logit-population assignment probabilities */
 		MatrixView Phi_;
+		/** \brief Matrix view of population assignment probabilies */
+		MatrixView P_;
 		/** \brief `Phi_` recalibration trigger value */
 		static const double phiMin_;
 		/** \brief Value to add for calibration */
@@ -770,9 +776,8 @@ namespace BayesicSpace {
 		 *
 		 * Uses the Betancourt (2012) method of transforming population assignment probabilities to hyper-spherical coordinates. I then apply a logit transformation to further map scores to the \f$(-\infty, \infty ) \f$ interval.
 		 *
-		 * \param[in,out] P matrix to convert in place
 		 */
-		void p2phi_(MatrixView &P);
+		void p2phi_();
 		/** \brief Expand lower triangle of the \f$ \boldsymbol{L}_A \f$ matrix
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix and multiplies its columns by the square root of \f$ \boldsymbol{T}_A \f$. The input vector `vISig_` stores only the non-zero elements of these matrices.

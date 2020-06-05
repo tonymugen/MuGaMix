@@ -2057,21 +2057,20 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 const double WrapMMM::phiMin_ = -5.0;
 const double WrapMMM::addVal_ = 3.0;
 
-WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : vY_{vY} {
+WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : vY_{vY}, PhiBegInd_{0} {
 #ifndef PKG_DEBUG_OFF
 	if (vY_.size()%d) {
-		throw string("WrapMMM constructor ERROR: length of response vector not divisible by number of traits");
+		throw string("WrapMMM no-replication constructor ERROR: length of response vector (") + to_string( vY_.size() ) + string(") not divisible by number of traits (") + to_string(d) + string(")");
 	}
 #endif
 	const size_t N = vY_.size()/d;
 	// Calculate starting values for theta
 	Y_ = MatrixView(&vY_, 0, N, d);
 
-	vTheta_.resize( (Npop + 1)*d + N*(Npop-1), 0.0 );
+	vTheta_.resize( (Npop + 1)*d, 0.0 );    // add the inverse-covariance elements later
+	fLaInd_ = vTheta_.size();
 	Mp_ = MatrixView(&vTheta_, 0, Npop, d);
 	MatrixView mu(&vTheta_, Npop*d, 1, d);
-	PhiBegInd_ = (Npop + 1)*d;
-	Phi_       = MatrixView(&vTheta_, PhiBegInd_, N, Npop-1);
 
 	vector<size_t> ind;
 	for (size_t m = 0; m < Npop; m++) {
@@ -2080,21 +2079,20 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 		}
 	}
 	Index popInd(ind);
-	vector<double> vP(N*Npop, 0.0);
-	MatrixView P(&vP, 0, N, Npop);
+	vP_ = vector<double>(N*Npop, 0.0);
+	P_  = MatrixView(&vP_, 0, N, Npop);
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			if (popInd.groupID(iRow) == m){
-				P.setElem( iRow, m, 0.95 );
+				P_.setElem( iRow, m, 0.95 );
 			} else {
-				P.setElem( iRow, m, 0.05/static_cast<double>(Npop - 1) );
+				P_.setElem( iRow, m, 0.05/static_cast<double>(Npop - 1) );
 			}
 		}
 	}
-	p2phi_(P);
-	for (size_t i = PhiBegInd_; i < vTheta_.size(); i++) { // copying all but the last column
-		vTheta_[i] = vP[i - PhiBegInd_];
-	}
+	vPhi_ = vector<double>(N*(Npop-1), 0.0);
+	Phi_  = MatrixView(&vPhi_, 0, N, Npop-1);
+	p2phi_();
 	Y_.colMeans(popInd, Mp_);
 
 	vector<double> tmpMu;
@@ -2128,11 +2126,11 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 	}
 	for (size_t jCol = 0; jCol < d-1; jCol++) {
 		for (size_t iRow = jCol+1; iRow < d; iRow++) {
-			vISig_.push_back( Sig.getElem(iRow, jCol)/(sqrT[iRow]*sqrT[jCol]) );
+			vTheta_.push_back( Sig.getElem(iRow, jCol)/(sqrT[iRow]*sqrT[jCol]) );
 		}
 	}
 	for (size_t k = 0; k < d; k++) {
-		vISig_.push_back( log( Sig.getElem(k, k) ) );
+		vTheta_.push_back( log( Sig.getElem(k, k) ) );
 	}
 	// tau_p
 	double dNp = static_cast<double>(Npop - 1);
@@ -2142,13 +2140,14 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 			double diff = Mp_.getElem(iRow, jCol) - mu.getElem(0, jCol);
 			sSq += diff*diff;
 		}
-		vISig_.push_back( log(dNp/sSq) );
+		vTheta_.push_back( log(dNp/sSq) );
 	}
-	models_.push_back( new MumiLocNR(&vY_, d, &vISig_, tau0, Npop, alphaPr) );
-	models_.push_back( new MumiISigNR(&vY_, d, &vTheta_, nu0, invAsq, Npop) );
+	models_.push_back( new MumiNR(&vY_, &vP_, d, Npop, tau0, nu0, invAsq) );
+	//models_.push_back( new MumiLocNR(&vY_, d, &vISig_, tau0, Npop, alphaPr) );
+	//models_.push_back( new MumiISigNR(&vY_, d, &vTheta_, nu0, invAsq, Npop) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.1) );
-	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
+	//samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_, 0.3) );
 }
 
@@ -2461,18 +2460,18 @@ void WrapMMM::imputeMissing_(){
 	}
 }
 
-void WrapMMM::p2phi_(MatrixView &P){
-	vector<double> sSq(P.getNrows(), 0.0);
-	for (size_t m = 0; m < P.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
-			sSq[iRow] += P.getElem(iRow, m);
+void WrapMMM::p2phi_(){
+	vector<double> sSq(P_.getNrows(), 0.0);
+	for (size_t m = 0; m < P_.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < P_.getNrows(); iRow++) {
+			sSq[iRow] += P_.getElem(iRow, m);
 		}
 	}
-	for (size_t m = 0; m < P.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
-			double y = sqrt( P.getElem(iRow, m) );
+	for (size_t m = 0; m < Phi_.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
+			double y = sqrt( P_.getElem(iRow, m) );
 			y        = sin( acos( y/sqrt(sSq[iRow]) ) );
-			P.setElem( iRow, m, logit(y*y) );
+			Phi_.setElem( iRow, m, logit(y*y) );
 		}
 	}
 }
@@ -2612,7 +2611,6 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
 			parGrp++;
 		}
-		//calibratePhi_();
 		//sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
@@ -2622,20 +2620,17 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tsample" << std::endl;
 			parGrp++;
 		}
-		//calibratePhi_();
 		//sortPops_();
 		if ( (b%Nthin) == 0) {
-			for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) {
+			for (size_t iTht = 0; iTht < fLaInd_; iTht++) {
 				thetaChain.push_back(vTheta_[iTht]);
 			}
-			vector<double> vP(Phi_.getNrows()*(Phi_.getNcols()+1), 0.0);
-			MatrixView P(&vP, 0, Phi_.getNrows(), Phi_.getNcols() + 1);
-			phi2p(Phi_, P);
-			for (auto &p : vP){
+			//phi2p(Phi_, P_);
+			for (auto &p : vP_){
 				piChain.push_back(p);
 			}
-			for (auto &p : vISig_) {
-				isigChain.push_back(p);
+			for (size_t iSig = fLaInd_; iSig < vTheta_.size(); iSig++) {
+				isigChain.push_back(vTheta_[iSig]);
 			}
 		}
 	}

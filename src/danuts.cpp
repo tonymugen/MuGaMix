@@ -43,7 +43,7 @@ using std::signbit;
 
 // static members
 const double   SamplerNUTS::deltaMax_ = 1000.0;
-const double   SamplerNUTS::delta_    = 0.6;
+const double   SamplerNUTS::delta_    = 0.8;
 const double   SamplerNUTS::t0_       = 10.0;
 const double   SamplerNUTS::gamma_    = 0.05;
 const double   SamplerNUTS::negKappa_ = -0.75;
@@ -77,7 +77,7 @@ double dotProd(const vector<double> &v1, const vector<double> &v2){
 	}
 	return dotProd;
 }
-/** \brief Weighted mean update function
+/** \brief Weighted mean update
  *
  * Takes the current weighted mean and updates using the new data point and weight. The formula is
  *
