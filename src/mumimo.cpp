@@ -306,8 +306,8 @@ double locDigamma(const double &x){
  * Does the hyper-spherical back-transformation of the free logit-space population assignment probability matrix to the true probability matrix (with all rows summing to 1).
  * The \f$ \boldsymbol{\Phi} \f$ matrix must have one fewer columns than \f$ \boldsymbol{P} \f$.
  *
- * \param[in] Phi the free-parameter matrix
- * \param[out] P the population assignment probability matrix
+ * \param[in] Phi free-parameter matrix
+ * \param[out] P population assignment probability matrix
  *
  */
 void phi2p(const MatrixViewConst &Phi, MatrixView &P){
@@ -343,8 +343,8 @@ void phi2p(const MatrixViewConst &Phi, MatrixView &P){
  *
  * Does the hyper-spherical back-transformation of the free population assignment weight (\f$ w = \mathrm{logistic}(\phi)\f$) matrix to the true probability matrix (with all rows summing to 1).
  *
- * \param[in] W the free-parameter matrix
- * \param[out] P the population assignment probability matrix
+ * \param[in] W  free-parameter matrix
+ * \param[out] P population assignment probability matrix
  *
  */
 void w2p(const MatrixViewConst &W, MatrixView &P){
@@ -735,6 +735,99 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 		grad[TpInd_ + k] = 0.5*(NPnd_ - RtR.getElem(k, k)*Tp[k] - nxnd_*Tp[k]/weights[k]);
 	}
 }
+
+// MumiPNR methods
+MumiPNR::MumiPNR(const vector<double> *yVec, const vector<double> *theta, const size_t &d, const size_t &Npop, const double &alphaPr) : Model(), yVec_{yVec}, alphaPr_{alphaPr - 1.0}, theta_{theta} {
+#ifndef PKG_DEBUG_OFF
+	if (yVec->size()%d) {
+		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the MumiPNR constructor");
+	}
+#endif
+	const size_t n  = yVec->size()/d;
+
+	Y_  = MatrixViewConst(yVec, 0, n, d);
+	M_  = MatrixViewConst(theta_, 0, Npop, d);
+	mu_ = MatrixViewConst(theta_, Npop*d, 1, d);
+	vLa_.resize(d*d, 0.0);
+	La_ = MatrixView(&vLa_, 0, d, d);
+	for (size_t k = 0; k < d; k++) {
+		La_.setElem(k, k, 1.0);
+	}
+	LaInd_ = (Npop+1)*d;
+	TaInd_ = LaInd_ + d*(d-1)/2;
+#ifndef PKG_DEBUG_OFF
+	if ( (theta_->size() <= LaInd_) || (theta_->size() <= TaInd_) ){
+		throw string("ERROR: index of an among-individual inverse-covariance element is past the end of the theta vector in the MumiPNR constructor");
+	}
+#endif
+}
+
+MumiPNR::MumiPNR(MumiPNR &&in) {
+	if (this != &in) {
+		yVec_    = in.yVec_;
+		Y_       = move(in.Y_);
+		alphaPr_ = in.alphaPr_;
+		theta_   = in.theta_;
+		La_      = move(in.La_);
+		vLa_     = move(in.vLa_);
+		LaInd_   = in.LaInd_;
+		TaInd_   = in.TaInd_;
+
+		in.yVec_  = nullptr;
+		in.theta_ = nullptr;
+
+		M_  = MatrixViewConst( theta_, 0, in.M_.getNrows(), in.M_.getNcols() );
+		mu_ = MatrixViewConst( theta_, M_.getNrows()*M_.getNcols(), 1, M_.getNcols() );
+	}
+}
+
+MumiPNR& MumiPNR::operator=(MumiPNR &&in){
+	if (this != &in) {
+		yVec_    = in.yVec_;
+		Y_       = move(in.Y_);
+		alphaPr_ = in.alphaPr_;
+		theta_   = in.theta_;
+		La_      = move(in.La_);
+		vLa_     = move(in.vLa_);
+		LaInd_   = in.LaInd_;
+		TaInd_   = in.TaInd_;
+
+		in.yVec_  = nullptr;
+		in.theta_ = nullptr;
+
+		M_  = MatrixViewConst( theta_, 0, in.M_.getNrows(), in.M_.getNcols() );
+		mu_ = MatrixViewConst( theta_, M_.getNrows()*M_.getNcols(), 1, M_.getNcols() );
+	}
+	return *this;
+}
+
+void MumiPNR::expandISvec_() const{
+	size_t aInd = LaInd_;                                                 // index of the Le lower triangle in the input vector
+	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {             // the last column is all 0, except the last element = 1.0
+		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+			La_.setElem(iRow, jCol, (*theta_)[aInd]);
+			aInd++;
+		}
+	}
+}
+
+double MumiPNR::logPost(const vector<double> &vPhi) const{
+	// make  the La_ matrix
+	expandISvec_();
+	const size_t N    = Y_.getNrows();
+	const size_t d    = Y_.getNcols();
+	const size_t Npop = M_.getNcols();
+	MatrixViewConst Phi(&vPhi, 0, N, Npop-1);
+	vector<double> vP(N*Npop, 0.0);
+	MatrixView P(&vP, 0, N, Npop);
+	phi2p(Phi, P);
+
+}
+
+void MumiPNR::gradient(const vector<double> &vPhi, vector<double> &grad) const{
+
+}
+
 // MumiLocNR methods
 MumiLocNR::MumiLocNR(const vector<double> *yVec, const size_t &d, const vector<double> *iSigVec, const double &tau, const size_t &nPops, const double &alphaPr) : Model(), yVec_{yVec}, tau0_{tau}, iSigTheta_{iSigVec}, Npop_{nPops}, alphaPr_{alphaPr - 1.0} {
 #ifndef PKG_DEBUG_OFF

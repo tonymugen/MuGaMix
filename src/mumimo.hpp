@@ -46,7 +46,7 @@ using std::map;
 namespace BayesicSpace {
 	// forward declarations
 	class MumiNR;
-	class MumiP;
+	class MumiPNR;
 	class MumiLocNR;
 	class MumiISigNR;
 	class MumiLoc;
@@ -161,6 +161,104 @@ namespace BayesicSpace {
 		 * \param[in] theta the parameter vector
 		 */
 		void expandISvec_(const vector<double> &theta) const;
+	};
+
+	/** \brief Population assignement probability component
+	 *
+	 * Models population assignment probabilities given current values of parameters for the rest of the unreplicated hierarchical model.
+	 * Implements log-posterior and gradient methods.
+	 *
+	 */
+	class MumiPNR final : public Model {
+	public:
+		/** \brief Default constructor */
+		MumiPNR() : Model(), yVec_{nullptr}, alphaPr_{0.0}, theta_{nullptr}, LaInd_{0}, TaInd_{0} {};
+		/** \brief Constructor
+		 *
+		 * \param[in] yVec pointer to the data vector
+		 * \param[in] theta pointer to hierarchical model parameters
+		 * \param[in] d number of traits
+		 * \param[in] Npop number of populations
+		 * \param[in] alphaPr prior population proportions
+		 */
+		MumiPNR(const vector<double> *yVec, const vector<double> *theta, const size_t &d, const size_t &Npop, const double &alphaPr);
+		/** \brief Destructor */
+		~MumiPNR(){yVec_ = nullptr; };
+
+		/** \brief Copy constructor (deleted) */
+		MumiPNR(const MumiPNR &in) = delete;
+		/** \brief Copy assignment (deleted) */
+		MumiPNR& operator=(const MumiPNR &in) = delete;
+		/** \brief Move constructor
+		 *
+		 * \param[in] in object to move
+		 */
+		MumiPNR(MumiPNR &&in);
+		/** \brief Move assignment operator
+		 *
+		 * \param[in] in object to be moved
+		 * \return target object
+		 */
+		MumiPNR& operator=(MumiPNR &&in);
+		/** \brief Log-posterior function
+		 *
+		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector.
+		 * The parameter vector has population means, among-individual inverse covariances, among-individual precisions, and among-population precisions in that order.
+		 *
+		 * \param[in] vPhi vectorized matrix of transformed population assignment probabilities
+		 * \return Value of the log-posterior
+		 */
+		double logPost(const vector<double> &vPhi) const override;
+		/** \brief Gradient of the log-posterior
+		 *
+		 * Calculates the partial derivative of the log-posterior for each element in the provided parameter vector.
+		 *
+		 * \param[in] vPhi vectorized matrix of transformed population assignment probabilities
+		 * \param[out] grad partial derivative (gradient) vector
+		 *
+		 */
+		void gradient(const vector<double> &vPhi, vector<double> &grad) const override;
+
+	protected:
+		/** \brief Pointer to vectorized data */
+		const vector<double> *yVec_;
+		/** \brief Matrix view of data */
+		MatrixViewConst Y_;
+		/** \brief Prior population proportions
+		 *
+		 * To save computation, actually stores \f$ \alpha - 1 \f$
+		 *
+		 */
+		double alphaPr_;
+		/** \brief Pointer to model data */
+		const vector<double> *theta_;
+		/** Population mean matrix view */
+		MatrixViewConst M_;
+		/** Overall mean matrix view */
+		MatrixViewConst mu_;
+		/** \brief Line factorized precision matrix view
+		 *
+		 * Points to `vLa_`.
+		 */
+		mutable MatrixView La_;
+		/** \brief Expanded \f$ \boldsymbol{L}_A \f$ matrix
+		 *
+		 * Vectorized line unity triangular matrix (\f$\boldsymbol{L}_A\f$ in the model description).
+		 */
+		mutable vector<double> vLa_;
+		// the following indices refer to the theta passed to the log-post and gradient functions
+		/** \brief First element of the among-individual inverse-covariances */
+		size_t LaInd_;
+		/** \brief First element of the among-individual precisions */
+		size_t TaInd_;
+		/** \brief Expand the vector of factorized precision matrices
+		 *
+		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix contained in the precision matrix potion of the parameter vector into the internal `L_` vector.
+		 * The parameter vector stores only the non-zero elements of these matrix.
+		 *
+		 */
+		void expandISvec_() const;
+
 	};
 	/** \brief Mixture model for location parameters, no replication
 	 *
