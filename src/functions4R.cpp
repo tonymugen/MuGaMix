@@ -56,6 +56,24 @@ Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const 
 	}
 	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
 }
+//[[Rcpp::export(name="testLpostP")]]
+Rcpp::List testLpostP(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, const std::vector<double> &theta, std::vector<double> &Phi, const int32_t &ind, const double &limit, const double &incr){
+	BayesicSpace::MumiPNR test(&yVec, &theta, d, Npop, 1.2);
+	const size_t i = static_cast<size_t>(ind - 1);
+	double phiVal  = Phi[i];
+	double add     = -limit;
+	std::vector<double> lPost;
+	try {
+		while ( add <= limit ){
+			Phi[i] = phiVal + add;
+			lPost.push_back( test.logPost(Phi) );
+			add += incr;
+		}
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
+}
 //[[Rcpp::export(name="testLpostLocNR")]]
 Rcpp::List testLpostLocNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
 	BayesicSpace::MumiLocNR test(&yVec, d, &iSigTheta, 1e-8, static_cast<size_t>(Npop), 1.2);

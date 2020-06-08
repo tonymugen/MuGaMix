@@ -755,9 +755,10 @@ MumiPNR::MumiPNR(const vector<double> *yVec, const vector<double> *theta, const 
 	}
 	LaInd_ = (Npop+1)*d;
 	TaInd_ = LaInd_ + d*(d-1)/2;
+	TpInd_ = TaInd_ + d;
 #ifndef PKG_DEBUG_OFF
-	if ( (theta_->size() <= LaInd_) || (theta_->size() <= TaInd_) ){
-		throw string("ERROR: index of an among-individual inverse-covariance element is past the end of the theta vector in the MumiPNR constructor");
+	if ( (theta_->size() <= LaInd_) || (theta_->size() <= TaInd_) || (theta_->size() <= TpInd_) ){
+		throw string("ERROR: index of an inverse-covariance element is past the end of the theta vector in the MumiPNR constructor");
 	}
 #endif
 }
@@ -772,6 +773,7 @@ MumiPNR::MumiPNR(MumiPNR &&in) {
 		vLa_     = move(in.vLa_);
 		LaInd_   = in.LaInd_;
 		TaInd_   = in.TaInd_;
+		TpInd_   = in.TpInd_;
 
 		in.yVec_  = nullptr;
 		in.theta_ = nullptr;
@@ -791,6 +793,7 @@ MumiPNR& MumiPNR::operator=(MumiPNR &&in){
 		vLa_     = move(in.vLa_);
 		LaInd_   = in.LaInd_;
 		TaInd_   = in.TaInd_;
+		TpInd_   = in.TpInd_;
 
 		in.yVec_  = nullptr;
 		in.theta_ = nullptr;
@@ -816,12 +819,49 @@ double MumiPNR::logPost(const vector<double> &vPhi) const{
 	expandISvec_();
 	const size_t N    = Y_.getNrows();
 	const size_t d    = Y_.getNcols();
-	const size_t Npop = M_.getNcols();
+	const size_t Npop = M_.getNrows();
 	MatrixViewConst Phi(&vPhi, 0, N, Npop-1);
 	vector<double> vP(N*Npop, 0.0);
 	MatrixView P(&vP, 0, N, Npop);
 	phi2p(Phi, P);
 
+	double priorSum = 0.0;
+	for (auto &p : vP){
+		priorSum += log(p);
+	}
+	priorSum *= alphaPr_;
+	vector<double> AtraceVec(N, 0.0);                       // accumulate A trace values here
+	// calculate T_A
+	vector<double> Ta;
+	for (size_t k = TaInd_; k < TpInd_; k++) {
+		Ta.push_back( exp( (*theta_)[k] ) );
+	}
+	vector<double> vResid(yVec_->size(), 0.0);
+	for (size_t m = 0; m < Npop; m++) {                                        // m is the population index as in the model description document
+		vector<double> locAtr(N, 0.0);
+		vResid.assign( yVec_->begin(), yVec_->begin() + yVec_->size() );       // copy over Y_
+		MatrixView mResid = MatrixView(&vResid, 0, N, d);                      // mResid now has the Y values
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				mResid.subtractFromElem( iRow, jCol, M_.getElem(m, jCol) );    // mResid now Y - mu_m
+			}
+		}
+		mResid.trm('l', 'r', false, true, 1.0, La_);                           // mResid now (Y-mu_m)L_A
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				double rsd    = mResid.getElem(iRow, jCol);
+				locAtr[iRow] += Ta[jCol]*rsd*rsd;                              // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+			}
+		}
+		for (size_t j = 0; j < N; j++) {
+			AtraceVec[j] += P.getElem(j, m)*locAtr[j];                         // P_m(Y-mu_m)L_A T_A L_A^T(Y-mu_m)^T
+		}
+	}
+	double aTrace = 0.0;
+	for (auto &a : AtraceVec){
+		aTrace += a;
+	}
+	return priorSum - 0.5*aTrace;
 }
 
 void MumiPNR::gradient(const vector<double> &vPhi, vector<double> &grad) const{
@@ -2236,9 +2276,11 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 		vTheta_.push_back( log(dNp/sSq) );
 	}
 	models_.push_back( new MumiNR(&vY_, &vP_, d, Npop, tau0, nu0, invAsq) );
+	models_.push_back( new MumiPNR(&vY_, &vTheta_, d, Npop, alphaPr) );
 	//models_.push_back( new MumiLocNR(&vY_, d, &vISig_, tau0, Npop, alphaPr) );
 	//models_.push_back( new MumiISigNR(&vY_, d, &vTheta_, nu0, invAsq, Npop) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	samplers_.push_back( new SamplerNUTS(models_[1], &vPhi_) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.1) );
 	//samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_, 0.3) );
@@ -2704,6 +2746,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
 			parGrp++;
 		}
+		phi2p(Phi_, P_);
 		//sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
@@ -2713,6 +2756,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tsample" << std::endl;
 			parGrp++;
 		}
+		phi2p(Phi_, P_);
 		//sortPops_();
 		if ( (b%Nthin) == 0) {
 			for (size_t iTht = 0; iTht < fLaInd_; iTht++) {

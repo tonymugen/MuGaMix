@@ -5,6 +5,10 @@ testLpostNR <- function(yVec, d, Npop, theta, P, ind, limit, incr) {
     .Call(`_MuGaMix_testLpostNR`, yVec, d, Npop, theta, P, ind, limit, incr)
 }
 
+testLpostP <- function(yVec, d, Npop, theta, Phi, ind, limit, incr) {
+    .Call(`_MuGaMix_testLpostP`, yVec, d, Npop, theta, Phi, ind, limit, incr)
+}
+
 testLpostLocNR <- function(yVec, d, Npop, theta, iSigTheta, ind, limit, incr) {
     .Call(`_MuGaMix_testLpostLocNR`, yVec, d, Npop, theta, iSigTheta, ind, limit, incr)
 }
