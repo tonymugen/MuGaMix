@@ -156,6 +156,20 @@ namespace BayesicSpace {
 		 * \param[in] input value to divide by
 		 */
 		void divideElem(const size_t &iRow, const size_t &jCol, const double &input);
+		/** \brief Permute columns
+		 *
+		 * Re-order columns of the matrix according to the provided index vector.
+		 *
+		 * \param[in] idx index vector
+		 */
+		void permuteCols(const vector<size_t> &idx);
+		/** \brief Permute rows
+		 *
+		 * Re-order rows of the matrix according to the provided index vector.
+		 *
+		 * \param[in] idx index vector
+		 */
+		void permuteRows(const vector<size_t> &idx);
 
 		// Linear algebra functions
 

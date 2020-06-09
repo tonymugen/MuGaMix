@@ -2217,9 +2217,9 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			if (popInd.groupID(iRow) == m){
-				P_.setElem( iRow, m, 0.95 );
+				P_.setElem( iRow, Npop - 1 - m, 0.95 );
 			} else {
-				P_.setElem( iRow, m, 0.05/static_cast<double>(Npop - 1) );
+				P_.setElem( iRow, Npop - 1 - m, 0.05/static_cast<double>(Npop - 1) );
 			}
 		}
 	}
@@ -2227,6 +2227,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 	Phi_  = MatrixView(&vPhi_, 0, N, Npop-1);
 	p2phi_();
 	Y_.colMeans(popInd, Mp_);
+	sortPops_();
 
 	vector<double> tmpMu;
 	Mp_.colMeans(tmpMu);
@@ -2279,8 +2280,9 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 	models_.push_back( new MumiPNR(&vY_, &vTheta_, d, Npop, alphaPr) );
 	//models_.push_back( new MumiLocNR(&vY_, d, &vISig_, tau0, Npop, alphaPr) );
 	//models_.push_back( new MumiISigNR(&vY_, d, &vTheta_, nu0, invAsq, Npop) );
-	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	samplers_.push_back( new SamplerNUTS(models_[1], &vPhi_) );
+	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.2) );
+	samplers_.push_back( new SamplerMetro(models_[1], &vPhi_, 0.5) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.1) );
 	//samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_, 0.3) );
@@ -2626,7 +2628,30 @@ void WrapMMM::expandLa_(){
 	}
 }
 
-void WrapMMM::sortPops_(){}
+void WrapMMM::sortPops_(){
+	vector<size_t> firstIdx;                                  // vector with indices of the first high-p elements per population
+	for (size_t m = 0; m < P_.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < P_.getNrows(); iRow++) {
+			if (P_.getElem(iRow, m) >= 0.95){
+				firstIdx.push_back(iRow);
+				break;
+			}
+		}
+	}
+	if ( firstIdx.size() < P_.getNcols() ){                  // some populations may have no high-probability individuals
+		while ( firstIdx.size() != P_.getNcols() ){
+			firstIdx.push_back( P_.getNrows() );             // add one past the last index, to guarantee that these populations will be put last
+		}
+	}
+	vector<size_t> popIdx;
+	insertionSort(firstIdx, popIdx);
+	string message("test sortPops:");
+	for (auto &i : popIdx){
+		message += " ";
+		message += to_string(i);
+	}
+	throw message;
+}
 
 void WrapMMM::calibratePhi_(){
 	std::fstream tstRecal;

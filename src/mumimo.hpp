@@ -863,7 +863,8 @@ namespace BayesicSpace {
 		void imputeMissing_();
 		/** \brief Sort the populations
 		 *
-		 * Populations are sorted using a projection on the first PC of the initial line covariance matrix (`pc1_`). The rows in the population matrix `Mp_` are then re-arranged accordingly (in order of increase). The elements of the `pi_` mixture proportion vector are also rearranged.
+		 * Populations are sorted according to the index of the first individual that belongs to a population with high probability.
+		 * This scheme is also known as left-ordering.
 		 */
 		void sortPops_();
 		/** \brief Calibrate rows of `Phi_`
