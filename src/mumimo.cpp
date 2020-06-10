@@ -865,6 +865,61 @@ double MumiPNR::logPost(const vector<double> &vPhi) const{
 }
 
 void MumiPNR::gradient(const vector<double> &vPhi, vector<double> &grad) const{
+	// make  the La_ matrix
+	expandISvec_();
+	const size_t N    = Y_.getNrows();
+	const size_t d    = Y_.getNcols();
+	const size_t Npop = M_.getNrows();
+	MatrixViewConst Phi(&vPhi, 0, N, Npop-1);
+	vector<double> vW;
+	for (auto &ph : vPhi){
+		vW.push_back( logistic(ph) );
+	}
+	MatrixView W(&vW, 0, N, Npop-1);
+	vector<double> vP(N*Npop, 0.0);
+	MatrixView P(&vP, 0, N, Npop);
+	w2p(W, P);
+	vector<double> Ta;
+	for (size_t k = TaInd_; k < TpInd_; k++) {
+		Ta.push_back( exp( (*theta_)[k] ) );
+	}
+	vector<double> vYresid(yVec_->size(), 0.0);
+	vector<double> vKm(P.getNrows()*P.getNcols(), 0.0);
+	MatrixView Km( &vKm, 0, P.getNrows(), P.getNcols() );
+	for (size_t m = 0; m < Npop; m++) {
+		vYresid.assign( yVec_->begin(), yVec_->begin() + yVec_->size() );                                      // copy over Y_
+		MatrixView Yresid( &vYresid, 0, Y_.getNrows(), Y_.getNcols() );
+		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+				Yresid.subtractFromElem( iRow, jCol, M_.getElem(m, jCol) );                                    // Y - mu_m
+			}
+		}
+		vector<double> vYresISA(Y_.getNrows()*Y_.getNcols(), 0.0);
+		MatrixView YresISA( &vYresISA, 0, Y_.getNrows(), Y_.getNcols() );
+		Yresid.trm('l', 'r', false, true, 1.0, La_);                                                           // Yresid now (Y-mu_m)L_A
+
+		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+				Km.addToElem( iRow, m, Ta[jCol]*Yresid.getElem(iRow, jCol)*YresISA.getElem(iRow, jCol) );      // calculate the (j,m) kernel
+			}
+		}
+	}
+	// Phi partial derivatives
+	MatrixView gPhi(&grad, 0, N, Npop-1);
+	for (size_t m = 0; m < gPhi.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
+			double w   = W.getElem(iRow, m);
+			double oMw = 1.0 - w;
+			double phi = P.getElem(iRow, m)*w*Km.getElem(iRow, m);
+			double pl  = 0.0;
+			for (size_t l = m+1; l < Npop; l++) {
+				pl += P.getElem(iRow, l)*Km.getElem(iRow, l);
+			}
+			phi -= oMw*pl;
+			phi  = 0.5*phi - alphaPr_*( w - oMw*static_cast<double>(Npop - m - 1) );  // alphaPr_ already with 1.0 subtracted; Npop guaranteed > m+1
+			gPhi.setElem(iRow, m, phi);
+		}
+	}
 
 }
 
@@ -2217,9 +2272,9 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			if (popInd.groupID(iRow) == m){
-				P_.setElem( iRow, Npop - 1 - m, 0.95 );
+				P_.setElem( iRow, m, 0.95 );
 			} else {
-				P_.setElem( iRow, Npop - 1 - m, 0.05/static_cast<double>(Npop - 1) );
+				P_.setElem( iRow, m, 0.05/static_cast<double>(Npop - 1) );
 			}
 		}
 	}
@@ -2227,7 +2282,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 	Phi_  = MatrixView(&vPhi_, 0, N, Npop-1);
 	p2phi_();
 	Y_.colMeans(popInd, Mp_);
-	sortPops_();
+	//sortPops_();
 
 	vector<double> tmpMu;
 	Mp_.colMeans(tmpMu);
@@ -2280,9 +2335,9 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 	models_.push_back( new MumiPNR(&vY_, &vTheta_, d, Npop, alphaPr) );
 	//models_.push_back( new MumiLocNR(&vY_, d, &vISig_, tau0, Npop, alphaPr) );
 	//models_.push_back( new MumiISigNR(&vY_, d, &vTheta_, nu0, invAsq, Npop) );
-	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.2) );
-	samplers_.push_back( new SamplerMetro(models_[1], &vPhi_, 0.5) );
+	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.2) );
+	samplers_.push_back( new SamplerMetro(models_[1], &vPhi_, 0.05) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.1) );
 	//samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_, 0.3) );
@@ -2645,12 +2700,9 @@ void WrapMMM::sortPops_(){
 	}
 	vector<size_t> popIdx;
 	insertionSort(firstIdx, popIdx);
-	string message("test sortPops:");
-	for (auto &i : popIdx){
-		message += " ";
-		message += to_string(i);
-	}
-	throw message;
+	Mp_.permuteRows(popIdx);
+	P_.permuteCols(popIdx);
+	p2phi_();
 }
 
 void WrapMMM::calibratePhi_(){
@@ -2772,7 +2824,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			parGrp++;
 		}
 		phi2p(Phi_, P_);
-		//sortPops_();
+		sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
 		size_t parGrp = 0;
@@ -2782,12 +2834,11 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			parGrp++;
 		}
 		phi2p(Phi_, P_);
-		//sortPops_();
+		sortPops_();
 		if ( (b%Nthin) == 0) {
 			for (size_t iTht = 0; iTht < fLaInd_; iTht++) {
 				thetaChain.push_back(vTheta_[iTht]);
 			}
-			//phi2p(Phi_, P_);
 			for (auto &p : vP_){
 				piChain.push_back(p);
 			}

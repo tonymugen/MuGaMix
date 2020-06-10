@@ -194,7 +194,7 @@ void MatrixView::permuteRows(const vector<size_t> &idx){
 	vector<double> tmpData(data_->begin()+idx_, data_->begin()+idx_+Ncol_*Nrow_);
 	for (size_t i = 0; i < Nrow_; i++) {
 #ifndef PKG_DEBUG_OFF
-		if (idx[i] >= Ncol_){
+		if (idx[i] >= Nrow_){
 			throw string("ERROR: Index element larger than number of rows in MatrixView::permuteRows(const vector<size_t>&)");
 		}
 #endif
