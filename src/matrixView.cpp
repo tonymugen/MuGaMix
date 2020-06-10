@@ -166,6 +166,46 @@ void MatrixView::divideElem(const size_t &iRow, const size_t &jCol, const double
 	data_->data()[idx_ + Nrow_*jCol + iRow] /= input;
 }
 
+void MatrixView::permuteCols(const vector<size_t> &idx){
+#ifndef PKG_DEBUG_OFF
+	if ( idx.size() != Ncol_ ){
+		throw string("ERROR: Index length not equal to column number in MatrixView::permuteCols(const vector<size_t>&)");
+	}
+#endif
+	vector<double> tmpData(data_->begin()+idx_, data_->begin()+idx_+Ncol_*Nrow_);
+	for (size_t j = 0; j < Ncol_; j++) {
+#ifndef PKG_DEBUG_OFF
+		if (idx[j] >= Ncol_){
+			throw string("ERROR: Index element larger than number of columns in MatrixView::permuteCols(const vector<size_t>&)");
+		}
+#endif
+		if (idx[j] != j){
+			memcpy( data_->data()+idx_+Nrow_*idx[j], tmpData.data()+Nrow_*j, Nrow_*sizeof(double) );
+		}
+	}
+}
+
+void MatrixView::permuteRows(const vector<size_t> &idx){
+#ifndef PKG_DEBUG_OFF
+	if ( idx.size() != Nrow_ ){
+		throw string("ERROR: Index length not equal to row number in MatrixView::permuteRows(const vector<size_t>&)");
+	}
+#endif
+	vector<double> tmpData(data_->begin()+idx_, data_->begin()+idx_+Ncol_*Nrow_);
+	for (size_t i = 0; i < Nrow_; i++) {
+#ifndef PKG_DEBUG_OFF
+		if (idx[i] >= Ncol_){
+			throw string("ERROR: Index element larger than number of rows in MatrixView::permuteRows(const vector<size_t>&)");
+		}
+#endif
+		if (idx[i] != i){
+			for (size_t j = 0; j < Ncol_; j++) {
+				this->setElem(idx[i], j, tmpData[Nrow_*j + i]);
+			}
+		}
+	}
+}
+
 void MatrixView::chol(){
 	// if there is only one element, do the scalar math
 	if ( (Nrow_ == 1) && (Ncol_ == 1) ) {
