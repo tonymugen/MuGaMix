@@ -31,6 +31,8 @@
 #include <string>
 #include <cmath>
 
+#include <fstream>
+
 #include "danuts.hpp"
 #include "random.hpp"
 
@@ -629,6 +631,11 @@ uint32_t SamplerNUTS::adapt(){
 	logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
 	updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
 	m_ += 1.0;
+
+	std::fstream tstEps;
+	tstEps.open("tstEps.tsv", std::ios::app);
+	tstEps << epsilon_ << " " << accRate << std::endl;
+	tstEps.close();
 
 	return j;
 }

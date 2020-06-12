@@ -17,6 +17,10 @@ testGradNR <- function(yVec, d, Npop, theta, P, ind, limit, incr) {
     .Call(`_MuGaMix_testGradNR`, yVec, d, Npop, theta, P, ind, limit, incr)
 }
 
+testGradP <- function(yVec, d, Npop, theta, Phi, ind, limit, incr) {
+    .Call(`_MuGaMix_testGradP`, yVec, d, Npop, theta, Phi, ind, limit, incr)
+}
+
 testGradLocNR <- function(yVec, d, Npop, theta, iSigTheta, ind, limit, incr) {
     .Call(`_MuGaMix_testGradLocNR`, yVec, d, Npop, theta, iSigTheta, ind, limit, incr)
 }
