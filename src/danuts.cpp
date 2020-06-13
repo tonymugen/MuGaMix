@@ -51,55 +51,6 @@ const double   SamplerNUTS::gamma_    = 0.05;
 const double   SamplerNUTS::negKappa_ = -0.75;
 const uint64_t SamplerNUTS::mask_     = static_cast<uint64_t>(0x01);
 
-/** \brief Vector self-dot-product
- *
- * \param[in] v vector
- * \return dot-product value
- */
-double dotProd(const vector<double> &v){
-	double dotProd = 0.0;
-	for (auto &element : v) {
-		dotProd += element*element;
-	}
-	return dotProd;
-}
-/** \brief Dot-product of two vectors
- *
- * \param[in] v1 vector 1
- * \param[in] v2 vector 2
- * \return dot-product value
- */
-double dotProd(const vector<double> &v1, const vector<double> &v2){
-	double dotProd = 0.0;
-	auto v1It = v1.begin();
-	auto v2It = v2.begin();
-	// this ensures that we don't go beyond one of the vectors; worth declaring the iterators outside the loop and the extra operations
-	for ( ; (v1It != v1.end()) && (v2It != v2.end()); ++v1It, ++v2It) {
-		dotProd += (*v1It)*(*v2It);
-	}
-	return dotProd;
-}
-/** \brief Weighted mean update
- *
- * Takes the current weighted mean and updates using the new data point and weight. The formula is
- *
- * \f$
- *     \bar{\mu}_n = \dfrac{\bar{\mu}_{n-1}\sum_{i=1}^{n-1}w_i + w_n x_n}{\sum_{i=1}^{n-1}w_i + w_n}
- * \f$
- *
- * \param[in] xn new point \f$ x_n \f$
- * \param[in] wn weight \f$ w_n \f$
- * \param[out] mu new mean
- * \param[out] w new weight
- *
- */
- void updateWeightedMean(const double &xn, const double &wn, double &mu, double &w){
-	const double a = mu*w;
-
-	w += wn;
-	mu = (a + wn*xn)/w;
-}
-
 SamplerNUTS::SamplerNUTS(SamplerNUTS &&in) {
 	if (&in != this) {
 		epsilon_           = in.epsilon_;
@@ -173,8 +124,8 @@ void SamplerNUTS::findInitialEpsilon_(){
 			a = '1';
 		}
 	} else {
-		logp      -= 0.5*dotProd(r0);
-		logpPrime -= 0.5*dotProd(rPrime);
+		logp      -= 0.5*nuc_.dotProd(r0);
+		logpPrime -= 0.5*nuc_.dotProd(rPrime);
 		a          = ((logpPrime - logp) > -0.6931472 ? '1' : '\0' );  // -0.6931472 = log(0.5); taking a log of the I() condition; '\0' equivalent to a = -1.0 in Algorithm 4
 	}
 
@@ -195,7 +146,7 @@ void SamplerNUTS::findInitialEpsilon_(){
 					throw string("log-posterior evaluates to +Inf in findInitialEpsilon_. This should never happen. Check your implementation.");
 				}
 			} else {
-				logpPrime -= 0.5*dotProd(rPrime);
+				logpPrime -= 0.5*nuc_.dotProd(rPrime);
 				if ((logpPrime - logp) > -0.6931472) {  // take a log of the while() test inequality; a = 1.0 so the direction is the same as in the description
 					break;
 				}
@@ -218,7 +169,7 @@ void SamplerNUTS::findInitialEpsilon_(){
 					throw string("log-posterior evaluates to +Inf in findInitialEpsilon_. This should never happen. Check your implementation.");
 				}
 			} else {
-				logpPrime -= 0.5*dotProd(rPrime);
+				logpPrime -= 0.5*nuc_.dotProd(rPrime);
 				if ((logpPrime - logp) < -0.6931472) {  // take a log of the while() test inequality; a = -1.0, so the inequality is switched
 					break;
 				}
@@ -287,7 +238,7 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 				throw string("log-posterior evaluates to +Inf in buildTreePos_. This should never happen. Check your implementation.");
 			}
 		} else {
-			testVal -= 0.5*dotProd(rPrime);
+			testVal -= 0.5*nuc_.dotProd(rPrime);
 			nPrime   = (lu <= testVal ? 1.0 : 0.0);
 			s        = (lu < (deltaMax_ + testVal) ? '1' : '\0');
 		}
@@ -309,9 +260,9 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 				for (size_t jTht = 0; jTht < thetaPlus.size(); jTht++) {
 					thetaDiff.push_back(thetaPlus[jTht] - thetaMinus[jTht]);
 				}
-				double dot = dotProd(thetaDiff, rMinus);
+				double dot = nuc_.dotProd(thetaDiff, rMinus);
 				if (dot >= 0.0) { // only then it is necessary to do the second dot product
-					dot = dotProd(thetaDiff, rPlus);
+					dot = nuc_.dotProd(thetaDiff, rPlus);
 					if (dot < 0.0) {
 						s = '\0';
 					}
@@ -346,7 +297,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 				throw string("log-posterior evaluates to +Inf in buildTreeNeg_. This should never happen. Check your implementation.");
 			}
 		} else {
-			testVal -= 0.5*dotProd(rPrime);
+			testVal -= 0.5*nuc_.dotProd(rPrime);
 			nPrime   = (lu <= testVal ? 1.0 : 0.0);
 			s        = (lu < (deltaMax_ + testVal) ? '1' : '\0');
 		}
@@ -368,9 +319,9 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 				for (size_t jTht = 0; jTht < thetaPlus.size(); jTht++) {
 					thetaDiff.push_back(thetaPlus[jTht] - thetaMinus[jTht]);
 				}
-				double dot = dotProd(thetaDiff, rMinus);
+				double dot = nuc_.dotProd(thetaDiff, rMinus);
 				if (dot >= 0.0) { // only then it is necessary to do the second dot product
-					dot = dotProd(thetaDiff, rPlus);
+					dot = nuc_.dotProd(thetaDiff, rPlus);
 					if (dot < 0.0) {
 						s = '\0';
 					}
@@ -405,7 +356,7 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 				throw string("log-posterior evaluates to +Inf in adaptive buildTreePos_. This should never happen. Check your implementation.");
 			}
 		} else {
-			testVal -= 0.5*dotProd(rPrime);
+			testVal -= 0.5*nuc_.dotProd(rPrime);
 			nPrime     = (lu <= testVal ? 1.0 : 0.0);
 			s          = (lu < (deltaMax_ + testVal) ? '1' : '\0');
 			const double pDiff = testVal - nH0_;
@@ -435,9 +386,9 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 				for (size_t jTht = 0; jTht < thetaPlus.size(); jTht++) {
 					thetaDiff.push_back(thetaPlus[jTht] - thetaMinus[jTht]);
 				}
-				double dot = dotProd(thetaDiff, rMinus);
+				double dot = nuc_.dotProd(thetaDiff, rMinus);
 				if (dot >= 0.0) { // only then it is necessary to do the second dot product
-					dot = dotProd(thetaDiff, rPlus);
+					dot = nuc_.dotProd(thetaDiff, rPlus);
 					if (dot < 0.0) {
 						s = '\0';
 					}
@@ -471,7 +422,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 				throw string("log-posterior evaluates to +Inf in adaptive buildTreeNeg_. This should never happen. Check your implementation.");
 			}
 		} else {
-			testVal -= 0.5*dotProd(rPrime);
+			testVal -= 0.5*nuc_.dotProd(rPrime);
 			nPrime     = (lu <= testVal ? 1.0 : 0.0);
 			s          = (lu < (deltaMax_ + testVal) ? '1' : '\0');
 			const double pDiff = testVal - nH0_;
@@ -501,9 +452,9 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 				for (size_t jTht = 0; jTht < thetaPlus.size(); jTht++) {
 					thetaDiff.push_back(thetaPlus[jTht] - thetaMinus[jTht]);
 				}
-				double dot = dotProd(thetaDiff, rMinus);
+				double dot = nuc_.dotProd(thetaDiff, rMinus);
 				if (dot >= 0.0) { // only then it is necessary to do the second dot product
-					dot = dotProd(thetaDiff, rPlus);
+					dot = nuc_.dotProd(thetaDiff, rPlus);
 					if (dot < 0.0) {
 						s = '\0';
 					}
@@ -557,7 +508,7 @@ uint32_t SamplerNUTS::adapt(){
 			epsilon_            = exp(logEps);
 			const double mPwr   = pow(m_, negKappa_);
 			logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
-			updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
+			nuc_.updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
 			m_ += 1.0;
 			return 0;
 		} else { // logpost is +Inf, which is bad
@@ -565,7 +516,7 @@ uint32_t SamplerNUTS::adapt(){
 		}
 
 	}
-	const double lu = log(rng_.runifnz()) + lPost - 0.5*dotProd(rPlus);   // log(slice variable)
+	const double lu = log(rng_.runifnz()) + lPost - 0.5*nuc_.dotProd(rPlus);   // log(slice variable)
 
 	vector<double> thetaPlus(*theta_);
 	vector<double> thetaMinus(*theta_);
@@ -601,9 +552,9 @@ uint32_t SamplerNUTS::adapt(){
 			for (size_t jTht = 0; jTht < thetaPlus.size(); jTht++) {
 				thetaDiff.push_back(thetaPlus[jTht] - thetaMinus[jTht]);
 			}
-			double dot = dotProd(thetaDiff, rMinus);
+			double dot = nuc_.dotProd(thetaDiff, rMinus);
 			if (dot >= 0.0) { // only then it is necessary to do the second dot product
-				dot = dotProd(thetaDiff, rPlus);
+				dot = nuc_.dotProd(thetaDiff, rPlus);
 				if (dot < 0.0) {
 					break; // s == 0
 				}
@@ -629,7 +580,7 @@ uint32_t SamplerNUTS::adapt(){
 	epsilon_            = exp(logEps);
 	const double mPwr   = pow(m_, negKappa_);
 	logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
-	updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
+	nuc_.updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
 	m_ += 1.0;
 
 	std::fstream tstEps;
@@ -666,7 +617,7 @@ uint32_t SamplerNUTS::update() {
 	int fpClsLP = fpclassify(lPost);
 	// check sanity of log-posterior evaluation
 	if (fpClsLP == FP_NAN) {
-		throw string("log-posterior evlauates to NaN in the update phase");
+		throw string("log-posterior evaluates to NaN in the update phase");
 	} else if (fpClsLP == FP_INFINITE) {
 
 		if (signbit(nH0_)) { // logpost is -Inf
@@ -683,7 +634,7 @@ uint32_t SamplerNUTS::update() {
 		}
 
 	}
-	const double lu = log(rng_.runifnz()) + lPost - 0.5*dotProd(rPlus);   // log(slice variable)
+	const double lu = log(rng_.runifnz()) + lPost - 0.5*nuc_.dotProd(rPlus);   // log(slice variable)
 
 	vector<double> thetaPlus(*theta_);
 	vector<double> thetaMinus(*theta_);
@@ -708,9 +659,9 @@ uint32_t SamplerNUTS::update() {
 			for (size_t jTht = 0; jTht < thetaPlus.size(); jTht++) {
 				thetaDiff.push_back(thetaPlus[jTht] - thetaMinus[jTht]);
 			}
-			double dot = dotProd(thetaDiff, rMinus);
+			double dot = nuc_.dotProd(thetaDiff, rMinus);
 			if (dot >= 0.0) { // only then it is necessary to do the second dot product
-				dot = dotProd(thetaDiff, rPlus);
+				dot = nuc_.dotProd(thetaDiff, rPlus);
 				if (dot < 0.0) {
 					break; // s == 0
 				}

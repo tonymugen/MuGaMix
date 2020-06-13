@@ -35,6 +35,7 @@
 #include "random.hpp"
 #include "model.hpp"
 #include "sampler.hpp"
+#include "utilities.hpp"
 
 using std::vector;
 
@@ -105,6 +106,8 @@ namespace BayesicSpace {
 	protected:
 		/** \brief Random numbers */
 		RanDraw rng_;
+		/** \brief Numerical method collection */
+		NumerUtil nuc_;
 		// NUTS parameters and functions
 		/** \brief HMC step size parameter \f$\epsilon\f$ */
 		double epsilon_;

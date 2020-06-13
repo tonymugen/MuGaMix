@@ -39,6 +39,7 @@
 #include "sampler.hpp"
 #include "danuts.hpp"
 #include "matrixView.hpp"
+#include "utilities.hpp"
 
 using std::vector;
 using std::map;
@@ -153,6 +154,8 @@ namespace BayesicSpace {
 		double NPnd_;
 		/** \brief nu0*(nu0 + 2d) */
 		double nxnd_;
+		/** Numerical utility collection */
+		NumerUtil nuc_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix contained in the precision matrix potion of the parameter vector into the internal `L_` vector.
@@ -253,6 +256,8 @@ namespace BayesicSpace {
 		size_t TaInd_;
 		/** \brief First element of the among-population precisions */
 		size_t TpInd_;
+		/** Numerical utility collection */
+		NumerUtil nuc_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix contained in the precision matrix potion of the parameter vector into the internal `L_` vector.
@@ -348,6 +353,8 @@ namespace BayesicSpace {
 		size_t Npop_;
 		/** \brief Prior population assignment probability \f$\alpha_0 - 1\f$ */
 		double alphaPr_;
+		/** Numerical utility collection */
+		NumerUtil nuc_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector.
@@ -456,6 +463,8 @@ namespace BayesicSpace {
 		double tauPrPhi_;
 		/** \brief Prior population assignment probability */
 		double alphaPr_;
+		/** Numerical utility collection */
+		NumerUtil nuc_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the precision matrix vector into the internal `L_` vector.
@@ -568,6 +577,8 @@ namespace BayesicSpace {
 		double NAnd_;
 		/** \brief N_P + nu0 + 2d */
 		double NPnd_;
+		/** Numerical utility collection */
+		NumerUtil nuc_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix contained in the provided vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
@@ -693,6 +704,8 @@ namespace BayesicSpace {
 		double NAnd_;
 		/** \brief N_P + nu0 + 2d */
 		double NPnd_;
+		/** Numerical utility collection */
+		NumerUtil nuc_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_X\f$ matrices contained in the provided vector into the internal `L_` vector. The input vector stores only the non-zero elements of these matrices.
@@ -837,11 +850,6 @@ namespace BayesicSpace {
 		vector<double> vAresid_;
 		/** \brief Matrix view of the residual */
 		MatrixView Aresid_;
-		/** \brief First principal component of \f$\boldsymbol{\Sigma}_A\f$
-		 *
-		 * The first principal component vector of the initial estimate of the line (accession) covariance matrix, to be used for projection ordering of population means.
-		 */
-		vector<double> pc1_;
 		/** \brief Missingness index
 		 *
 		 * The key values are indexes of rows that have missing data, the mapped value is a vector with indexes of missing phenotypes for that row.
@@ -859,6 +867,8 @@ namespace BayesicSpace {
 		vector<Sampler*> samplers_;
 		/** \brief Random number generator */
 		RanDraw rng_;
+		/** \brief Numerical utility collection */
+		NumerUtil nuc_;
 		/** \brief Impute missing phenotype data */
 		void imputeMissing_();
 		/** \brief Sort the populations

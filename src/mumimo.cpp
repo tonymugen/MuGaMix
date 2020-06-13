@@ -48,397 +48,7 @@ using std::to_string;
 using std::numeric_limits;
 using std::isnan;
 using namespace BayesicSpace;
-/** \brief Swap two `size_t` values
- *
- * Uses the three XORs trick to swap two integers. Safe if the variables happen to refer to the same address.
- *
- * \param[in,out] i first integer
- * \param[in,out] j second integer
- */
-void swapXOR(size_t &i, size_t &j){
-	if (&i != &j) { // no move needed if this is actually the same variable
-		i ^= j;
-		j ^= i;
-		i ^= j;
-	}
-}
-/** \brief Insertion sort
- *
- * Performs an insertion sort on a vector, outputting the position of each element in a sorted vector. Sorting is done in order of increase.
- *
- * \param[in] vec vector to be sorted
- * \param[out] ind vector of sorted indexes, will replace contents of non-empty vector
- */
-void insertionSort(const vector<size_t> &vec, vector<size_t> &ind){
-	if ( ind.size() ){
-		ind.clear();
-	}
 
-	for (size_t l = 0; l < vec.size(); l++) {
-		ind.push_back(l);
-	}
-	for (size_t i = 1; i < vec.size(); i++) {
-		size_t j   = i;
-		size_t tmp = ind[i];
-		while ( (j > 0) && (vec[ ind[j-1] ] > vec[tmp]) ){
-			ind[j] = ind[j-1];
-			j--;
-		}
-		ind[j] = tmp;
-	}
-}
-/** \brief Logit function
- *
- * \param[in] p probability in the (0, 1) interval
- * \return logit transformation
- */
-inline double logit(const double &p){ return log(p) - log(1.0 - p); }
-
-/** \brief Logistic function
- *
- * There is a guard against under- and overflow: the function returns 0.0 for \f$ x \le -35.0\f$ and 1.0 for \f$x \ge 35.0\f$.
- *
- * \param[in] x value to be projected to the (0, 1) interval
- * \return logistic transformation
- */
-double logistic(const double &x){
-	// 35.0 is the magic number because logistic(-35) ~ EPS
-	// the other cut-offs have been empirically determined
-	if (x <= - 35.0){
-		return 0.0;
-	} else if (x >= 35.0){
-		return 1.0;
-	} else if (x <= -7.0){ // approximation for smallish x
-		return exp(x);
-	} else if (x >= 3.5){  // approximation for largish x
-		return 1.0 - exp(-x);
-	} else {
-		return 1.0/( 1 + exp(-x) );
-	}
-}
-
-/** \brief Shell sort
- *
- * Sorts the provided vector in ascending order using Shell's method. Rather than move the elements themselves, save their indexes to the output vector. The first element of the index vector points to the smallest element of the input vector etc. The implementation is modified from code in Numerical Recipes in C++.
- * NOTE: This algorithm is too slow for vectors of \f$ > 50\f$ elements. I am using it for population projection ordering, where the number of populations will typically not exceed 10.
- *
- * \param[in] target vector to be sorted
- * \param[out] outIdx vector of indexes
- */
-void sort(const vector<double> &target, vector<size_t> &outIdx){
-	if ( outIdx.size() ) {
-		outIdx.clear();
-	}
-	for (size_t i = 0; i < target.size(); i++) {
-		outIdx.push_back(i);
-	}
-	// pick the initial increment
-	size_t inc = 1;
-	do {
-		inc = inc*3 + 1;
-	} while ( inc <= target.size() );
-
-	// start the sort
-	do { // loop over partial sorts, decreasing the increment each time
-		inc /= 3;
-		const size_t bottom = inc;
-		for (size_t iOuter = bottom; iOuter < target.size(); iOuter++) { // outer loop of the insertion sort, going over the indexes
-#ifndef PKG_DEBUG_OFF
-			if ( outIdx[iOuter] >= target.size() ) {
-				throw string("outIdx value out of bounds for target vector in shellSort()");
-			}
-#endif
-			const size_t curInd = outIdx[iOuter]; // save the current value of the index
-			size_t jInner       = iOuter;
-			while (target[ outIdx[jInner - inc] ] > target[curInd]) {  // Straight insertion inner loop; looking for a place to insert the current value
-#ifndef PKG_DEBUG_OFF
-				if ( outIdx[jInner-inc] >= target.size() ) {
-					throw string("outIdx value out of bounds for target vector in shellSort()");
-				}
-#endif
-				outIdx[jInner] = outIdx[jInner-inc];
-				jInner        -= inc;
-				if (jInner < bottom) {
-					break;
-				}
-			}
-			outIdx[jInner] = curInd;
-		}
-	} while (inc > 1);
-}
-
-/** \brief Logarithm of the Gamma function
- *
- * The log of the \f$ \Gamma(x) \f$ function. Implementing the Lanczos algorithm following Numerical Recipes in C++.
- *
- * \param[in] x value
- * \return \f$ \log \Gamma(x) \f$
- *
- */
-double lnGamma(const double &x){
-	if (x <= 0.0) return nan("");
-
-	// define the weird magical coefficients
-	const double coeff[14] {57.1562356658629235,-59.5979603554754912,14.1360979747417471,-0.491913816097620199,0.339946499848118887e-4,0.465236289270485756e-4,-0.983744753048795646e-4,0.158088703224912494e-3,-0.210264441724104883e-3,0.217439618115212643e-3,-0.164318106536763890e-3,0.844182239838527433e-4,-0.261908384015814087e-4,0.368991826595316234e-5};
-	// save a copy of x for incrementing
-	double y     = x;
-	double gamma = 5.24218750000000000; // 671/128
-	double tmp   = x + gamma;
-	tmp          = (x + 0.5)*log(tmp) - tmp;
-	double logPi = 0.91893853320467267;  // 0.5*log(2.0*pi)
-	tmp         += logPi;
-	double cZero = 0.999999999999997092; // c_0
-
-	for (size_t i = 0; i < 14; i++) {
-		cZero += coeff[i]/(++y);
-	}
-
-	return tmp + log(cZero/x);
-}
-
-/** \brief Digamma function
- *
- * Defined only for \f$ x > 0 \f$, will return _NaN_ otherwise. Adopted from the `dpsifn` function in R.
- *
- * \param[in] x function argument (must be positive)
- * \return value of the digamma function
- */
-double locDigamma(const double &x){
-	const double bvalues[] = {	/* Bernoulli Numbers */
-		1.00000000000000000e+00, -5.00000000000000000e-01,
-		1.66666666666666667e-01, -3.33333333333333333e-02,
-		2.38095238095238095e-02, -3.33333333333333333e-02,
-		7.57575757575757576e-02, -2.53113553113553114e-01,
-		1.16666666666666667e+00, -7.09215686274509804e+00,
-		5.49711779448621554e+01, -5.29124242424242424e+02,
-		6.19212318840579710e+03, -8.65802531135531136e+04,
-		1.42551716666666667e+06, -2.72982310678160920e+07,
-		6.01580873900642368e+08, -1.51163157670921569e+10,
-		4.29614643061166667e+11, -1.37116552050883328e+13,
-		4.88332318973593167e+14, -1.92965793419400681e+16
-	};
-	const int32_t nMax = 100;
-	if (x <= 0.0){
-		return nan("");
-	}
-	if ( isnan(x) ){
-		return x;
-	}
-	// very large x
-    double xln = log(x);
-	double lrg = 1/( 2.0*numeric_limits<double>::epsilon() );
-	if(x * xln > lrg) {
-		return xln;
-	}
-	const int32_t n    = (-numeric_limits<double>::min_exponent < numeric_limits<double>::max_exponent ? -numeric_limits<double>::min_exponent : numeric_limits<double>::max_exponent);
-	const double r1m4  = 0.5*numeric_limits<double>::epsilon();
-	const double r1m5  = 0.301029995663981195213738894724;            // log_10(2)
-	const double wdtol = (r1m4 > 0.5e-18 ? r1m4 : 0.5e-18);
-    const double elim  = 2.302*(static_cast<double>(n)*r1m5 - 3.0);  // = 700.6174...
-	// small x and underflow conditions
-	if (xln < -elim){
-		return nan(""); // underflow
-	} else if (x < wdtol){
-		return -1.0/x;
-	}
-
-	// regular calculations
-	double rln   = r1m5*static_cast<double>(numeric_limits<double>::digits);
-	rln          = (rln < 18.06 ? rln : 18.06);
-	double fln   = (rln > 3.0 ? rln-3.0 : 0.0);
-	if (fln < 0.0){
-		throw string("ERROR: fln value ") + to_string(fln) + string(" less than 0 in locDigamma()");
-	}
-	const double fn   = 3.50 + 0.40*fln;
-	const double xmin = ceil(fn);
-	double xdmy       = x;
-	double xdmln      = xln;
-	double xinc       = 0.0;
-	if (x < xmin) {
-		xinc  = xmin - floor(x);
-		xdmy  = x + xinc;
-		xdmln = log(xdmy);
-	}
-
-	double tk     = 2.0*xdmln;
-	if (tk <= elim) { // for x not large
-		double t1   = 0.5/xdmy;
-		double tst  = wdtol*t1;
-		double rxsq = 1.0/(xdmy*xdmy);
-		double t    = 0.5*rxsq;
-		double s    = t*bvalues[2];
-		if (fabs(s) >= tst) {
-			tk = 2.0;
-			for(uint16_t k = 4; k <= 22; k++) {
-				t         *= ( (tk + 1.0)/(tk + 1.0) )*( tk/(tk + 2.0) )*rxsq;
-				double tmp = t * bvalues[k-1];
-				if (fabs(tmp) < tst) {
-					break;
-				}
-				s += tmp;
-				tk += 2.0;
-			}
-		}
-		s += t1;
-		if (xinc > 0.0) {
-			// backward recursion from xdmy to x
-			int32_t nx = static_cast<int32_t>(xinc);
-			if (nx > nMax) {
-				throw string("Increment ") + to_string(nx) + string(" too large in locDigamma()");
-			}
-			for(int32_t i = 1; i <= nx; i++){
-				s += 1.0/( x + static_cast<double>(nx - i) ); // avoid disastrous cancellation, according to the comment in the R code
-			}
-		}
-		return xdmln - s;
-	} else {
-		double s   = -x;
-		double den = x;
-		for(uint32_t i=0; i < static_cast<uint32_t>(fln) + 1; i++) { // checked fln for < 0.0, so this should be safe
-			den += 1.0;
-			s   += 1.0/den;
-		}
-		return -s;
-	}
-}
-/** brief Unrestricted \f$ \boldsymbol{\Phi} \f$ to probability matrix conversion
- *
- * Does the hyper-spherical back-transformation of the free logit-space population assignment probability matrix to the true probability matrix (with all rows summing to 1).
- * The \f$ \boldsymbol{\Phi} \f$ matrix must have one fewer columns than \f$ \boldsymbol{P} \f$.
- *
- * \param[in] Phi free-parameter matrix
- * \param[out] P population assignment probability matrix
- *
- */
-void phi2p(const MatrixViewConst &Phi, MatrixView &P){
-#ifndef PKG_DEBUG_OFF
-	if ( ( Phi.getNcols()+1 != P.getNcols() ) || ( Phi.getNrows() != P.getNrows() ) ){
-		throw string("ERROR: Phi (") + to_string( Phi.getNrows() ) + "x" + to_string( Phi.getNcols() ) +  string(") and P (") + to_string( P.getNrows() ) + "x" + to_string( P.getNcols() ) + string(") dimensions incompatible in phi2p(MatrixViewConst &, MatrixView &)");
-	}
-#endif
-	for (size_t m = 0; m < Phi.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
-			P.setElem( iRow, m, logistic( Phi.getElem(iRow, m) ) );
-		}
-	}
-	// Re-weight the P using the Betancourt (2012) algorithm
-	vector<double> rowProd(Phi.getNrows(), 0.0);
-	for (size_t m = 0; m < P.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
-			if (m == 0){
-				rowProd[iRow] = P.getElem(iRow, m);
-				P.setElem(iRow, m, 1.0 - rowProd[iRow]);
-			} else if ( m == Phi.getNcols() ){           // Phi has one fewer columns than P
-				P.setElem(iRow, m, rowProd[iRow]);
-			} else {
-				double psi = P.getElem(iRow, m);
-				P.setElem( iRow, m, rowProd[iRow]*(1.0 - psi) );
-				rowProd[iRow] *= psi;
-			}
-		}
-	}
-}
-
-/** brief Weight matrix \f$ \boldsymbol{W} \f$ to probability matrix conversion
- *
- * Does the hyper-spherical back-transformation of the free population assignment weight (\f$ w = \mathrm{logistic}(\phi)\f$) matrix to the true probability matrix (with all rows summing to 1).
- *
- * \param[in] W  free-parameter matrix
- * \param[out] P population assignment probability matrix
- *
- */
-void w2p(const MatrixViewConst &W, MatrixView &P){
-#ifndef PKG_DEBUG_OFF
-	if ( ( W.getNcols()+1 != P.getNcols() ) || ( W.getNrows() != P.getNrows() ) ){
-		throw string("ERROR: W (") + to_string( W.getNrows() ) + "x" + to_string( W.getNcols() ) +  string(") and P (") + to_string( P.getNrows() ) + "x" + to_string( P.getNcols() ) + string(") dimensions incompatible in w2p(MatrixViewConst &, MatrixView &)");
-	}
-#endif
-	// Re-weight the P using the Betancourt (2012) algorithm
-	vector<double> rowProd(W.getNrows(), 0.0);
-	for (size_t m = 0; m < P.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
-			if (m == 0){
-				rowProd[iRow] = W.getElem(iRow, m);
-				P.setElem(iRow, m, 1.0 - rowProd[iRow]);
-			} else if ( m == W.getNcols() ){
-				P.setElem(iRow, m, rowProd[iRow]);
-			} else {
-				double psi = W.getElem(iRow, m);
-				P.setElem( iRow, m, rowProd[iRow]*(1.0 - psi) );
-				rowProd[iRow] *= psi;
-			}
-		}
-	}
-}
-
-/** brief Unrestricted \f$ \boldsymbol{\Phi} \f$  to probability matrix conversion
- *
- * Does the hyper-spherical back-transformation of the free logit-space population assignment probability matrix to the true probability matrix (with all rows summing to 1).
- *
- * \param[in] Phi the free-parameter matrix
- * \param[out] P the population assignment probability matrix
- *
- */
-void phi2p(const MatrixView &Phi, MatrixView &P){
-#ifndef PKG_DEBUG_OFF
-	if ( ( Phi.getNcols()+1 != P.getNcols() ) || ( Phi.getNrows() != P.getNrows() ) ){
-		throw string("ERROR: Phi (") + to_string( Phi.getNrows() ) + "x" + to_string( Phi.getNcols() ) +  string(") and P (") + to_string( P.getNrows() ) + "x" + to_string( P.getNcols() ) + string(") dimensions incompatible in phi2p(MatrixView &, MatrixView &)");
-	}
-#endif
-	for (size_t m = 0; m < Phi.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
-			P.setElem( iRow, m, logistic( Phi.getElem(iRow, m) ) );
-		}
-	}
-	// Re-weight the P using the Betancourt (2012) algorithm
-	vector<double> rowProd(Phi.getNrows(), 0.0);
-	for (size_t m = 0; m < P.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
-			if (m == 0){
-				rowProd[iRow] = P.getElem(iRow, m);
-				P.setElem(iRow, m, 1.0 - rowProd[iRow]);
-			} else if ( m == Phi.getNcols() ){
-				P.setElem(iRow, m, rowProd[iRow]);
-			} else {
-				double psi = P.getElem(iRow, m);
-				P.setElem( iRow, m, rowProd[iRow]*(1.0 - psi) );
-				rowProd[iRow] *= psi;
-			}
-		}
-	}
-}
-
-/** brief Weight matrix to probability matrix conversion
- *
- * Does the hyper-spherical back-transformation of the free population assignment weight (\f$ w = \mathrm{logistic}(\phi)\f$) matrix to the true probability matrix (with all rows summing to 1).
- *
- * \param[in] W the free-parameter matrix
- * \param[out] P the population assignment probability matrix
- *
- */
-void w2p(const MatrixView &W, MatrixView &P){
-#ifndef PKG_DEBUG_OFF
-	if ( ( W.getNcols()+1 != P.getNcols() ) || ( W.getNrows() != P.getNrows() ) ){
-		throw string("ERROR: W (") + to_string( W.getNrows() ) + "x" + to_string( W.getNcols() ) +  string(") and P (") + to_string( P.getNrows() ) + "x" + to_string( P.getNcols() ) + string(") dimensions incompatible in w2p(MatrixView &, MatrixView &)");
-	}
-#endif
-	// Re-weight the P using the Betancourt (2012) algorithm
-	vector<double> rowProd(W.getNrows(), 0.0);
-	for (size_t m = 0; m < P.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < P.getNrows(); iRow++) {
-			if (m == 0){
-				rowProd[iRow] = W.getElem(iRow, m);
-				P.setElem(iRow, m, 1.0 - rowProd[iRow]);
-			} else if ( m == W.getNcols() ){
-				P.setElem(iRow, m, rowProd[iRow]);
-			} else {
-				double psi = W.getElem(iRow, m);
-				P.setElem( iRow, m, rowProd[iRow]*(1.0 - psi) );
-				rowProd[iRow] *= psi;
-			}
-		}
-	}
-}
 // MumiNR methods
 MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *pVec, const size_t &d, const size_t &Npop, const double &tau0, const double &nu0, const double &invAsq) : Model(), yVec_{yVec}, tau0_{tau0}, nu0_{nu0}, invAsq_{invAsq} {
 #ifndef PKG_DEBUG_OFF
@@ -823,7 +433,7 @@ double MumiPNR::logPost(const vector<double> &vPhi) const{
 	MatrixViewConst Phi(&vPhi, 0, N, Npop-1);
 	vector<double> vP(N*Npop, 0.0);
 	MatrixView P(&vP, 0, N, Npop);
-	phi2p(Phi, P);
+	nuc_.phi2p(Phi, P);
 
 	double priorSum = 0.0;
 	for (auto &p : vP){
@@ -877,12 +487,12 @@ void MumiPNR::gradient(const vector<double> &vPhi, vector<double> &grad) const{
 	MatrixViewConst Phi(&vPhi, 0, N, Npop-1);
 	vector<double> vW;
 	for (auto &ph : vPhi){
-		vW.push_back( logistic(ph) );
+		vW.push_back( nuc_.logistic(ph) );
 	}
 	MatrixView W(&vW, 0, N, Npop-1);
 	vector<double> vP(N*Npop, 0.0);
 	MatrixView P(&vP, 0, N, Npop);
-	w2p(W, P);
+	nuc_.w2p(W, P);
 	vector<double> Ta;
 	for (size_t k = TaInd_; k < TpInd_; k++) {
 		Ta.push_back( exp( (*theta_)[k] ) );
@@ -1007,7 +617,7 @@ double MumiLocNR::logPost(const vector<double> &theta) const{
 	// backtransform the logit-psi_jp
 	vector<double> vP(N*Npop_, 0.0);
 	MatrixView P(&vP, 0, N, Npop_);
-	phi2p(Phi, P);
+	nuc_.phi2p(Phi, P);
 
 	double dirPr = 0.0;      // calculate the Dirichlet prior on P
 	if (alphaPr_ != 0.0){    // alphaPr_ is actually the Dirichlet prior - 1.0 (see constructor), no need for this if it is 0
@@ -1110,11 +720,11 @@ void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) cons
 	MatrixView W( &vW, 0, Phi.getNrows(), Phi.getNcols() );
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
-			W.setElem( iRow, m, logistic( Phi.getElem(iRow, m) ) );
+			W.setElem( iRow, m, nuc_.logistic( Phi.getElem(iRow, m) ) );
 		}
 	}
 	// Re-weight p_jm using the Betancourt (2012) method
-	w2p(W, P);
+	nuc_.w2p(W, P);
 	vector<double> vYresid(yVec_->size(), 0.0);
 	vector<double> vKm(P.getNrows()*P.getNcols(), 0.0);
 	MatrixView Km( &vKm, 0, P.getNrows(), P.getNcols() );
@@ -1316,7 +926,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
 			double phi     = Phi.getElem(iRow, m);
 			sumPhiSq      += phi*phi;
-			double p       = logistic(phi);
+			double p       = nuc_.logistic(phi);
 			pPopSum[iRow] += p;
 			P.setElem(iRow, m, p);
 		}
@@ -1348,7 +958,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	}
 	double gpSum = 0.0;
 	for (auto &s : pLNsum){
-		gpSum += lnGamma(s + alphaPr_);
+		gpSum += nuc_.lnGamma(s + alphaPr_);
 	}
 	// Clear the Y residuals and re-use for A residuals
 	vResid.clear();
@@ -1473,7 +1083,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	vector<double> pPopSum(Nln, 0.0);
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
-			double p       = logistic( Phi.getElem(iRow, m) );
+			double p       = nuc_.logistic( Phi.getElem(iRow, m) );
 			pPopSum[iRow] += p;
 			P.setElem(iRow, m, p);
 		}
@@ -1500,7 +1110,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	vector<double> digamLNsum;  // will be the digamma of line-wise sums; colSums will expand the vector to the right size
 	P.colSums(digamLNsum);
 	for (auto &l : digamLNsum){
-		l = locDigamma(l + alphaPr_);
+		l = nuc_.digamma(l + alphaPr_);
 	}
 	// Z^T(Y - ZA - XB)Sig[E]^-1 store in gA
 	mResISE.colSums( (*hierInd_)[0], gA );
@@ -1678,7 +1288,7 @@ double MumiISigNR::logPost(const vector<double> &viSig) const{
 	// backtransform the logit-p_jp and sum
 	vector<double> vP(Phi_.getNrows()*(Phi_.getNcols()+1), 0.0);
 	MatrixView P(&vP, 0, Phi_.getNrows(), Phi_.getNcols()+1);
-	phi2p(Phi_, P);
+	nuc_.phi2p(Phi_, P);
 
 	// Clear the Y residuals and re-use for A residuals
 	vector<double> vResid(Y_.getNrows()*Y_.getNcols(), 0.0);
@@ -1761,7 +1371,7 @@ void MumiISigNR::gradient(const vector<double> &viSig, vector<double> &grad) con
 	// backtransform phi_jp and scale
 	vector<double> vP(Phi_.getNrows()*(Phi_.getNcols()+1), 0.0);
 	MatrixView P(&vP, 0, Phi_.getNrows(), Phi_.getNcols()+1);
-	phi2p(Phi_, P);
+	nuc_.phi2p(Phi_, P);
 
 	// Clear the Y residuals and re-use for A residuals
 	vector<double> vResid(Y_.getNrows()*Y_.getNcols(), 0.0);
@@ -1987,7 +1597,7 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	vector<double> pPopSum(Phi_.getNrows(), 0.0);
 	for (size_t m = 0; m < Phi_.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-			double p       = logistic( Phi_.getElem(iRow, m) );
+			double p       = nuc_.logistic( Phi_.getElem(iRow, m) );
 			pPopSum[iRow] += p;
 			P.setElem(iRow, m, p);
 		}
@@ -2150,7 +1760,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	vector<double> pPopSum(Phi_.getNrows(), 0.0);
 	for (size_t m = 0; m < Phi_.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-			double p       = logistic( Phi_.getElem(iRow, m) );
+			double p       = nuc_.logistic( Phi_.getElem(iRow, m) );
 			pPopSum[iRow] += p;
 			P.setElem(iRow, m, p);
 		}
@@ -2384,9 +1994,9 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < Nln; iRow++) {
 			if (popInd.groupID(iRow) == m){
-				Phi_.setElem( iRow, m, logit(0.99) );
+				Phi_.setElem( iRow, m, nuc_.logit(0.99) );
 			} else {
-				Phi_.setElem( iRow, m, logit(0.01) );
+				Phi_.setElem( iRow, m, nuc_.logit(0.01) );
 			}
 		}
 	}
@@ -2667,7 +2277,7 @@ void WrapMMM::p2phi_(){
 		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
 			double y = sqrt( P_.getElem(iRow, m) );
 			y        = sin( acos( y/sqrt(sSq[iRow]) ) );
-			Phi_.setElem( iRow, m, logit(y*y) );
+			Phi_.setElem( iRow, m, nuc_.logit(y*y) );
 		}
 	}
 }
@@ -2703,7 +2313,7 @@ void WrapMMM::sortPops_(){
 		}
 	}
 	vector<size_t> popIdx;
-	insertionSort(firstIdx, popIdx);
+	nuc_.insertionSort(firstIdx, popIdx);
 	Mp_.permuteRows(popIdx);
 	P_.permuteCols(popIdx);
 	p2phi_();
@@ -2827,7 +2437,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
 			parGrp++;
 		}
-		phi2p(Phi_, P_);
+		nuc_.phi2p(Phi_, P_);
 		//sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
@@ -2837,7 +2447,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tsample" << std::endl;
 			parGrp++;
 		}
-		phi2p(Phi_, P_);
+		nuc_.phi2p(Phi_, P_);
 		//sortPops_();
 		if ( (b%Nthin) == 0) {
 			for (size_t iTht = 0; iTht < fLaInd_; iTht++) {
@@ -2874,7 +2484,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			}
 			for (size_t jCol = 0; jCol < Phi_.getNcols(); jCol++) {
 				for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-					piChain.push_back( logistic( Phi_.getElem(iRow, jCol) ) );
+					piChain.push_back( nuc_.logistic( Phi_.getElem(iRow, jCol) ) );
 				}
 			}
 			for (auto &p : vISig_) {
