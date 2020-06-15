@@ -92,7 +92,7 @@ namespace BayesicSpace {
 		 *
 		 * \return Tree depth for the step
 		 */
-		uint32_t adapt() override;
+		int16_t adapt() override;
 		/** \brief NUTS update of parameters
 		 *
 		 * The step size \f$ \epsilon \f$ set during the adaptation phase.
@@ -101,7 +101,7 @@ namespace BayesicSpace {
 		 *
 		 * \return Tree depth for the step
 		 */
-		uint32_t update() override;
+		int16_t update() override;
 
 	protected:
 		/** \brief Random numbers */
@@ -259,7 +259,7 @@ namespace BayesicSpace {
 	 * Simple Metropolis sampler with a Gaussian proposal.
 	 *
 	 */
-	class SamplerMetro : public Sampler {
+	class SamplerMetro final : public Sampler {
 	public:
 		/** \brief Default constructor */
 		SamplerMetro() : Sampler(), model_{nullptr}, theta_{nullptr}, incr_{1.0} {};
@@ -297,13 +297,13 @@ namespace BayesicSpace {
 		 * \return accept/reject indicator (1 for accept, 0 for reject)
 		 *
 		 */
-		virtual uint32_t adapt();
+		int16_t adapt() override;
 		/** \brief Sampling step
 		 *
 		 * \return accept/reject indicator (1 for accept, 0 for reject)
 		 *
 		 */
-		virtual uint32_t update();
+		int16_t update() override;
 	protected:
 		/** \brief Pointer to a model object */
 		const Model *model_;

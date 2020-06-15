@@ -45,12 +45,12 @@ namespace BayesicSpace {
 		 *
 		 * \return Implementation-dependent exit value
 		 */
-		virtual uint32_t adapt() = 0;
+		virtual int16_t adapt() = 0;
 		/** \brief Sampling phase update
 		 *
 		 * \return Implementation-dependent exit value
 		 */
-		virtual uint32_t update() = 0;
+		virtual int16_t update() = 0;
 	protected:
 		/** \brief Default constructor */
 		Sampler(){};

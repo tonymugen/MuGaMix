@@ -94,7 +94,7 @@ void SamplerNUTS::findInitialEpsilon_(){
 	// epsilon_ initialized in the constructor initialization list
 	vector<double> r0;
 	for (size_t i = 0; i < theta_->size(); i++) {
-		r0.push_back(rng_.rnorm());
+		r0.push_back( rng_.rnorm() );
 	}
 
 	vector<double> thetaPrime(*theta_);
@@ -112,15 +112,15 @@ void SamplerNUTS::findInitialEpsilon_(){
 	} else if (fpClsLP == FP_NAN) {
 		throw string("log-posterior for theta evaluates to NaN in findInitialEpsilon_");
 	} else if (fpClsLPP == FP_INFINITE) {
-		if (signbit(logpPrime)) { // logpPrime is -Inf
-			if ( (fpClsLP == FP_INFINITE) && (signbit(logp)) ) { // only if logp == -Inf a = 1
+		if ( signbit(logpPrime) ) { // logpPrime is -Inf
+			if ( (fpClsLP == FP_INFINITE) && ( signbit(logp) ) ) { // only if logp == -Inf a = 1
 				a = '1';
 			}
 		} else { // logpPrime is +Inf
 			throw string("log-posterior evaluates to +Inf in findInitialEpsilon_. This should never happen. Check your implementation.");
 		}
 	} else if (fpClsLP == FP_INFINITE) {
-		if (signbit(logp)) { // logp is -Inf; the only condition (| logpPrime not +/- Inf as tested above) when logpPrime - logp > -1.69...
+		if ( signbit(logp) ) { // logp is -Inf; the only condition (| logpPrime not +/- Inf as tested above) when logpPrime - logp > -1.69...
 			a = '1';
 		}
 	} else {
@@ -140,7 +140,7 @@ void SamplerNUTS::findInitialEpsilon_(){
 			if (fpClsLPP == FP_NAN) {
 				throw string("log-posterior for thetaPrime evaluates to NaN in findInitialEpsilon_");
 			} else if (fpClsLPP == FP_INFINITE) {
-				if (signbit(logpPrime)) { // logpPrime is -Inf; definitely break out
+				if ( signbit(logpPrime) ) { // logpPrime is -Inf; definitely break out
 					break;
 				} else { // logpPrime is +Inf
 					throw string("log-posterior evaluates to +Inf in findInitialEpsilon_. This should never happen. Check your implementation.");
@@ -163,7 +163,7 @@ void SamplerNUTS::findInitialEpsilon_(){
 			if (fpClsLPP == FP_NAN) {
 				throw string("log-posterior for thetaPrime evaluates to NaN in findInitialEpsilon_");
 			} else if (fpClsLPP == FP_INFINITE) {
-				if (signbit(logpPrime)) { // logpPrime is -Inf; make epsilon_ smaller to see if I don't shoot that low
+				if ( signbit(logpPrime) ) { // logpPrime is -Inf; make epsilon_ smaller to see if I don't shoot that low
 					continue;
 				} else { // logpPrime is +Inf
 					throw string("log-posterior evaluates to +Inf in findInitialEpsilon_. This should never happen. Check your implementation.");
@@ -231,7 +231,7 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 		if (fpClsTV == FP_NAN) {
 			throw string("Log-posterior evaluates to NaN in buildTreePos_");
 		} else if (fpClsTV == FP_INFINITE) {
-			if (signbit(testVal)) { // testVal is -Inf, definitely smaller that lu
+			if ( signbit(testVal) ) { // testVal is -Inf, definitely smaller that lu
 				nPrime = 0.0;
 				s      = '\0';
 			} else {
@@ -290,7 +290,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 		if (fpClsTV == FP_NAN) {
 			throw string("log-posterior evaluates to NaN in buildTreeNeg_");
 		} else if (fpClsTV == FP_INFINITE) {
-			if (signbit(testVal)) { // testVal is -Inf
+			if ( signbit(testVal) ) { // testVal is -Inf
 				nPrime = 0.0;
 				s      = '\0';
 			} else { // testVal is +Inf
@@ -348,7 +348,7 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 		if (fpClsTV == FP_NAN) {
 			throw string("log-posterior evaluates to NaN in adaptive buildTreePos_");
 		} else if (fpClsTV == FP_INFINITE) {
-			if (signbit(testVal)) { // log-post is -Inf
+			if ( signbit(testVal) ) { // log-post is -Inf
 				nPrime     = 0.0;
 				s          = '\0';
 				alphaPrime = 0.0; // exp(-Inf)
@@ -360,7 +360,7 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 			nPrime     = (lu <= testVal ? 1.0 : 0.0);
 			s          = (lu < (deltaMax_ + testVal) ? '1' : '\0');
 			const double pDiff = testVal - nH0_;
-			alphaPrime = (pDiff >= 0.0 ? 1.0 : exp(pDiff));
+			alphaPrime = ( pDiff >= 0.0 ? 1.0 : exp(pDiff) );
 		}
 		nAlphaPrime  = 1.0;
 
@@ -377,7 +377,7 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 			alphaPrime  += alphaDprm;
 			nAlphaPrime += nAlphaDprm;
 			nPrime      += nDprm;
-			if ( (nPrime > 0.0) && (nDprm > 0.0) && (rng_.runif() <= nDprm/nPrime)) { // nPrime now nPrime+nDprm
+			if ( (nPrime > 0.0) && (nDprm > 0.0) && (rng_.runif() <= nDprm/nPrime) ) { // nPrime now nPrime+nDprm
 				thetaPrime = move(thetaDprm);
 			}
 			if (sDPrm) { // only now necessary to test the dot-product condition; equivalent to s''I(...) in Algorithm 3 and 6
@@ -414,7 +414,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 		if (fpClsTV == FP_NAN) {
 			throw string("log-posterior evaluates to NaN in adaptive buildTreeNeg_");
 		} else if (fpClsTV == FP_INFINITE) {
-			if (signbit(testVal)) { // log-post is -Inf
+			if ( signbit(testVal) ) { // log-post is -Inf
 				nPrime     = 0.0;
 				s          = '\0';
 				alphaPrime = 0.0; // exp(-Inf)
@@ -426,7 +426,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 			nPrime     = (lu <= testVal ? 1.0 : 0.0);
 			s          = (lu < (deltaMax_ + testVal) ? '1' : '\0');
 			const double pDiff = testVal - nH0_;
-			alphaPrime = (pDiff >= 0.0 ? 1.0 : exp(pDiff));
+			alphaPrime = ( pDiff >= 0.0 ? 1.0 : exp(pDiff) );
 		}
 		nAlphaPrime  = 1.0;
 
@@ -443,7 +443,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 			alphaPrime  += alphaDprm;
 			nAlphaPrime += nAlphaDprm;
 			nPrime      += nDprm;
-			if ( (nPrime > 0.0) && (nDprm > 0.0) && (rng_.runif() <= nDprm/nPrime)) { // nPrime now nPrime+nDprm
+			if ( (nPrime > 0.0) && (nDprm > 0.0) && (rng_.runif() <= nDprm/nPrime) ) { // nPrime now nPrime+nDprm
 				thetaPrime = move(thetaDprm);
 			}
 			if (sDPrm) { // only now necessary to test the dot-product condition; equivalent to s''I(...) in Algorithm 3 and 6
@@ -469,7 +469,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 
 }
 
-uint32_t SamplerNUTS::adapt(){
+int16_t SamplerNUTS::adapt(){
 	// Putting this here despite the small overhead of testing every time I do an adaptation step, so that the initialization is hidden from the user and therefore foolproof
 	if (firstAdapt_	) {
 		findInitialEpsilon_();
@@ -477,28 +477,30 @@ uint32_t SamplerNUTS::adapt(){
 	}
 	// following the notation in Hoffman and Gelman
 	char s        = '1'; // the stopping condition; since sizeof(bool) is implementation-defined, I opt for using one byte for sure
-	uint16_t j    = 0;   // tree depth
+	int16_t j     = 0;   // tree depth
 	double n      = 1.0; // n; using a double straight away so that I do not have to re-cast for division
+	double alpha  = 0.0;
+	double nAlpha = 0.0;
 	// sampling r_0
 	vector<double> r0;
 	for (size_t i = 0; i < theta_->size(); i++) {
-		r0.push_back(rng_.rnorm());
+		r0.push_back( rng_.rnorm() );
 	}
 	vector<double> rPlus(r0);
 	vector<double> rMinus(r0);
 	// sampling the log-slice variable
-	const double lPost = model_->logPost(*theta_);
-	int fpClsH0        = fpclassify(nH0_);
+	nH0_        = model_->logPost(*theta_);
+	int fpClsH0 = fpclassify(nH0_);
 	// check sanity of log-posterior evaluation
 	if (fpClsH0 == FP_NAN) {
 		throw string("log-posterior evaluates to NaN in the adaptation phase");
 	} else if (fpClsH0 == FP_INFINITE) {
 
-		if (signbit(lPost)) { // logpost is -Inf
-			// try to find theta values that give a finite log-posterior. Stop when this happens, but give up after 100 attempts and hope the next round will be better. Return 0 as tree depth.
+		if ( signbit(nH0_) ) { // logpost is -Inf
+			// try to find theta values that give a finite log-posterior. Stop when this happens, but give up after 100 attempts and hope the next round will be better. Return -1 as tree depth.
 			for (uint16_t i = 0; i < 100; i++) {
 				leapfrog_(*theta_, r0, epsilon_);
-				if (fpclassify(model_->logPost(*theta_)) == FP_NORMAL) {
+				if (fpclassify( model_->logPost(*theta_) ) == FP_NORMAL) {
 					break;
 				}
 			}
@@ -510,13 +512,14 @@ uint32_t SamplerNUTS::adapt(){
 			logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
 			nuc_.updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
 			m_ += 1.0;
-			return 0;
+			return -1;
 		} else { // logpost is +Inf, which is bad
 			throw ("log-posterior evaluates to +Inf in adapt(), which should never happen. Check your posterior function implementation.");
 		}
 
 	}
-	const double lu = log(rng_.runifnz()) + lPost - 0.5*nuc_.dotProd(rPlus);   // log(slice variable)
+	nH0_ -= 0.5*nuc_.dotProd(r0);
+	const double lu = log( rng_.runifnz() ) + nH0_;   // log(slice variable)
 
 	vector<double> thetaPlus(*theta_);
 	vector<double> thetaMinus(*theta_);
@@ -525,24 +528,27 @@ uint32_t SamplerNUTS::adapt(){
 	// This is different from the Hoffman and Gelman approach. Their method was giving me epsilon_ values far too small.
 	// To estimate the acceptance rate, I multiply all the probabilities of rejection and then subtract from one.
 	double accRate = 1.0;
+	int16_t nAcc   = 0;
 	// theta_ will be theta^{m-1}
 	while (s) {
 		double nPrime = 0.0;
 		char sPrime   = '\0';
-		if (rng_.ranInt()&static_cast<uint64_t>(0x01)) { // testing if the last bit is set; should be a 50/50 chance, so in effect sampling U{-1,1}
+		if ( rng_.ranInt()&static_cast<uint64_t>(0x01) ) { // testing if the last bit is set; should be a 50/50 chance, so in effect sampling U{-1,1}
 			// positive step; copy negative variables to prevent modification
-			buildTreePos_(thetaPlus, rPlus, lu, epsilon_, j, thetaPlus, rPlus, thetaMinus, rMinus, thetaPrime, nPrime, sPrime);
+			buildTreePos_(thetaPlus, rPlus, lu, epsilon_, j, thetaPlus, rPlus, thetaMinus, rMinus, thetaPrime, nPrime, sPrime, alpha, nAlpha);
 		} else {
 			// negative step; copy positive variables to prevent modification
-			buildTreeNeg_(thetaMinus, rMinus, lu, -epsilon_, j, thetaPlus, rPlus, thetaMinus, rMinus, thetaPrime, nPrime, sPrime);
+			buildTreeNeg_(thetaMinus, rMinus, lu, -epsilon_, j, thetaPlus, rPlus, thetaMinus, rMinus, thetaPrime, nPrime, sPrime, alpha, nAlpha);
 		}
 		if (sPrime) {
 			double nRat = nPrime/n;
 			if (nPrime >= n){
 				accRate = 0.0;                // definitely accepted; the overall acceptance probability estimate will then be 1
 				(*theta_) = move(thetaPrime);
+				nAcc++;
 			} else if (rng_.runif() <= nRat){
 				accRate *= 1.0 - nRat;
+				nAcc++;
 				(*theta_) = move(thetaPrime);
 			} else {
 				accRate *= 1.0 - nRat;
@@ -585,13 +591,13 @@ uint32_t SamplerNUTS::adapt(){
 
 	std::fstream tstEps;
 	tstEps.open("tstEps.tsv", std::ios::app);
-	tstEps << epsilon_ << " " << accRate << std::endl;
+	tstEps << epsilon_ << " " << accRate << " " << nAcc << " " << alpha << " " << nAlpha << " " << n << " " << j << std::endl;
 	tstEps.close();
 
 	return j;
 }
 
-uint32_t SamplerNUTS::update() {
+int16_t SamplerNUTS::update() {
 	// I am adding this step here despite the small overhead to make the flow hidden from the user as much as possible, eliminating potential errors
 	if (firstUpdate_) {
 		if (firstAdapt_) {
@@ -603,13 +609,13 @@ uint32_t SamplerNUTS::update() {
 	}
 
 	// following the notation in Hoffman and Gelman
-	char s     = '1'; // the stopping condition; since sizeof(bool) is implementation-defined, I opt for using one byte for sure
-	uint16_t j = 0;   // tree depth
-	double n   = 1.0; // n; using a double straight away so that I do not have to re-cast for division
+	char s    = '1'; // the stopping condition; since sizeof(bool) is implementation-defined, I opt for using one byte for sure
+	int16_t j = 0;   // tree depth
+	double n  = 1.0; // n; using a double straight away so that I do not have to re-cast for division
 	// sampling r_0
 	vector<double> rPlus;
 	for (size_t i = 0; i < theta_->size(); i++) {
-		rPlus.push_back(rng_.rnorm());
+		rPlus.push_back( rng_.rnorm() );
 	}
 	vector<double> rMinus(rPlus);
 	// sampling the log-slice variable
@@ -620,21 +626,21 @@ uint32_t SamplerNUTS::update() {
 		throw string("log-posterior evaluates to NaN in the update phase");
 	} else if (fpClsLP == FP_INFINITE) {
 
-		if (signbit(nH0_)) { // logpost is -Inf
-			// try to find theta values that give a finite log-posterior. Stop when this happens, but give up after 100 attempts and hope the next round will be better. Return 0 as tree depth.
+		if ( signbit(lPost) ) { // logpost is -Inf
+			// try to find theta values that give a finite log-posterior. Stop when this happens, but give up after 100 attempts and hope the next round will be better. Return -1 as tree depth.
 			for (uint16_t i = 0; i < 100; i++) {
 				leapfrog_(*theta_, rPlus, epsilon_);
-				if (fpclassify(model_->logPost(*theta_)) == FP_NORMAL) {
+				if (fpclassify( model_->logPost(*theta_) ) == FP_NORMAL) {
 					break;
 				}
 			}
-			return 0;
+			return -1;
 		} else { // logpost is +Inf, which is bad
 			throw ("log-posterior evaluates to +Inf in update(), which should never happen. Check your posterior function implementation.");
 		}
 
 	}
-	const double lu = log(rng_.runifnz()) + lPost - 0.5*nuc_.dotProd(rPlus);   // log(slice variable)
+	const double lu = log( rng_.runifnz() ) + lPost - 0.5*nuc_.dotProd(rPlus);   // log(slice variable)
 
 	vector<double> thetaPlus(*theta_);
 	vector<double> thetaMinus(*theta_);
@@ -699,13 +705,13 @@ SamplerMetro& SamplerMetro::operator=(SamplerMetro &&in){
 	return *this;
 }
 
-uint32_t SamplerMetro::adapt(){
+int16_t SamplerMetro::adapt(){
 	vector<double> thetaPrime = *theta_;
 	for (auto &t : thetaPrime) {
 		t += incr_*rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
-	double lU     = log(rng_.runifnz());
+	double lU     = log( rng_.runifnz() );
 	if (lU < lAlpha) {
 		(*theta_) = move(thetaPrime);
 		return 1;
@@ -714,13 +720,13 @@ uint32_t SamplerMetro::adapt(){
 	}
 }
 
-uint32_t SamplerMetro::update(){
+int16_t SamplerMetro::update(){
 	vector<double> thetaPrime = *theta_;
 	for (auto &t : thetaPrime) {
 		t += incr_*rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
-	double lU     = log(rng_.runifnz());
+	double lU     = log( rng_.runifnz() );
 	if (lU < lAlpha) {
 		(*theta_) = move(thetaPrime);
 		return 1;

@@ -27,6 +27,7 @@
  *
  */
 
+#include <bits/stdint-intn.h>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -2433,7 +2434,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		size_t parGrp = 0;
 		for (auto &s : samplers_) {
-			size_t tr = s->adapt();
+			int16_t tr = s->adapt();
 			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
 			parGrp++;
 		}
@@ -2443,7 +2444,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 	for (uint32_t b = 0; b < Nsample; b++) {
 		size_t parGrp = 0;
 		for (auto &s : samplers_) {
-			size_t tr = s->update();
+			int16_t tr = s->update();
 			treeOut << tr << "\t" << parGrp << "\tsample" << std::endl;
 			parGrp++;
 		}
