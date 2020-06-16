@@ -374,3 +374,11 @@ double NumerUtil::dotProd(const vector<double> &v1, const vector<double> &v2) co
 	w += wn;
 	mu = (a + wn*xn)/w;
 }
+double NumerUtil::mean(const double arr[], const size_t &len){
+	double mean = 0.0;
+	
+	for (size_t i = 0; i < len; i++) {
+		mean += (arr[i] - mean)/static_cast<double>(i + 1);
+	}
+	return mean;
+}

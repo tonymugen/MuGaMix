@@ -1949,11 +1949,10 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 	models_.push_back( new MumiPNR(&vY_, &vTheta_, d, Npop, alphaPr) );
 	//models_.push_back( new MumiLocNR(&vY_, d, &vISig_, tau0, Npop, alphaPr) );
 	//models_.push_back( new MumiISigNR(&vY_, d, &vTheta_, nu0, invAsq, Npop) );
-	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.2) );
-	samplers_.push_back( new SamplerNUTS(models_[1], &vPhi_) );
-	//samplers_.push_back( new SamplerMetro(models_[1], &vPhi_, 0.2) );
-	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.1) );
+	//samplers_.push_back( new SamplerNUTS(models_[1], &vPhi_) );
+	samplers_.push_back( new SamplerMetro(models_[1], &vPhi_, 0.01) );
 	//samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_, 0.3) );
 }
@@ -2439,7 +2438,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			parGrp++;
 		}
 		nuc_.phi2p(Phi_, P_);
-		//sortPops_();
+		sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
 		size_t parGrp = 0;
@@ -2449,7 +2448,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			parGrp++;
 		}
 		nuc_.phi2p(Phi_, P_);
-		//sortPops_();
+		sortPops_();
 		if ( (b%Nthin) == 0) {
 			for (size_t iTht = 0; iTht < fLaInd_; iTht++) {
 				thetaChain.push_back(vTheta_[iTht]);

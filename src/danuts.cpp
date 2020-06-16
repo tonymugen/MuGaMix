@@ -27,10 +27,15 @@
  *
  */
 
+#include <algorithm>
 #include <bits/stdint-intn.h>
+#include <cstddef>
+#include <ios>
+#include <iterator>
 #include <vector>
 #include <string>
 #include <cmath>
+#include <cstring>
 
 #include "danuts.hpp"
 #include "random.hpp"
@@ -39,6 +44,8 @@ using namespace BayesicSpace;
 
 using std::vector;
 using std::string;
+using std::max;
+using std::memcpy;
 using std::fpclassify;
 using std::signbit;
 
@@ -58,14 +65,13 @@ SamplerNUTS::SamplerNUTS(SamplerNUTS &&in) {
 		m_                 = in.m_;
 		Hprevious_         = in.Hprevious_;
 		logEpsBarPrevious_ = in.logEpsBarPrevious_;
-		epsWMN_            = in.epsWMN_;
-		currW_             = in.currW_;
 		firstAdapt_        = in.firstAdapt_;
 		firstUpdate_       = in.firstUpdate_;
 		model_             = in.model_;
 		theta_             = in.theta_;
 		in.model_ = nullptr;
 		in.theta_ = nullptr;
+		memcpy( lastEpsilons_, in.lastEpsilons_, 20*sizeof(double) );
 	}
 }
 SamplerNUTS& SamplerNUTS::operator=(SamplerNUTS &&in){
@@ -76,14 +82,13 @@ SamplerNUTS& SamplerNUTS::operator=(SamplerNUTS &&in){
 		m_                 = in.m_;
 		Hprevious_         = in.Hprevious_;
 		logEpsBarPrevious_ = in.logEpsBarPrevious_;
-		epsWMN_            = in.epsWMN_;
-		currW_             = in.currW_;
 		firstAdapt_        = in.firstAdapt_;
 		firstUpdate_       = in.firstUpdate_;
 		model_             = in.model_;
 		theta_             = in.theta_;
 		in.model_ = nullptr;
 		in.theta_ = nullptr;
+		memcpy( lastEpsilons_, in.lastEpsilons_, 20*sizeof(double) );
 	}
 	return *this;
 }
@@ -472,8 +477,8 @@ int16_t SamplerNUTS::adapt(){
 	} else if (fpClsH0 == FP_INFINITE) {
 
 		if ( signbit(nH0_) ) { // logpost is -Inf
-			// try to find theta values that give a finite log-posterior. Stop when this happens, but give up after 100 attempts and hope the next round will be better. Return -1 as tree depth.
-			for (uint16_t i = 0; i < 100; i++) {
+			// try to find theta values that give a finite log-posterior. Stop when this happens, but give up after 20 attempts and hope the next round will be better. Return -1 as tree depth.
+			for (uint16_t i = 0; i < 20; i++) {
 				leapfrog_(*theta_, r0, epsilon_);
 				if (fpclassify( model_->logPost(*theta_) ) == FP_NORMAL) {
 					break;
@@ -485,7 +490,7 @@ int16_t SamplerNUTS::adapt(){
 			epsilon_            = exp(logEps);
 			const double mPwr   = pow(m_, negKappa_);
 			logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
-			nuc_.updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
+			lastEpsilons_[static_cast<size_t>(m_)%20] = epsilon_;
 			m_ += 1.0;
 			return -1;
 		} else { // logpost is +Inf, which is bad
@@ -500,6 +505,7 @@ int16_t SamplerNUTS::adapt(){
 	vector<double> thetaMinus(*theta_);
 	vector<double> thetaPrime;
 	// theta_ will be theta^{m-1}
+	double nAcc = 0.0;
 	while (s) {
 		double nPrime = 0.0;
 		char sPrime   = '\0';
@@ -513,6 +519,7 @@ int16_t SamplerNUTS::adapt(){
 		if (sPrime) {
 			if ( (nPrime >= n) || (rng_.runif() <= nPrime/n) ) {
 				(*theta_) = move(thetaPrime);
+				nAcc += 1.0;
 			}
 			vector<double> thetaDiff;
 			// theta^+ - theta^-
@@ -541,13 +548,20 @@ int16_t SamplerNUTS::adapt(){
 		}
 	}
 
+	// Supplement the Hoffman and Gelman approach by looking at the actual acceptance rates when there is a large enough number of HMC steps.
+	// This seems to bump up epsilon a bit to reduce the number of steps.
+	// Using the nAcc/n statistic by itself makes epsilon too large, primarily because small n does not allow for a good acceptance rate estimate.
+	double aFrac = alpha/nAlpha;
+	if (n >= 5) {
+		aFrac = max(aFrac, nAcc/n);
+	}
 	const double mt0    = m_ + t0_;
-	Hprevious_          = (1.0 - 1.0/mt0)*Hprevious_ + (delta_ - alpha/nAlpha)/mt0;
+	Hprevious_          = (1.0 - 1.0/mt0)*Hprevious_ + (delta_ - aFrac)/mt0;
 	const double logEps = mu_ - (sqrt(m_)*Hprevious_)/gamma_;
 	epsilon_            = exp(logEps);
 	const double mPwr   = pow(m_, negKappa_);
 	logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
-	nuc_.updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
+	lastEpsilons_[static_cast<size_t>(m_)%20] = epsilon_;
 	m_ += 1.0;
 
 	return static_cast<int16_t>(n); // should be safe given the limits I put on n
@@ -559,7 +573,11 @@ int16_t SamplerNUTS::update() {
 		if (firstAdapt_) {
 			firstUpdate_ = false;   // in case there were no adapt runs, leave epsilon_ as the constructor-assigned value
 		} else {
-			epsilon_     = epsWMN_;
+			if (m_ < 20.0) {
+				epsilon_ = nuc_.mean(lastEpsilons_, static_cast<size_t>(m_));
+			} else {
+				epsilon_ = nuc_.mean(lastEpsilons_, 20);
+			}
 			firstUpdate_ = false;
 		}
 	}
@@ -583,8 +601,8 @@ int16_t SamplerNUTS::update() {
 	} else if (fpClsLP == FP_INFINITE) {
 
 		if ( signbit(lPost) ) { // logpost is -Inf
-			// try to find theta values that give a finite log-posterior. Stop when this happens, but give up after 100 attempts and hope the next round will be better. Return -1 as tree depth.
-			for (uint16_t i = 0; i < 100; i++) {
+			// try to find theta values that give a finite log-posterior. Stop when this happens, but give up after 20 attempts and hope the next round will be better. Return -1 as tree depth.
+			for (uint16_t i = 0; i < 20; i++) {
 				leapfrog_(*theta_, rPlus, epsilon_);
 				if (fpclassify( model_->logPost(*theta_) ) == FP_NORMAL) {
 					break;

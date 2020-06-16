@@ -60,7 +60,7 @@ namespace BayesicSpace {
 		 * \param[in] theta pointer to the vector of parameters
 		 *
 		 */
-		SamplerNUTS(const Model *model, vector<double> *theta) : Sampler(), epsilon_{1.0}, nH0_{0.0}, m_{1.0}, Hprevious_{0.0}, logEpsBarPrevious_{0.0}, epsWMN_{0.0}, currW_{0.0}, firstAdapt_{true}, firstUpdate_{true}, model_{model}, theta_{theta} {};
+		SamplerNUTS(const Model *model, vector<double> *theta) : Sampler(), epsilon_{1.0}, nH0_{0.0}, m_{1.0}, Hprevious_{0.0}, logEpsBarPrevious_{0.0}, lastEpsilons_{0.0}, firstAdapt_{true}, firstUpdate_{true}, model_{model}, theta_{theta} {};
 		/** \brief Copy constructor (deleted)*/
 		SamplerNUTS(const SamplerNUTS &in) = delete;
 		/** \brief Copy assignement operator (deleted) */
@@ -90,7 +90,7 @@ namespace BayesicSpace {
 		 *
 		 * Checks the output of the log-posterior function and throws an exception if it evaluates to `NaN` or \f$ +\infty \f$.
 		 *
-		 * \return Tree depth for the step
+		 * \return Number of leapfrog steps performed or -1 if log-posterior is \f$ -\infty \f$
 		 */
 		int16_t adapt() override;
 		/** \brief NUTS update of parameters
@@ -99,7 +99,7 @@ namespace BayesicSpace {
 		 *
 		 * Checks the output of the log-posterior function and throws an exception if it evaluates to `NaN` or \f$ +\infty \f$.
 		 *
-		 * \return Tree depth for the step
+		 * \return Number of leapfrog steps performed or -1 if log-posterior is \f$ -\infty \f$
 		 */
 		int16_t update() override;
 
@@ -134,10 +134,8 @@ namespace BayesicSpace {
 		double Hprevious_;
 		/** \brief The value \f$\log \bar{\epsilon}_{m-1}\f$ of \f$ \epsilon \f$ being optimized, from the previous warm-up step */
 		double logEpsBarPrevious_;
-		/** \brief Current \f$ \epsilon \f$ weighted mean */
-		double epsWMN_;
-		/** \brief Current weight for the \f$ \epsilon \f$ weighted mean */
-		double currW_;
+		/** \brief Last 20 \f$ \epsilon \f$ values from the adaptation phase */
+		double lastEpsilons_[20];
 		/** \brief Has the first adaptation step been run? */
 		bool firstAdapt_;
 		/** \brief Has the first post-adaptation update been run? */

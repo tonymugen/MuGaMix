@@ -165,6 +165,15 @@ namespace BayesicSpace {
 	 *
 	 */
 	 void updateWeightedMean(const double &xn, const double &wn, double &mu, double &w) const;
+	/** \brief Mean of an array
+	 *
+	 * Uses the numerically stable recursive algorithm.
+	 *
+	 * \param[in] arr c-style array of values
+	 * \param[in] len array length
+	 * \return mean value
+	 */ 
+	double mean(const double arr[], const size_t &len);
 
 	private:
 		/** \brief Gamma function magical coefficients */
