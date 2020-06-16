@@ -27,11 +27,10 @@
  *
  */
 
+#include <bits/stdint-intn.h>
 #include <vector>
 #include <string>
 #include <cmath>
-
-#include <fstream>
 
 #include "danuts.hpp"
 #include "random.hpp"
@@ -45,7 +44,7 @@ using std::signbit;
 
 // static members
 const double   SamplerNUTS::deltaMax_ = 1000.0;
-const double   SamplerNUTS::delta_    = 0.8;
+const double   SamplerNUTS::delta_    = 0.6;
 const double   SamplerNUTS::t0_       = 10.0;
 const double   SamplerNUTS::gamma_    = 0.05;
 const double   SamplerNUTS::negKappa_ = -0.75;
@@ -182,30 +181,6 @@ void SamplerNUTS::findInitialEpsilon_(){
 void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const double &epsilon){
 	vector<double> thtGrad;  // Make sure that the model implementing the gradient resizes it properly!
 	model_->gradient(theta, thtGrad);
-
-	if (theta.size() == 128){
-		for (size_t j = 8; j < 128; j++) {
-			r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
-			theta[j] += epsilon*r[j];            // leapfrog update of theta
-		}
-		/*
-		for (size_t j = 1530; j < 1990; j++) {
-			r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
-			theta[j] += epsilon*r[j];            // leapfrog update of theta
-		}
-		*/
-		model_->gradient(theta, thtGrad);
-		// one more half-step update of r
-		for (size_t k = 8; k < 128; k++) {
-			r[k] += 0.5*epsilon*thtGrad[k];
-		}
-		/*
-		for (size_t k = 1530; k < 1990; k++) {
-			r[k] += 0.5*epsilon*thtGrad[k];
-		}
-		*/
-		return;
-	}
 	for (size_t j = 0; j < theta.size(); j++) {
 		r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
 		theta[j] += epsilon*r[j];            // leapfrog update of theta
@@ -477,7 +452,7 @@ int16_t SamplerNUTS::adapt(){
 	}
 	// following the notation in Hoffman and Gelman
 	char s        = '1'; // the stopping condition; since sizeof(bool) is implementation-defined, I opt for using one byte for sure
-	int16_t j     = 0;   // tree depth
+	uint16_t j    = 0;   // tree depth
 	double n      = 1.0; // n; using a double straight away so that I do not have to re-cast for division
 	double alpha  = 0.0;
 	double nAlpha = 0.0;
@@ -524,11 +499,6 @@ int16_t SamplerNUTS::adapt(){
 	vector<double> thetaPlus(*theta_);
 	vector<double> thetaMinus(*theta_);
 	vector<double> thetaPrime;
-	// I optimize the "acceptance rate", which reflects the number of times *theta_ is replaced by thetaPrime.
-	// This is different from the Hoffman and Gelman approach. Their method was giving me epsilon_ values far too small.
-	// To estimate the acceptance rate, I multiply all the probabilities of rejection and then subtract from one.
-	double accRate = 1.0;
-	int16_t nAcc   = 0;
 	// theta_ will be theta^{m-1}
 	while (s) {
 		double nPrime = 0.0;
@@ -541,17 +511,8 @@ int16_t SamplerNUTS::adapt(){
 			buildTreeNeg_(thetaMinus, rMinus, lu, -epsilon_, j, thetaPlus, rPlus, thetaMinus, rMinus, thetaPrime, nPrime, sPrime, alpha, nAlpha);
 		}
 		if (sPrime) {
-			double nRat = nPrime/n;
-			if (nPrime >= n){
-				accRate = 0.0;                // definitely accepted; the overall acceptance probability estimate will then be 1
+			if ( (nPrime >= n) || (rng_.runif() <= nPrime/n) ) {
 				(*theta_) = move(thetaPrime);
-				nAcc++;
-			} else if (rng_.runif() <= nRat){
-				accRate *= 1.0 - nRat;
-				nAcc++;
-				(*theta_) = move(thetaPrime);
-			} else {
-				accRate *= 1.0 - nRat;
 			}
 			vector<double> thetaDiff;
 			// theta^+ - theta^-
@@ -571,17 +532,17 @@ int16_t SamplerNUTS::adapt(){
 			break; // s == 0
 		}
 		n += nPrime;
+		j++;
 
-		if (j >= 6) { // too many doublings; nudge the epsilon to a larger value
-			accRate = 0.0;
+		if (n >= 64.0) { // too many doublings; nudge the epsilon to a larger value
+			alpha  = 1.0;
+			nAlpha = 1.0;
 			break;
 		}
-		j++;
 	}
-	accRate = 1.0 - accRate;
 
 	const double mt0    = m_ + t0_;
-	Hprevious_          = (1.0 - 1.0/mt0)*Hprevious_ + (delta_ - accRate)/mt0;
+	Hprevious_          = (1.0 - 1.0/mt0)*Hprevious_ + (delta_ - alpha/nAlpha)/mt0;
 	const double logEps = mu_ - (sqrt(m_)*Hprevious_)/gamma_;
 	epsilon_            = exp(logEps);
 	const double mPwr   = pow(m_, negKappa_);
@@ -589,12 +550,7 @@ int16_t SamplerNUTS::adapt(){
 	nuc_.updateWeightedMean(epsilon_, sqrt(m_), epsWMN_, currW_);
 	m_ += 1.0;
 
-	std::fstream tstEps;
-	tstEps.open("tstEps.tsv", std::ios::app);
-	tstEps << epsilon_ << " " << accRate << " " << nAcc << " " << alpha << " " << nAlpha << " " << n << " " << j << std::endl;
-	tstEps.close();
-
-	return j;
+	return static_cast<int16_t>(n); // should be safe given the limits I put on n
 }
 
 int16_t SamplerNUTS::update() {
@@ -609,9 +565,9 @@ int16_t SamplerNUTS::update() {
 	}
 
 	// following the notation in Hoffman and Gelman
-	char s    = '1'; // the stopping condition; since sizeof(bool) is implementation-defined, I opt for using one byte for sure
-	int16_t j = 0;   // tree depth
-	double n  = 1.0; // n; using a double straight away so that I do not have to re-cast for division
+	char s     = '1'; // the stopping condition; since sizeof(bool) is implementation-defined, I opt for using one byte for sure
+	uint16_t j = 0;   // tree depth
+	double n   = 1.0; // n; using a double straight away so that I do not have to re-cast for division
 	// sampling r_0
 	vector<double> rPlus;
 	for (size_t i = 0; i < theta_->size(); i++) {
@@ -646,7 +602,7 @@ int16_t SamplerNUTS::update() {
 	vector<double> thetaMinus(*theta_);
 	vector<double> thetaPrime;
 	// theta_ will play the role of theta^m in Algorithm 3
-	while ( s && (j < 6) ) {
+	while ( s && (n < 64.0) ) {
 		double nPrime = 0.0;
 		char sPrime   = '\0';
 		if (rng_.ranInt()&mask_) { // testing if the last bit is set; should be a 50/50 chance, so in effect sampling U{-1,1}
@@ -680,7 +636,7 @@ int16_t SamplerNUTS::update() {
 		n += nPrime;
 		j++;
 	}
-	return j;
+	return static_cast<int16_t>(n); // should be safe given the limits I put on n
 }
 
 // SamplerMetro methods
