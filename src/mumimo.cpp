@@ -173,7 +173,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	}
 	double addMMsum = 0.0;
 	for (size_t iRow = 0; iRow < N; iRow++) {
-		addMMsum += pop1diff[iRow]*log1p(addMM[iRow]);
+		addMMsum += pop1diff[iRow] + log1p(addMM[iRow]);
 	}
 	// M[p] crossproduct trace
 	double mTrace = 0.0;
@@ -212,7 +212,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	}
 	isPrior *= nu0_ + 2.0*static_cast<double>(d);
 	// now sum to get the log-posterior
-	return 0.5*(ldetSumA*addMMsum - mTrace - pTrace + ldetSumP - isPrior);
+	return 0.5*(addMMsum - mTrace - pTrace + ldetSumA + ldetSumP - isPrior);
 }
 void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	expandISvec_(theta);
