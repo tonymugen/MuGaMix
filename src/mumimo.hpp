@@ -67,8 +67,8 @@ namespace BayesicSpace {
 		MumiNR() : Model(), yVec_{nullptr}, tau0_{0.0}, nu0_{0.0}, invAsq_{0.0}, LaInd_{0}, TaInd_{0}, TpInd_{0}, NAnd_{0}, NPnd_{0}, nxnd_{0} {};
 		/** \brief Constructor
 		 *
-		 * \param[in] yVec pointer to the data vector
-		 * \param[in] pVec pointer to the population assignment probability vector
+		 * \param[in] yVec pointer to the data vectorized matrix
+		 * \param[in] pVec pointer to the population assignment log-probability vectorized matrix
 		 * \param[in] d number of traits
 		 * \param[in] Npop number of populations
 		 * \param[in] tau0 grand mean prior precision
@@ -117,8 +117,8 @@ namespace BayesicSpace {
 		const vector<double> *yVec_;
 		/** \brief Matrix view of data */
 		MatrixViewConst Y_;
-		/** \brief Population assignment probability matrix */
-		MatrixViewConst P_;
+		/** \brief Population assignment log-probability matrix */
+		MatrixViewConst lnP_;
 		/** \brief Line factorized precision matrix view
 		 *
 		 * Points to `vLa_`.

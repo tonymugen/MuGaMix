@@ -59,7 +59,7 @@ MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *pVec, const siz
 #endif
 	const size_t n  = yVec->size()/d;
 	Y_              = MatrixViewConst(yVec, 0, n, d);
-	P_              = MatrixViewConst(pVec, 0, n, Npop);
+	lnP_            = MatrixViewConst(pVec, 0, n, Npop);
 
 	vLa_.resize(d*d, 0.0);
 	La_ = MatrixView(&vLa_, 0, d, d);
@@ -77,7 +77,7 @@ MumiNR::MumiNR(MumiNR &&in) {
 	if (this != &in) {
 		yVec_   = in.yVec_;
 		Y_      = move(in.Y_);
-		P_      = move(in.P_);
+		lnP_    = move(in.lnP_);
 		tau0_   = in.tau0_;
 		nu0_    = in.nu0_;
 		invAsq_ = in.invAsq_;
@@ -97,7 +97,7 @@ MumiNR& MumiNR::operator=(MumiNR &&in){
 	if (this != &in) {
 		yVec_   = in.yVec_;
 		Y_      = move(in.Y_);
-		P_      = move(in.P_);
+		lnP_    = move(in.lnP_);
 		tau0_   = in.tau0_;
 		nu0_    = in.nu0_;
 		invAsq_ = in.invAsq_;
@@ -128,12 +128,9 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	expandISvec_(theta);
 	const size_t N    = Y_.getNrows();
 	const size_t d    = Y_.getNcols();
-	const size_t Ndim = N*d;
-	MatrixViewConst Mp(&theta, 0, P_.getNcols(), d);
-	MatrixViewConst mu(&theta, P_.getNcols()*d, 1, d);      // overall mean
+	MatrixViewConst Mp(&theta, 0, lnP_.getNcols(), d);
+	MatrixViewConst mu(&theta, lnP_.getNcols()*d, 1, d);      // overall mean
 
-	vector<double> vResid;
-	vector<double> AtraceVec(N, 0.0);                       // accumulate A trace values here
 	// calculate T_A
 	vector<double> Ta;
 	for (size_t k = TaInd_; k < TpInd_; k++) {
@@ -144,9 +141,11 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	for (size_t k = TpInd_; k < theta.size(); k++) {        // the T_P component is at the very end
 		Tp.push_back( exp(theta[k]) );
 	}
-	for (size_t m = 0; m < P_.getNcols(); m++) {                               // m is the population index as in the model description document
-		vector<double> locAtr(N, 0.0);
-		vResid.assign(yVec_->begin(), yVec_->begin() + Ndim);                  // copy over Y_
+	// set up the matrix of population kernels
+	vector<double> vKm(N*lnP_.getNcols(), 0.0);
+	MatrixView Km( &vKm, 0, N, lnP_.getNcols() );
+	for (size_t m = 0; m < lnP_.getNcols(); m++) {                             // m is the population index as in the model description document
+		vector<double> vResid(*yVec_);                                         // copy over Y_
 		MatrixView mResid = MatrixView(&vResid, 0, N, d);                      // mResid now has the Y values
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
@@ -157,22 +156,30 @@ double MumiNR::logPost(const vector<double> &theta) const{
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
 				double rsd    = mResid.getElem(iRow, jCol);
-				locAtr[iRow] += Ta[jCol]*rsd*rsd;                              // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+				Km.addToElem(iRow, m,  Ta[jCol]*rsd*rsd);                      // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
 			}
 		}
-		for (size_t j = 0; j < N; j++) {
-			AtraceVec[j] += P_.getElem(j, m)*locAtr[j];                        // P_m(Y-mu_m)L_A T_A L_A^T(Y-mu_m)^T
+	}
+	vector<double> pop1diff;                                                   // ln(p) - 0.5*Km for the first population
+	for (size_t iRow = 0; iRow < N; iRow++) {
+		pop1diff.push_back( lnP_.getElem(iRow, 0) - 0.5*Km.getElem(iRow, 0) );
+	}
+	vector<double> addMM(N, 0.0);                                              // additive model per-individual sums
+	for (size_t m = 1; m < lnP_.getNcols(); m++) {                             // taking advantage of isolating the first element
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			const double diff = lnP_.getElem(iRow, m) - 0.5*Km.getElem(iRow, m) - pop1diff[iRow];
+			addMM[iRow] += exp(diff);
 		}
 	}
-	double aTrace = 0.0;
-	for (auto &a : AtraceVec){
-		aTrace += a;
+	double addMMsum = 0.0;
+	for (size_t iRow = 0; iRow < N; iRow++) {
+		addMMsum += pop1diff[iRow]*log1p(addMM[iRow]);
 	}
 	// M[p] crossproduct trace
 	double mTrace = 0.0;
 	for (size_t jCol = 0; jCol < d; ++jCol) {
 		double dp = 0.0;
-		for (size_t iRow = 0; iRow < P_.getNcols(); ++iRow) {
+		for (size_t iRow = 0; iRow < lnP_.getNcols(); ++iRow) {
 			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
 			dp += diff*diff;
 		}
@@ -195,7 +202,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	// Calculate the prior inverse-covariance components; k and m are as in the derivation document; doing the L_E and L_A in one pass
 	// first element has just the diagonal
 	double isPrior = log(nu0_*Ta[0] + invAsq_) + log(nu0_*Tp[0] + invAsq_);
-	for (size_t k = 1; k < d; k++) {                          // k starts from the second element (k=1)
+	for (size_t k = 1; k < d; k++) {                                       // k starts from the second element (k=1)
 		double sA = 0.0;
 		for (size_t m = 0; m <= k - 1; m++) {                              // the <= is intentional; excluding only m = k
 			sA += Ta[m]*La_.getElem(k, m)*La_.getElem(k, m);
@@ -205,7 +212,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	}
 	isPrior *= nu0_ + 2.0*static_cast<double>(d);
 	// now sum to get the log-posterior
-	return -0.5*(aTrace + mTrace + pTrace - ldetSumA - ldetSumP + isPrior);
+	return 0.5*(ldetSumA*addMMsum - mTrace - pTrace + ldetSumP - isPrior);
 }
 void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	expandISvec_(theta);
@@ -216,9 +223,9 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	const size_t N    = Y_.getNrows();
 	const size_t d    = Y_.getNcols();
 	const size_t dSq  = d*d;
-	const size_t Npop = P_.getNcols();
+	const size_t Npop = lnP_.getNcols();
 	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
-	const size_t Mdim = P_.getNcols()*Y_.getNcols();
+	const size_t Mdim = lnP_.getNcols()*Y_.getNcols();
 	MatrixViewConst M(&theta, 0, Npop, d);
 	MatrixViewConst mu(&theta, Mdim, 1, d);
 
@@ -261,7 +268,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
-				YresISA.multiplyElem( iRow, jCol, P_.getElem(iRow, m) );        // P_m(Y - mu_m)
+				YresISA.multiplyElem( iRow, jCol, lnP_.getElem(iRow, m) );        // P_m(Y - mu_m)
 			}
 		}
 		YresISA.gemm(true, 1.0, Yresid, false, 1.0, RtR);                       // (Y - mu_m)^T P_m (Y - mu_m); putting population sums in RtR
