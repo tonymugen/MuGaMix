@@ -28,6 +28,7 @@
  */
 
 #include <bits/stdint-intn.h>
+#include <math.h>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -160,20 +161,51 @@ double MumiNR::logPost(const vector<double> &theta) const{
 			}
 		}
 	}
-	vector<double> pop1diff;                                                   // ln(p) - 0.5*Km for the first population
-	for (size_t iRow = 0; iRow < N; iRow++) {
-		pop1diff.push_back( lnP_.getElem(iRow, 0) - 0.5*Km.getElem(iRow, 0) );
+
+	for (size_t iRow = 0; iRow < N; iRow++) {                                  // ln(p) - 0.5*Km for the first population
+		double diff = lnP_.getElem(iRow, 0) - 0.5*Km.getElem(iRow, 0);
+		Km.setElem(iRow, 0, diff);
 	}
-	vector<double> addMM(N, 0.0);                                              // additive model per-individual sums
-	for (size_t m = 1; m < lnP_.getNcols(); m++) {                             // taking advantage of isolating the first element
+	for (size_t m = 1; m < lnP_.getNcols(); m++) {                             // Km[,2...] now the difference with the first population
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			const double diff = lnP_.getElem(iRow, m) - 0.5*Km.getElem(iRow, m) - pop1diff[iRow];
-			addMM[iRow] += exp(diff);
+			const double diff = lnP_.getElem(iRow, m) - 0.5*Km.getElem(iRow, m) - Km.getElem(iRow, 0);
+			Km.setElem(iRow, m, diff);
 		}
 	}
-	double addMMsum = 0.0;
-	for (size_t iRow = 0; iRow < N; iRow++) {
-		addMMsum += pop1diff[iRow] + log1p(addMM[iRow]);
+	double addMMsum = 0.0;                                          // sum of the additive kernel will go here
+	for (size_t iRow = 0; iRow < N; iRow++) {                       // sacrificing the tight loop to make numerical safety happen
+		double regSum = 0.0;
+		double bigSum = 0.0;                                        // will be used if large values of Km are encountered
+		for (size_t m = 1; m < lnP_.getNcols(); m++) {
+			const double df = Km.getElem(iRow, m);
+			if (df >= 100) {                                        // well into approximation territory, but don't want to do this too often
+				if (bigSum > 0.0) {                                 // something already added
+					double ldif = bigSum - df;
+					if ( (ldif > 0.0) && (ldif <= 5.0) ) {          // over 5.0 the correction is unnecessary regardless of the df or bigSum value
+						bigSum += log1p( exp(-ldif) );
+					} else if ( (ldif < 0.0) && (ldif >= -5.0) ) {
+						bigSum = df + log1p( exp(ldif) );
+					} else if (ldif < 0.0) {
+						bigSum = df;
+					} // or leave bigSum as is
+				} else {
+					bigSum = df;
+				}
+			} else if (bigSum > 0.0) {
+				if (df >= 95) {
+					bigSum += log1p( exp(df-bigSum) );
+				}
+				// otherwise do nothing
+			} else {
+				// TODO: check for overflow here
+				regSum += exp(df);
+			}
+		}
+		if (bigSum > 0.0) {
+			addMMsum += Km.getElem(iRow, 0) + bigSum;
+		} else {
+			addMMsum += Km.getElem(iRow, 0) + log1p(regSum);
+		}
 	}
 	// M[p] crossproduct trace
 	double mTrace = 0.0;
