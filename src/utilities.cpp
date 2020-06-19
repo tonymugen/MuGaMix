@@ -175,7 +175,7 @@ double NumerUtil::digamma(const double &x) const{
 		return x;
 	}
 	// very large x
-    double xln = log(x);
+	double xln = log(x);
 	double lrg = 1/( 2.0*numeric_limits<double>::epsilon() );
 	if(x * xln > lrg) {
 		return xln;
@@ -184,7 +184,7 @@ double NumerUtil::digamma(const double &x) const{
 	const double r1m4  = 0.5*numeric_limits<double>::epsilon();
 	const double r1m5  = 0.301029995663981195213738894724;            // log_10(2)
 	const double wdtol = (r1m4 > 0.5e-18 ? r1m4 : 0.5e-18);
-    const double elim  = 2.302*(static_cast<double>(n)*r1m5 - 3.0);  // = 700.6174...
+	const double elim  = 2.302*(static_cast<double>(n)*r1m5 - 3.0);  // = 700.6174...
 	// small x and underflow conditions
 	if (xln < -elim){
 		return nan(""); // underflow
@@ -295,7 +295,7 @@ void NumerUtil::phi2lnp(const MatrixViewConst &Phi, MatrixView &lnP) const{
 					lnP.setElem(iRow, m, 0.0);
 				} else {
 					rowSum[iRow] = -log1p( exp(-val) );
-					lnP.setElem(iRow, m, -val - log1p(-val));
+					lnP.setElem( iRow, m, -val - log1p( exp(-val) ) );
 				}
 			} else if ( m == Phi.getNcols() ) {
 				lnP.setElem(iRow, m, rowSum[iRow]);
@@ -379,7 +379,7 @@ void NumerUtil::phi2lnp(const MatrixView &Phi, MatrixView &lnP) const{
 					lnP.setElem(iRow, m, 0.0);
 				} else {
 					rowSum[iRow] = -log1p( exp(-val) );
-					lnP.setElem(iRow, m, -val - log1p(-val));
+					lnP.setElem( iRow, m, -val - log1p( exp(-val) ) );
 				}
 			} else if ( m == Phi.getNcols() ) {
 				lnP.setElem(iRow, m, rowSum[iRow]);
@@ -436,7 +436,7 @@ double NumerUtil::dotProd(const vector<double> &v1, const vector<double> &v2) co
 	}
 	return dotProd;
 }
- void NumerUtil::updateWeightedMean(const double &xn, const double &wn, double &mu, double &w) const{
+void NumerUtil::updateWeightedMean(const double &xn, const double &wn, double &mu, double &w) const{
 	const double a = mu*w;
 	w += wn;
 	mu = (a + wn*xn)/w;

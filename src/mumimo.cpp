@@ -28,7 +28,9 @@
  */
 
 #include <bits/stdint-intn.h>
+#include <ios>
 #include <math.h>
+#include <type_traits>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -52,7 +54,7 @@ using std::isnan;
 using namespace BayesicSpace;
 
 // MumiNR methods
-MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *pVec, const size_t &d, const size_t &Npop, const double &tau0, const double &nu0, const double &invAsq) : Model(), yVec_{yVec}, tau0_{tau0}, nu0_{nu0}, invAsq_{invAsq} {
+MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *lnpVec, const size_t &d, const size_t &Npop, const double &tau0, const double &nu0, const double &invAsq) : Model(), yVec_{yVec}, tau0_{tau0}, nu0_{nu0}, invAsq_{invAsq} {
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%d) {
 		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the MumiNR constructor");
@@ -60,7 +62,7 @@ MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *pVec, const siz
 #endif
 	const size_t n  = yVec->size()/d;
 	Y_              = MatrixViewConst(yVec, 0, n, d);
-	lnP_            = MatrixViewConst(pVec, 0, n, Npop);
+	lnP_            = MatrixViewConst(lnpVec, 0, n, Npop);
 
 	vLa_.resize(d*d, 0.0);
 	La_ = MatrixView(&vLa_, 0, d, d);
@@ -472,25 +474,27 @@ double MumiPNR::logPost(const vector<double> &vPhi) const{
 	const size_t d    = Y_.getNcols();
 	const size_t Npop = M_.getNrows();
 	MatrixViewConst Phi(&vPhi, 0, N, Npop-1);
-	vector<double> vP(N*Npop, 0.0);
-	MatrixView P(&vP, 0, N, Npop);
-	nuc_.phi2p(Phi, P);
+	vector<double> vlnP(N*Npop, 0.0);
+	MatrixView lnP(&vlnP, 0, N, Npop);
+	nuc_.phi2lnp(Phi, lnP);
 
+	// Calculate the prior sum
 	double priorSum = 0.0;
-	for (auto &p : vP){
-		priorSum += log(p);
+	for (auto &p : vlnP){
+		priorSum += p;
 	}
-	priorSum *= alphaPr_;
-	vector<double> AtraceVec(N, 0.0);                       // accumulate A trace values here
+	priorSum *= alphaPr_;    // already (alpha-1)
+
 	// calculate T_A
 	vector<double> Ta;
 	for (size_t k = TaInd_; k < TpInd_; k++) {
 		Ta.push_back( exp( (*theta_)[k] ) );
 	}
-	vector<double> vResid(yVec_->size(), 0.0);
+	// set up the matrix of population kernels
+	vector<double> vKm(N*Npop, 0.0);
+	MatrixView Km(&vKm, 0, N, Npop);
 	for (size_t m = 0; m < Npop; m++) {                                        // m is the population index as in the model description document
-		vector<double> locAtr(N, 0.0);
-		vResid.assign( yVec_->begin(), yVec_->begin() + yVec_->size() );       // copy over Y_
+		vector<double> vResid(*yVec_);                                         // copy over Y_
 		MatrixView mResid = MatrixView(&vResid, 0, N, d);                      // mResid now has the Y values
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
@@ -501,18 +505,58 @@ double MumiPNR::logPost(const vector<double> &vPhi) const{
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
 				double rsd    = mResid.getElem(iRow, jCol);
-				locAtr[iRow] += Ta[jCol]*rsd*rsd;                              // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+				Km.addToElem(iRow, m,  Ta[jCol]*rsd*rsd);                      // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
 			}
 		}
-		for (size_t j = 0; j < N; j++) {
-			AtraceVec[j] += P.getElem(j, m)*locAtr[j];                         // P_m(Y-mu_m)L_A T_A L_A^T(Y-mu_m)^T
+	}
+
+	for (size_t iRow = 0; iRow < N; iRow++) {                                  // ln(p) - 0.5*Km for the first population
+		double diff = lnP.getElem(iRow, 0) - 0.5*Km.getElem(iRow, 0);
+		Km.setElem(iRow, 0, diff);
+	}
+	for (size_t m = 1; m < Npop; m++) {                             // Km[,2...] now the difference with the first population
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			const double diff = lnP.getElem(iRow, m) - 0.5*Km.getElem(iRow, m) - Km.getElem(iRow, 0);
+			Km.setElem(iRow, m, diff);
 		}
 	}
-	double aTrace = 0.0;
-	for (auto &a : AtraceVec){
-		aTrace += a;
+	double addMMsum = 0.0;                                          // sum of the additive kernel will go here
+	for (size_t iRow = 0; iRow < N; iRow++) {                       // sacrificing the tight loop to make numerical safety happen
+		double regSum = 0.0;
+		double bigSum = 0.0;                                        // will be used if large values of Km are encountered
+		for (size_t m = 1; m < lnP.getNcols(); m++) {
+			const double df = Km.getElem(iRow, m);
+			if (df >= 100) {                                        // well into approximation territory, but don't want to do this too often
+				if (bigSum > 0.0) {                                 // something already added
+					double ldif = bigSum - df;
+					if ( (ldif > 0.0) && (ldif <= 5.0) ) {          // over 5.0 the correction is unnecessary regardless of the df or bigSum value
+						bigSum += log1p( exp(-ldif) );
+					} else if ( (ldif < 0.0) && (ldif >= -5.0) ) {
+						bigSum = df + log1p( exp(ldif) );
+					} else if (ldif < 0.0) {
+						bigSum = df;
+					} // or leave bigSum as is
+				} else {
+					bigSum = df;
+				}
+			} else if (bigSum > 0.0) {
+				if (df >= 95) {
+					bigSum += log1p( exp(df-bigSum) );
+				}
+				// otherwise do nothing
+			} else {
+				if (regSum <= 1e260) { // do not bother adding any more if regSum is too large to prevent overflow; 1e250 ~ exp(600)
+					regSum += exp(df);
+				}
+			}
+		}
+		if (bigSum > 0.0) {
+			addMMsum += Km.getElem(iRow, 0) + bigSum;
+		} else {
+			addMMsum += Km.getElem(iRow, 0) + log1p(regSum);
+		}
 	}
-	return priorSum - 0.5*aTrace;
+	return addMMsum + priorSum;
 }
 
 void MumiPNR::gradient(const vector<double> &vPhi, vector<double> &grad) const{
@@ -1911,7 +1955,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 
 	vTheta_.resize( (Npop + 1)*d, 0.0 );    // add the inverse-covariance elements later
 	fLaInd_ = vTheta_.size();
-	Mp_ = MatrixView(&vTheta_, 0, Npop, d);
+	Mp_     = MatrixView(&vTheta_, 0, Npop, d);
 	MatrixView mu(&vTheta_, Npop*d, 1, d);
 
 	vector<size_t> ind;
@@ -1921,22 +1965,40 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 		}
 	}
 	Index popInd(ind);
-	vP_ = vector<double>(N*Npop, 0.0);
-	P_  = MatrixView(&vP_, 0, N, Npop);
+	vlnP_ = vector<double>(N*Npop, 0.0);
+	lnP_  = MatrixView(&vlnP_, 0, N, Npop);
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			if (popInd.groupID(iRow) == m){
-				P_.setElem( iRow, m, 0.95 );
+				lnP_.setElem( iRow, m, log(0.95) );
 			} else {
-				P_.setElem( iRow, m, 0.05/static_cast<double>(Npop - 1) );
+				lnP_.setElem( iRow, m, log( 0.05/static_cast<double>(Npop - 1) ) );
 			}
 		}
 	}
+	std::fstream tstP;
+	tstP.open("tstP.tsv", std::ios::trunc|std::ios::out);
+	for (size_t iRow = 0; iRow < N; iRow++) {
+		for (size_t m = 0; m < Npop; m++) {
+			tstP << lnP_.getElem(iRow, m) << " ";
+		}
+		tstP << "\n";
+	}
+	tstP << "---------------\n";
 	vPhi_ = vector<double>(N*(Npop-1), 0.0);
 	Phi_  = MatrixView(&vPhi_, 0, N, Npop-1);
-	p2phi_();
+	lnp2phi_();
 	Y_.colMeans(popInd, Mp_);
 	//sortPops_();
+	nuc_.phi2lnp(Phi_, lnP_);
+	for (size_t iRow = 0; iRow < N; iRow++) {
+		for (size_t m = 0; m < Npop; m++) {
+			tstP << lnP_.getElem(iRow, m) << " ";
+		}
+		tstP << "\n";
+	}
+	tstP.close();
+	throw string("stop here");
 
 	vector<double> tmpMu;
 	Mp_.colMeans(tmpMu);
@@ -1985,14 +2047,14 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 		}
 		vTheta_.push_back( log(dNp/sSq) );
 	}
-	models_.push_back( new MumiNR(&vY_, &vP_, d, Npop, tau0, nu0, invAsq) );
+	models_.push_back( new MumiNR(&vY_, &vlnP_, d, Npop, tau0, nu0, invAsq) );
 	models_.push_back( new MumiPNR(&vY_, &vTheta_, d, Npop, alphaPr) );
 	//models_.push_back( new MumiLocNR(&vY_, d, &vISig_, tau0, Npop, alphaPr) );
 	//models_.push_back( new MumiISigNR(&vY_, d, &vTheta_, nu0, invAsq, Npop) );
-	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.2) );
+	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.1) );
 	//samplers_.push_back( new SamplerNUTS(models_[1], &vPhi_) );
-	samplers_.push_back( new SamplerMetro(models_[1], &vPhi_, 0.01) );
+	samplers_.push_back( new SamplerMetro(models_[1], &vPhi_, 0.1) );
 	//samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_, 0.3) );
 }
@@ -2306,17 +2368,20 @@ void WrapMMM::imputeMissing_(){
 	}
 }
 
-void WrapMMM::p2phi_(){
-	vector<double> sSq(P_.getNrows(), 0.0);
-	for (size_t m = 0; m < P_.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < P_.getNrows(); iRow++) {
-			sSq[iRow] += P_.getElem(iRow, m);
+void WrapMMM::lnp2phi_(){
+	vector<double> sSq(lnP_.getNrows(), 0.0);
+	for (size_t m = 0; m < lnP_.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < lnP_.getNrows(); iRow++) {
+			sSq[iRow] += exp( lnP_.getElem(iRow, m) );
 		}
+	}
+	for (auto &ss : sSq){
+		ss = sqrt(ss);
 	}
 	for (size_t m = 0; m < Phi_.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-			double y = sqrt( P_.getElem(iRow, m) );
-			y        = sin( acos( y/sqrt(sSq[iRow]) ) );
+			double y = exp( 0.5*lnP_.getElem(iRow, m) );
+			y        = sin( acos(y/sSq[iRow]) );
 			Phi_.setElem( iRow, m, nuc_.logit(y*y) );
 		}
 	}
@@ -2338,25 +2403,25 @@ void WrapMMM::expandLa_(){
 }
 
 void WrapMMM::sortPops_(){
-	vector<size_t> firstIdx;                                  // vector with indices of the first high-p elements per population
-	for (size_t m = 0; m < P_.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < P_.getNrows(); iRow++) {
-			if (P_.getElem(iRow, m) >= 0.95){
+	vector<size_t> firstIdx;                                       // vector with indices of the first high-p elements per population
+	for (size_t m = 0; m < lnP_.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < lnP_.getNrows(); iRow++) {
+			if (lnP_.getElem(iRow, m) >= -0.05129329){ // ln(0.95)
 				firstIdx.push_back(iRow);
 				break;
 			}
 		}
 	}
-	if ( firstIdx.size() < P_.getNcols() ){                  // some populations may have no high-probability individuals
-		while ( firstIdx.size() != P_.getNcols() ){
-			firstIdx.push_back( P_.getNrows() );             // add one past the last index, to guarantee that these populations will be put last
+	if ( firstIdx.size() < lnP_.getNcols() ){                      // some populations may have no high-probability individuals
+		while ( firstIdx.size() != lnP_.getNcols() ){
+			firstIdx.push_back( lnP_.getNrows() );                 // add one past the last index, to guarantee that these populations will be put last
 		}
 	}
 	vector<size_t> popIdx;
 	nuc_.insertionSort(firstIdx, popIdx);
 	Mp_.permuteRows(popIdx);
-	P_.permuteCols(popIdx);
-	p2phi_();
+	lnP_.permuteCols(popIdx);
+	lnp2phi_();
 }
 
 void WrapMMM::calibratePhi_(){
@@ -2477,7 +2542,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tadapt" << std::endl;
 			parGrp++;
 		}
-		nuc_.phi2p(Phi_, P_);
+		nuc_.phi2lnp(Phi_, lnP_);
 		sortPops_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
@@ -2487,14 +2552,14 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			treeOut << tr << "\t" << parGrp << "\tsample" << std::endl;
 			parGrp++;
 		}
-		nuc_.phi2p(Phi_, P_);
+		nuc_.phi2lnp(Phi_, lnP_);
 		sortPops_();
 		if ( (b%Nthin) == 0) {
 			for (size_t iTht = 0; iTht < fLaInd_; iTht++) {
 				thetaChain.push_back(vTheta_[iTht]);
 			}
-			for (auto &p : vP_){
-				piChain.push_back(p);
+			for (auto &p : vlnP_){
+				piChain.push_back( exp(p) );
 			}
 			for (size_t iSig = fLaInd_; iSig < vTheta_.size(); iSig++) {
 				isigChain.push_back(vTheta_[iSig]);

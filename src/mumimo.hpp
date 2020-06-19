@@ -68,14 +68,14 @@ namespace BayesicSpace {
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer to the data vectorized matrix
-		 * \param[in] pVec pointer to the population assignment log-probability vectorized matrix
+		 * \param[in] lnpVec pointer to the population assignment log-probability vectorized matrix
 		 * \param[in] d number of traits
 		 * \param[in] Npop number of populations
 		 * \param[in] tau0 grand mean prior precision
 		 * \param[in] nu0 inverse covariance prior degrees of freedom
 		 * \param[in] invAsq inverse covariance prior precision
 		 */
-		MumiNR(const vector<double> *yVec, const vector<double> *pVec, const size_t &d, const size_t &Npop, const double &tau0, const double &nu0, const double &invAsq);
+		MumiNR(const vector<double> *yVec, const vector<double> *lnpVec, const size_t &d, const size_t &Npop, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Destructor */
 		~MumiNR(){yVec_ = nullptr; };
 
@@ -820,8 +820,8 @@ namespace BayesicSpace {
 		vector<double> vISig_;
 		/** \brief Transformed population assignment probabilities */
 		vector<double> vPhi_;
-		/** \brief Population assignment probabilities */
-		vector<double> vP_;
+		/** \brief Population assignment log-probabilities */
+		vector<double> vlnP_;
 		/** \brief Matrix view of line (accession) means */
 		MatrixView A_;
 		/** \brief Matrix view of population means */
@@ -830,8 +830,8 @@ namespace BayesicSpace {
 		size_t PhiBegInd_;
 		/** \brief Matrix view of logit-population assignment probabilities */
 		MatrixView Phi_;
-		/** \brief Matrix view of population assignment probabilies */
-		MatrixView P_;
+		/** \brief Matrix view of population assignment log-probabilies */
+		MatrixView lnP_;
 		/** \brief `Phi_` recalibration trigger value */
 		static const double phiMin_;
 		/** \brief Value to add for calibration */
@@ -883,12 +883,12 @@ namespace BayesicSpace {
 		 * This does not affect population assignment probabilities.
 		 */
 		void calibratePhi_();
-		/** \brief Convert probabilities to logit-scores
+		/** \brief Convert log-probabilities to logit scores
 		 *
-		 * Uses the Betancourt (2012) method of transforming population assignment probabilities to hyper-spherical coordinates. I then apply a logit transformation to further map scores to the \f$(-\infty, \infty ) \f$ interval.
+		 * Uses the Betancourt (2012) method of transforming population assignment log-probabilities to hyper-spherical coordinates. I then apply a logit transformation to further map scores to the \f$(-\infty, \infty ) \f$ interval.
 		 *
 		 */
-		void p2phi_();
+		void lnp2phi_();
 		/** \brief Expand lower triangle of the \f$ \boldsymbol{L}_A \f$ matrix
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix and multiplies its columns by the square root of \f$ \boldsymbol{T}_A \f$. The input vector `vISig_` stores only the non-zero elements of these matrices.
