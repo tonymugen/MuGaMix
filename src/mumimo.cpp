@@ -197,8 +197,9 @@ double MumiNR::logPost(const vector<double> &theta) const{
 				}
 				// otherwise do nothing
 			} else {
-				// TODO: check for overflow here
-				regSum += exp(df);
+				if (regSum <= 1e260) { // do not bother adding any more if regSum is too large to prevent overflow; 1e250 ~ exp(600)
+					regSum += exp(df);
+				}
 			}
 		}
 		if (bigSum > 0.0) {

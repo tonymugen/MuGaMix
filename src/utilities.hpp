@@ -110,6 +110,16 @@ namespace BayesicSpace {
 	 *
 	 */
 	void phi2p(const MatrixViewConst &Phi, MatrixView &P) const;
+	/** brief Unrestricted \f$ \boldsymbol{\Phi} \f$ to log-probability matrix conversion
+	 *
+	 * Does the hyper-spherical back-transformation of the free logit-space population assignment probability matrix to the true log-probability matrix (with all rows summing to 1).
+	 * The \f$ \boldsymbol{\Phi} \f$ matrix must have one fewer columns than \f$ \ln(\boldsymbol{P}) \f$.
+	 *
+	 * \param[in] Phi free-parameter matrix
+	 * \param[out] lnP population assignment probability matrix
+	 *
+	 */
+	void phi2lnp(const MatrixViewConst &Phi, MatrixView &lnP) const;
 	/** brief Weight matrix \f$ \boldsymbol{W} \f$ to probability matrix conversion
 	 *
 	 * Does the hyper-spherical back-transformation of the free population assignment weight (\f$ w = \mathrm{logistic}(\phi)\f$) matrix to the true probability matrix (with all rows summing to 1).
@@ -128,6 +138,16 @@ namespace BayesicSpace {
 	 *
 	 */
 	void phi2p(const MatrixView &Phi, MatrixView &P) const;
+	/** brief Unrestricted \f$ \boldsymbol{\Phi} \f$ to log-probability matrix conversion
+	 *
+	 * Does the hyper-spherical back-transformation of the free logit-space population assignment probability matrix to the true log-probability matrix (with all rows summing to 1).
+	 * The \f$ \boldsymbol{\Phi} \f$ matrix must have one fewer columns than \f$ \ln(\boldsymbol{P}) \f$.
+	 *
+	 * \param[in] Phi free-parameter matrix
+	 * \param[out] lnP population assignment probability matrix
+	 *
+	 */
+	void phi2lnp(const MatrixView &Phi, MatrixView &lnP) const;
 	/** brief Weight matrix to probability matrix conversion
 	 *
 	 * Does the hyper-spherical back-transformation of the free population assignment weight (\f$ w = \mathrm{logistic}(\phi)\f$) matrix to the true probability matrix (with all rows summing to 1).
@@ -172,7 +192,7 @@ namespace BayesicSpace {
 	 * \param[in] arr c-style array of values
 	 * \param[in] len array length
 	 * \return mean value
-	 */ 
+	 */
 	double mean(const double arr[], const size_t &len);
 
 	private:

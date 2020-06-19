@@ -28,6 +28,7 @@
  *
  */
 
+#include <math.h>
 #include <vector>
 #include <cmath>
 #include <string>
@@ -278,6 +279,39 @@ void NumerUtil::phi2p(const MatrixViewConst &Phi, MatrixView &P) const{
 		}
 	}
 }
+void NumerUtil::phi2lnp(const MatrixViewConst &Phi, MatrixView &lnP) const{
+#ifndef PKG_DEBUG_OFF
+	if ( ( Phi.getNcols()+1 != lnP.getNcols() ) || ( Phi.getNrows() != lnP.getNrows() ) ){
+		throw string("ERROR: Phi (") + to_string( Phi.getNrows() ) + "x" + to_string( Phi.getNcols() ) +  string(") and lnP (") + to_string( lnP.getNrows() ) + "x" + to_string( lnP.getNcols() ) + string(") dimensions incompatible in phi2lnp(MatrixViewConst &, MatrixView &)");
+	}
+#endif
+	vector<double> rowSum(Phi.getNrows(), 0.0);
+	for (size_t m = 0; m < lnP.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < lnP.getNrows(); iRow++) {
+			if (m == 0) {
+				const double val = Phi.getElem(iRow, m);
+				if (val <= -10.0) {                            // large enough that ln(1+exp(-val)) ~ val
+					rowSum[iRow] = val;
+					lnP.setElem(iRow, m, 0.0);
+				} else {
+					rowSum[iRow] = -log1p( exp(-val) );
+					lnP.setElem(iRow, m, -val - log1p(-val));
+				}
+			} else if ( m == Phi.getNcols() ) {
+				lnP.setElem(iRow, m, rowSum[iRow]);
+			} else {
+				const double val = Phi.getElem(iRow, m);
+				if (val <= -10) {
+					lnP.setElem(iRow, m, rowSum[iRow]);
+					rowSum[iRow] += val;
+				} else {
+					lnP.setElem( iRow, m, rowSum[iRow] - val - log1p( exp(-val) ) );
+					rowSum[iRow] -= log1p( exp(-val) );
+				}
+			}
+		}
+	}
+}
 void NumerUtil::w2p(const MatrixViewConst &W, MatrixView &P) const{
 #ifndef PKG_DEBUG_OFF
 	if ( ( W.getNcols()+1 != P.getNcols() ) || ( W.getNrows() != P.getNrows() ) ){
@@ -329,6 +363,39 @@ void NumerUtil::phi2p(const MatrixView &Phi, MatrixView &P) const{
 		}
 	}
 }
+void NumerUtil::phi2lnp(const MatrixView &Phi, MatrixView &lnP) const{
+#ifndef PKG_DEBUG_OFF
+	if ( ( Phi.getNcols()+1 != lnP.getNcols() ) || ( Phi.getNrows() != lnP.getNrows() ) ){
+		throw string("ERROR: Phi (") + to_string( Phi.getNrows() ) + "x" + to_string( Phi.getNcols() ) +  string(") and lnP (") + to_string( lnP.getNrows() ) + "x" + to_string( lnP.getNcols() ) + string(") dimensions incompatible in phi2lnp(MatrixViewConst &, MatrixView &)");
+	}
+#endif
+	vector<double> rowSum(Phi.getNrows(), 0.0);
+	for (size_t m = 0; m < lnP.getNcols(); m++) {
+		for (size_t iRow = 0; iRow < lnP.getNrows(); iRow++) {
+			if (m == 0) {
+				const double val = Phi.getElem(iRow, m);
+				if (val <= -10.0) {                            // large enough that ln(1+exp(-val)) ~ val
+					rowSum[iRow] = val;
+					lnP.setElem(iRow, m, 0.0);
+				} else {
+					rowSum[iRow] = -log1p( exp(-val) );
+					lnP.setElem(iRow, m, -val - log1p(-val));
+				}
+			} else if ( m == Phi.getNcols() ) {
+				lnP.setElem(iRow, m, rowSum[iRow]);
+			} else {
+				const double val = Phi.getElem(iRow, m);
+				if (val <= -10) {
+					lnP.setElem(iRow, m, rowSum[iRow]);
+					rowSum[iRow] += val;
+				} else {
+					lnP.setElem( iRow, m, rowSum[iRow] - val - log1p( exp(-val) ) );
+					rowSum[iRow] -= log1p( exp(-val) );
+				}
+			}
+		}
+	}
+}
 void NumerUtil::w2p(const MatrixView &W, MatrixView &P) const{
 #ifndef PKG_DEBUG_OFF
 	if ( ( W.getNcols()+1 != P.getNcols() ) || ( W.getNrows() != P.getNrows() ) ){
@@ -376,7 +443,7 @@ double NumerUtil::dotProd(const vector<double> &v1, const vector<double> &v2) co
 }
 double NumerUtil::mean(const double arr[], const size_t &len){
 	double mean = 0.0;
-	
+
 	for (size_t i = 0; i < len; i++) {
 		mean += (arr[i] - mean)/static_cast<double>(i + 1);
 	}
