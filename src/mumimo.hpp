@@ -154,6 +154,8 @@ namespace BayesicSpace {
 		double NPnd_;
 		/** \brief nu0*(nu0 + 2d) */
 		double nxnd_;
+		/** \brief Natural log of `DBL_MAX` */
+		static const double lnMaxDbl_;
 		/** Numerical utility collection */
 		NumerUtil nuc_;
 		/** \brief Expand the vector of factorized precision matrices

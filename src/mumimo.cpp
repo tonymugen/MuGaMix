@@ -28,6 +28,8 @@
  */
 
 #include <bits/stdint-intn.h>
+#include <cstddef>
+#include <cstring>
 #include <ios>
 #include <math.h>
 #include <type_traits>
@@ -54,6 +56,9 @@ using std::isnan;
 using namespace BayesicSpace;
 
 // MumiNR methods
+
+const double MumiNR::lnMaxDbl_ = log( numeric_limits<double>::max() );
+
 MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *lnpVec, const size_t &d, const size_t &Npop, const double &tau0, const double &nu0, const double &invAsq) : Model(), yVec_{yVec}, tau0_{tau0}, nu0_{nu0}, invAsq_{invAsq} {
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%d) {
@@ -131,6 +136,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	expandISvec_(theta);
 	const size_t N    = Y_.getNrows();
 	const size_t d    = Y_.getNcols();
+	const size_t Npop = lnP_.getNcols();
 	MatrixViewConst Mp(&theta, 0, lnP_.getNcols(), d);
 	MatrixViewConst mu(&theta, lnP_.getNcols()*d, 1, d);      // overall mean
 
@@ -145,9 +151,9 @@ double MumiNR::logPost(const vector<double> &theta) const{
 		Tp.push_back( exp(theta[k]) );
 	}
 	// set up the matrix of population kernels
-	vector<double> vKm(N*lnP_.getNcols(), 0.0);
+	vector<double> vKm(N*Npop, 0.0);
 	MatrixView Km( &vKm, 0, N, lnP_.getNcols() );
-	for (size_t m = 0; m < lnP_.getNcols(); m++) {                             // m is the population index as in the model description document
+	for (size_t m = 0; m < Npop; m++) {                             // m is the population index as in the model description document
 		vector<double> vResid(*yVec_);                                         // copy over Y_
 		MatrixView mResid = MatrixView(&vResid, 0, N, d);                      // mResid now has the Y values
 		for (size_t jCol = 0; jCol < d; jCol++) {
@@ -168,7 +174,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 		double diff = lnP_.getElem(iRow, 0) - 0.5*Km.getElem(iRow, 0);
 		Km.setElem(iRow, 0, diff);
 	}
-	for (size_t m = 1; m < lnP_.getNcols(); m++) {                             // Km[,2...] now the difference with the first population
+	for (size_t m = 1; m < Npop; m++) {                             // Km[,2...] now the difference with the first population
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			const double diff = lnP_.getElem(iRow, m) - 0.5*Km.getElem(iRow, m) - Km.getElem(iRow, 0);
 			Km.setElem(iRow, m, diff);
@@ -178,7 +184,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	for (size_t iRow = 0; iRow < N; iRow++) {                       // sacrificing the tight loop to make numerical safety happen
 		double regSum = 0.0;
 		double bigSum = 0.0;                                        // will be used if large values of Km are encountered
-		for (size_t m = 1; m < lnP_.getNcols(); m++) {
+		for (size_t m = 1; m < Npop; m++) {
 			const double df = Km.getElem(iRow, m);
 			if (df >= 100) {                                        // well into approximation territory, but don't want to do this too often
 				if (bigSum > 0.0) {                                 // something already added
@@ -214,7 +220,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	double mTrace = 0.0;
 	for (size_t jCol = 0; jCol < d; ++jCol) {
 		double dp = 0.0;
-		for (size_t iRow = 0; iRow < lnP_.getNcols(); ++iRow) {
+		for (size_t iRow = 0; iRow < Npop; ++iRow) {
 			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
 			dp += diff*diff;
 		}
@@ -228,7 +234,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	// Sum of log-determinants
 	double ldetSumA = 0.0;
 	double ldetSumP = 0.0;
-	for (size_t k = 0; k < Y_.getNcols(); k++) {
+	for (size_t k = 0; k < d; k++) {
 		ldetSumA += theta[TaInd_ + k];
 		ldetSumP += theta[TpInd_ + k];
 	}
@@ -287,30 +293,53 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	}
 	vLATA.back() = Ta.back();
 
-	vector<double> vYresid(yVec_->size(), 0.0);
+	// set up the matrix of population kernels
+	vector<double> vKm(N*Npop, 0.0);
+	MatrixView Km(&vKm, 0, N, Npop);
 	vector<double> vRtR(dSq, 0.0);
 	MatrixView RtR(&vRtR, 0, d, d);
+	vector<double> vResidEachPop(Ydim*Npop, 0.0);                                        // will have Y residuals with each population mean
+	vector<MatrixView> mResidEachPop(Npop);
+	for (size_t m = 0; m < Npop; m++) {                                                  // m is the population index as in the model description document
+		memcpy( vResidEachPop.data() + Ydim*m, yVec_->data(), Ydim*sizeof(double) );
+		mResidEachPop[m] = MatrixView(&vResidEachPop, Ydim*m, N, d);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				mResidEachPop[m].subtractFromElem( iRow, jCol, M.getElem(m, jCol) );     // mResid now Y - mu_m
+			}
+		}
+		mResidEachPop[m].syrk('l', 1.0, 1.0, RtR);                                       // (Y - mu_m)^T (Y - mu_m); putting population sums in RtR
+		mResidEachPop[m].trm('l', 'r', false, true, 1.0, La_);                           // mResid now (Y-mu_m)L_A
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				const double rsd   = mResidEachPop[m].getElem(iRow, jCol);
+				const double tArsd = Ta[jCol]*rsd;
+				mResidEachPop[m].setElem(iRow, jCol, tArsd);                             // mResid now (Y-mu_m)L_A T_A
+				Km.addToElem(iRow, m,  tArsd*rsd);                                       // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+			}
+		}
+	}
+	for (size_t m = 0; m < Npop; m++) {                                                  // Km now ln(p) - 0.5*Km
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			const double diff = lnP_.getElem(iRow, m) - 0.5*Km.getElem(iRow, m);
+			Km.setElem(iRow, m, diff);
+		}
+	}
+	vector<double> vPrat(vKm);
+	MatrixView Prat(&vPrat, 0, N, Npop);                                   // the e^{kern, m}/sum(e^{kern, l}) ratio
 	for (size_t m = 0; m < Npop; m++) {
-		vYresid.assign( yVec_->begin(), yVec_->begin() + Ydim );                // copy over Y_
-		MatrixView Yresid(&vYresid, 0, N, d);
-		for (size_t jCol = 0; jCol < d; jCol++) {
-			for (size_t iRow = 0; iRow < N; iRow++) {
-				Yresid.subtractFromElem( iRow, jCol, M.getElem(m, jCol) );      // Y - mu_m
-			}
-		}
-		vector<double> vYresISA(vYresid);
-		MatrixView YresISA(&vYresISA, 0, N, d);
-
-		for (size_t jCol = 0; jCol < d; jCol++) {
-			for (size_t iRow = 0; iRow < N; iRow++) {
-				YresISA.multiplyElem( iRow, jCol, lnP_.getElem(iRow, m) );        // P_m(Y - mu_m)
-			}
-		}
-		YresISA.gemm(true, 1.0, Yresid, false, 1.0, RtR);                       // (Y - mu_m)^T P_m (Y - mu_m); putting population sums in RtR
-		// sum the scaled A residuals into gM rows
-		for (size_t jCol = 0; jCol < d; jCol++) {
-			for (size_t iRow = 0; iRow < N; iRow++) {
-				gM.addToElem( m, jCol, YresISA.getElem(iRow, jCol) );
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			const double expM  = Km.getElem(iRow, m);
+			double denominator = 1.0;
+			for (size_t p = 0; p < Npop; p++) {
+				if (p == m) {
+					continue;
+				}
+				const double expMl = Km.getElem(iRow, p) - expM;
+				if (expMl >= lnMaxDbl_) {                                  // exponentiation will overflow, the inverse is 0
+					Prat.setElem(iRow, m, 0.0);
+					break;
+				}
 			}
 		}
 	}
