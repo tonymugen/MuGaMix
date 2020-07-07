@@ -138,7 +138,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	const size_t d    = Y_.getNcols();
 	const size_t Npop = lnP_.getNcols();
 	MatrixViewConst Mp(&theta, 0, lnP_.getNcols(), d);
-	MatrixViewConst mu(&theta, lnP_.getNcols()*d, 1, d);      // overall mean
+	MatrixViewConst mu(&theta, lnP_.getNcols()*d, 1, d);                       // overall mean
 
 	// calculate T_A
 	vector<double> Ta;
@@ -147,13 +147,13 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	}
 	// calculate T_P
 	vector<double> Tp;
-	for (size_t k = TpInd_; k < theta.size(); k++) {        // the T_P component is at the very end
+	for (size_t k = TpInd_; k < theta.size(); k++) {                           // the T_P component is at the very end
 		Tp.push_back( exp(theta[k]) );
 	}
 	// set up the matrix of population kernels
 	vector<double> vKm(N*Npop, 0.0);
 	MatrixView Km( &vKm, 0, N, lnP_.getNcols() );
-	for (size_t m = 0; m < Npop; m++) {                             // m is the population index as in the model description document
+	for (size_t m = 0; m < Npop; m++) {                                        // m is the population index as in the model description document
 		vector<double> vResid(*yVec_);                                         // copy over Y_
 		MatrixView mResid = MatrixView(&vResid, 0, N, d);                      // mResid now has the Y values
 		for (size_t jCol = 0; jCol < d; jCol++) {
@@ -174,22 +174,22 @@ double MumiNR::logPost(const vector<double> &theta) const{
 		double diff = lnP_.getElem(iRow, 0) - 0.5*Km.getElem(iRow, 0);
 		Km.setElem(iRow, 0, diff);
 	}
-	for (size_t m = 1; m < Npop; m++) {                             // Km[,2...] now the difference with the first population
+	for (size_t m = 1; m < Npop; m++) {                                        // Km[,2...] now the difference with the first population
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			const double diff = lnP_.getElem(iRow, m) - 0.5*Km.getElem(iRow, m) - Km.getElem(iRow, 0);
 			Km.setElem(iRow, m, diff);
 		}
 	}
-	double addMMsum = 0.0;                                          // sum of the additive kernel will go here
-	for (size_t iRow = 0; iRow < N; iRow++) {                       // sacrificing the tight loop to make numerical safety happen
+	double addMMsum = 0.0;                                                     // sum of the additive kernel will go here
+	for (size_t iRow = 0; iRow < N; iRow++) {                                  // sacrificing the tight loop to make numerical safety happen
 		double regSum = 0.0;
-		double bigSum = 0.0;                                        // will be used if large values of Km are encountered
+		double bigSum = 0.0;                                                   // will be used if large values of Km are encountered
 		for (size_t m = 1; m < Npop; m++) {
 			const double df = Km.getElem(iRow, m);
-			if (df >= 100) {                                        // well into approximation territory, but don't want to do this too often
-				if (bigSum > 0.0) {                                 // something already added
+			if (df >= 100) {                                                   // well into approximation territory, but don't want to do this too often
+				if (bigSum > 0.0) {                                            // something already added
 					double ldif = bigSum - df;
-					if ( (ldif > 0.0) && (ldif <= 5.0) ) {          // over 5.0 the correction is unnecessary regardless of the df or bigSum value
+					if ( (ldif > 0.0) && (ldif <= 5.0) ) {                     // over 5.0 the correction is unnecessary regardless of the df or bigSum value
 						bigSum += log1p( exp(-ldif) );
 					} else if ( (ldif < 0.0) && (ldif >= -5.0) ) {
 						bigSum = df + log1p( exp(ldif) );
@@ -326,24 +326,42 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 		}
 	}
 	vector<double> vPrat(vKm);
-	MatrixView Prat(&vPrat, 0, N, Npop);                                   // the e^{kern, m}/sum(e^{kern, l}) ratio
+	MatrixView Prat(&vPrat, 0, N, Npop);                                                 // the e^{kern, m}/sum(e^{kern, l}) ratio
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			const double expM  = Km.getElem(iRow, m);
+			const double currentExponent  = Km.getElem(iRow, m);
 			double denominator = 1.0;
 			for (size_t p = 0; p < Npop; p++) {
 				if (p == m) {
 					continue;
 				}
-				const double expMl = Km.getElem(iRow, p) - expM;
-				if (expMl >= lnMaxDbl_) {                                  // exponentiation will overflow, the inverse is 0
-					Prat.setElem(iRow, m, 0.0);
+				const double localExponent = Km.getElem(iRow, p) - currentExponent;
+				if (localExponent >= lnMaxDbl_) {                                        // exponentiation will overflow, the inverse is 0
+					denominator = nan("");
 					break;
 				}
+				const double valueToAdd = exp(localExponent);
+				if ( (numeric_limits<double>::max() - denominator) <= valueToAdd) {      // adding the current value will overflow
+					denominator = nan("");
+					break;
+				}
+				denominator += valueToAdd;
+			}
+			if ( isnan(denominator) ) {
+				Prat.setElem(iRow, m, 0.0);
+			} else {
+				Prat.setElem(iRow, m, 1.0/denominator);
 			}
 		}
 	}
 	// M partial derivatives
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				gM.addToElem( m, jCol, Prat.getElem(iRow, m)*mResidEachPop[m].getElem(iRow, jCol) );
+			}
+		}
+	}
 	// Population mean residual
 	vector<double> vPOPresid(theta.begin(), theta.begin()+Mdim);
 	MatrixView POPresid(&vPOPresid, 0, Npop, d);
@@ -352,9 +370,6 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 			POPresid.subtractFromElem( iRow, jCol, mu.getElem(0, jCol) );
 		}
 	}
-	// complete the M gradient
-	gM.trm('l', 'r', false, false, 1.0, LATA);
-	gM.trm('l', 'r', true, true, 1.0, La_);                                 // gM now sum(P_m(Y - mu_m)Sigma^{-1}_A
 	for (size_t jCol = 0; jCol < d; jCol++) {
 		for (size_t iRow = 0; iRow < Npop; iRow++) {
 			gM.subtractFromElem(iRow, jCol, POPresid.getElem(iRow, jCol)*Tp[jCol]);
@@ -370,14 +385,14 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 		gmu.setElem(0, jCol, PresSum[jCol]);
 	}
 	// iSig partial derivatives
-	vector<double> vechLwA;                         // vech(L^w_A)
-	vector<double> weights(d, 0.0);                 // will become a d-vector of weights (each element corresponding to a row of L_X; the first element is weighted T_E[1,1])
+	vector<double> vechLwA;                                    // vech(L^w_A)
+	vector<double> weights(d, 0.0);                            // will become a d-vector of weights (each element corresponding to a row of L_X; the first element is weighted T_E[1,1])
 	size_t vechInd = 0;
-	for (size_t jCol = 0; jCol < d - 1; jCol++) {   // nothing to be done for the last column (it only has a diagonal element)
+	for (size_t jCol = 0; jCol < d - 1; jCol++) {              // nothing to be done for the last column (it only has a diagonal element)
 		for (size_t iRow = jCol + 1; iRow < d; iRow++) {
 			double prod1 = Ta[jCol]*La_.getElem(iRow, jCol);
 			vechLwA.push_back(prod1);
-			weights[iRow] += prod1*La_.getElem(iRow, jCol); // unweighted for now
+			weights[iRow] += prod1*La_.getElem(iRow, jCol);    // unweighted for now
 			vechInd++;
 		}
 	}
@@ -401,6 +416,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 		}
 	}
 	// The T_A gradient
+	// TODO: finish this
 	// Starting with the first matrix: RtRLT becomes L_A^TR^TRL_AT_A
 	RtR.trm('l', 'l', true, true, 1.0, La_);
 	// now sum everything and store the result in the gradient vector
