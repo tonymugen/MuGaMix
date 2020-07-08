@@ -261,12 +261,13 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 		grad.clear();
 	}
 	grad.resize(theta.size(), 0.0);
-	const size_t N    = Y_.getNrows();
-	const size_t d    = Y_.getNcols();
-	const size_t dSq  = d*d;
-	const size_t Npop = lnP_.getNcols();
-	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
-	const size_t Mdim = lnP_.getNcols()*Y_.getNcols();
+	const size_t N      = Y_.getNrows();
+	const size_t d      = Y_.getNcols();
+	const size_t dSq    = d*d;
+	const size_t Npop   = lnP_.getNcols();
+	const size_t Ydim   = Y_.getNrows()*Y_.getNcols();
+	const size_t Mdim   = lnP_.getNcols()*Y_.getNcols();
+	const size_t PopDim = N*Npop;
 	MatrixViewConst M(&theta, 0, Npop, d);
 	MatrixViewConst mu(&theta, Mdim, 1, d);
 
@@ -294,11 +295,11 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	vLATA.back() = Ta.back();
 
 	// set up the matrix of population kernels
-	vector<double> vKm(N*Npop, 0.0);
+	vector<double> vKm(PopDim, 0.0);
 	MatrixView Km(&vKm, 0, N, Npop);
-	vector<double> vRtR(dSq, 0.0);
-	MatrixView RtR(&vRtR, 0, d, d);
-	vector<double> vResidEachPop(Ydim*Npop, 0.0);                                        // will have Y residuals with each population mean
+	vector<double> vaDotPrd(PopDim, 0.0);
+	MatrixView aDotPrd(&vaDotPrd, 0, N, Npop);
+	vector<double> vResidEachPop(Ydim*Npop, 0.0);                                        // will have Y residuals, multiplied by L_A T_A L_A^T, with each population mean
 	vector<MatrixView> mResidEachPop(Npop);
 	for (size_t m = 0; m < Npop; m++) {                                                  // m is the population index as in the model description document
 		memcpy( vResidEachPop.data() + Ydim*m, yVec_->data(), Ydim*sizeof(double) );
@@ -308,7 +309,12 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 				mResidEachPop[m].subtractFromElem( iRow, jCol, M.getElem(m, jCol) );     // mResid now Y - mu_m
 			}
 		}
-		mResidEachPop[m].syrk('l', 1.0, 1.0, RtR);                                       // (Y - mu_m)^T (Y - mu_m); putting population sums in RtR
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				const double rsd = mResidEachPop[m].getElem(iRow, jCol);
+				aDotPrd.addToElem(iRow, m, rsd*rsd);
+			}
+		}
 		mResidEachPop[m].trm('l', 'r', false, true, 1.0, La_);                           // mResid now (Y-mu_m)L_A
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
@@ -318,6 +324,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 				Km.addToElem(iRow, m,  tArsd*rsd);                                       // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
 			}
 		}
+		mResidEachPop[m].trm('l', 'r', true, true, 1.0, La_);                            // mResid now (Y-mu_m)L_A T_A L_A^T
 	}
 	for (size_t m = 0; m < Npop; m++) {                                                  // Km now ln(p) - 0.5*Km
 		for (size_t iRow = 0; iRow < N; iRow++) {
@@ -325,7 +332,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 			Km.setElem(iRow, m, diff);
 		}
 	}
-	vector<double> vPrat(vKm);
+	vector<double> vPrat(N*Npop, 0.0);
 	MatrixView Prat(&vPrat, 0, N, Npop);                                                 // the e^{kern, m}/sum(e^{kern, l}) ratio
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
@@ -385,52 +392,63 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 		gmu.setElem(0, jCol, PresSum[jCol]);
 	}
 	// iSig partial derivatives
-	vector<double> vechLwA;                                    // vech(L^w_A)
-	vector<double> weights(d, 0.0);                            // will become a d-vector of weights (each element corresponding to a row of L_X; the first element is weighted T_E[1,1])
-	size_t vechInd = 0;
-	for (size_t jCol = 0; jCol < d - 1; jCol++) {              // nothing to be done for the last column (it only has a diagonal element)
+	// start with the L_A prior
+	vector<double> vechLwA;                                             // vech(L^w_A)
+	vector<double> weights(d, 0.0);                                     // will become a d-vector of weights (each element corresponding to a row of L_X; the first element is weighted T_A[1,1])
+	for (size_t jCol = 0; jCol < d - 1; jCol++) {                       // nothing to be done for the last column (it only has a diagonal element)
 		for (size_t iRow = jCol + 1; iRow < d; iRow++) {
-			double prod1 = Ta[jCol]*La_.getElem(iRow, jCol);
-			vechLwA.push_back(prod1);
-			weights[iRow] += prod1*La_.getElem(iRow, jCol);    // unweighted for now
-			vechInd++;
+			vechLwA.push_back( LATA.getElem(iRow, jCol) );
+			weights[iRow] += vechLwA.back()*La_.getElem(iRow, jCol);    // unweighted for now
 		}
 	}
 	for (size_t k = 0; k < d; k++) {
 		weights[k] = nu0_*(weights[k] + Ta[k]) + invAsq_;
 	}
-	vechInd = 0;
+	size_t vechInd = 0;
 	for (size_t jCol = 0; jCol < d - 1; jCol++) {
 		for (size_t iRow = jCol + 1; iRow < d; iRow++) {
 			vechLwA[vechInd] = vechLwA[vechInd]/weights[iRow];
 			vechInd++;
 		}
 	}
-	// add the lower triangles and store the results in the gradient vector
+	// weighted sum of the (Y_j-mu_m) dot products
+	double wDotPrd = 0.0;
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			wDotPrd += Prat.getElem(iRow, m)*aDotPrd.getElem(iRow, m);
+		}
+	}
 	vechInd = 0;
-	RtR.trm('l', 'r', false, false, 1.0, LATA);           // RtRL_ T_A
+	for (size_t trtCol = 0; trtCol < d; trtCol++) {
+		for (size_t trtRow = trtCol; trtRow < d; trtRow++) {             // including the diagonal
+			LATA.multiplyElem(trtRow, trtCol, wDotPrd);                  // sum(Prat*aDotPrd)*L_A T_A
+		}
+	}
 	for (size_t jCol = 0; jCol < d - 1; jCol++) {
 		for (size_t iRow = jCol + 1; iRow < d; iRow++) {
-			grad[LaInd_+vechInd] = -RtR.getElem(iRow, jCol) - nxnd_*vechLwA[vechInd];
+			grad[LaInd_+vechInd] = -LATA.getElem(iRow, jCol) - nxnd_*vechLwA[vechInd];
 			vechInd++;
 		}
 	}
 	// The T_A gradient
-	// TODO: finish this
-	// Starting with the first matrix: RtRLT becomes L_A^TR^TRL_AT_A
-	RtR.trm('l', 'l', true, true, 1.0, La_);
+	// L_A^T (weighted a_j dot product)* L_A T_A
+	LATA.trm('l', 'l', true, true, 1.0, La_);
 	// now sum everything and store the result in the gradient vector
+	const double dDub = 2.0*static_cast<double>(d);
 	for (size_t k = 0; k < d; k++) {
-		grad[TaInd_ + k] = 0.5*(NAnd_ - RtR.getElem(k, k) - nxnd_*Ta[k]/weights[k]);
+		grad[TaInd_ + k] = 0.5*(nu0_ + dDub - LATA.getElem(k, k) - nxnd_*Ta[k]/weights[k]);
 	}
 	// The T_P gradient
-	POPresid.syrk('l', 1.0, 0.0, RtR);    // replace the RtR with the new matrix
-	for (size_t k = 0; k < d; k++) {
-		weights[k] = nu0_*Tp[k] + invAsq_;
+	vector<double> prDotPrd(d, 0.0);
+	for (size_t jCol = 0; jCol < d; jCol++) {
+		for (size_t iRow = 0; iRow < Npop; iRow++) {
+			const double rsd = POPresid.getElem(iRow, jCol);
+			prDotPrd[jCol] += rsd*rsd;
+		}
 	}
 	// now sum everything and store the result in the gradient vector
 	for (size_t k = 0; k < d; k++) {
-		grad[TpInd_ + k] = 0.5*(NPnd_ - RtR.getElem(k, k)*Tp[k] - nxnd_*Tp[k]/weights[k]);
+		grad[TpInd_ + k] = 0.5*( NPnd_ - Tp[k]*( prDotPrd[k] + nxnd_/(nu0_*Tp[k] + invAsq_) ) );
 	}
 }
 
