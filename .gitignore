@@ -1,8 +1,7 @@
 *.swp
-.ycm_*
 *.o
 *.so
 .Rhistory
 .Rdata
-compile_flags.txt
+src/.clangd/*
 

@@ -263,6 +263,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	grad.resize(theta.size(), 0.0);
 	const size_t N      = Y_.getNrows();
 	const size_t d      = Y_.getNcols();
+	const size_t trDim  = d*(d+1)/2;
 	const size_t dSq    = d*d;
 	const size_t Npop   = lnP_.getNcols();
 	const size_t Ydim   = Y_.getNrows()*Y_.getNcols();
@@ -297,8 +298,8 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	// set up the matrix of population kernels
 	vector<double> vKm(PopDim, 0.0);
 	MatrixView Km(&vKm, 0, N, Npop);
-	vector<double> vaDotPrd(PopDim, 0.0);
-	MatrixView aDotPrd(&vaDotPrd, 0, N, Npop);
+	vector<double> vArsdCP(PopDim*trDim, 0.0);
+	vector<MatrixView> ArsdCP(Npop);                                                     // (a_j - mu_m)^T(a_j - mu_m) lower triangles with diagonal
 	vector<double> vResidEachPop(Ydim*Npop, 0.0);                                        // will have Y residuals, multiplied by L_A T_A L_A^T, with each population mean
 	vector<MatrixView> mResidEachPop(Npop);
 	for (size_t m = 0; m < Npop; m++) {                                                  // m is the population index as in the model description document
@@ -309,10 +310,15 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 				mResidEachPop[m].subtractFromElem( iRow, jCol, M.getElem(m, jCol) );     // mResid now Y - mu_m
 			}
 		}
-		for (size_t jCol = 0; jCol < d; jCol++) {
-			for (size_t iRow = 0; iRow < N; iRow++) {
-				const double rsd = mResidEachPop[m].getElem(iRow, jCol);
-				aDotPrd.addToElem(iRow, m, rsd*rsd);
+		ArsdCP[m] = MatrixView(&vArsdCP, N*trDim*m, N, trDim);                           // addressing the portion that belongs to the current population
+		size_t trInd = 0;
+		for (size_t jD = 0; jD < d; jD++) {                                              // lower triangle including the diagonal
+			for (size_t iD = jD; iD < d; iD++) {
+				for (size_t iRow = 0; iRow < N; iRow++) {
+					ArsdCP[m].setElem(iRow, trInd,
+						mResidEachPop[m].getElem(iRow, jD)*mResidEachPop[m].getElem(iRow, iD));
+				}
+				trInd++;
 			}
 		}
 		mResidEachPop[m].trm('l', 'r', false, true, 1.0, La_);                           // mResid now (Y-mu_m)L_A
@@ -412,31 +418,52 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 		}
 	}
 	// weighted sum of the (Y_j-mu_m) dot products
-	double wDotPrd = 0.0;
+	vector<double> vATDP(dSq, 0.0);                                     // sum of transposed A residual dot products (symmetric)
+	MatrixView ATDP(&vATDP, 0, d, d);
 	for (size_t m = 0; m < Npop; m++) {
-		for (size_t iRow = 0; iRow < N; iRow++) {
-			wDotPrd += Prat.getElem(iRow, m)*aDotPrd.getElem(iRow, m);
+		size_t trInd = 0;
+		for (size_t jD = 0; jD < d; jD++) {
+			for (size_t iD = jD; iD < d; iD++) {
+				for (size_t iRow = 0; iRow < N; iRow++) {
+					const double val = ArsdCP[m].getElem(iRow, trInd);
+					ATDP.addToElem(iD, jD, val);
+				}
+				trInd++;
+			}
 		}
 	}
+	// complete the symmetric matrix
+	for (size_t jD = 0; jD < d; jD++) {
+		for (size_t iD = jD + 1; iD < d; iD++) {
+			const double lTrVal = ATDP.getElem(iD, jD);
+			ATDP.setElem(jD, iD, lTrVal);
+		}
+	}
+	std::fstream tstDP;
+	tstDP.open("tstDP.txt", std::ios::trunc|std::ios::out);
+	for (size_t i = 0; i < d; i++) {
+		for (size_t j = 0; j < d; j++) {
+			tstDP << ATDP.getElem(i, j) << " ";
+		}
+		tstDP << "\n";
+	}
+	tstDP.close();
+	throw string("stop for now");
+	ATDP.trm('l', 'r', false, false, 1.0, LATA);
 	vechInd = 0;
-	for (size_t trtCol = 0; trtCol < d; trtCol++) {
-		for (size_t trtRow = trtCol; trtRow < d; trtRow++) {             // including the diagonal
-			LATA.multiplyElem(trtRow, trtCol, wDotPrd);                  // sum(Prat*aDotPrd)*L_A T_A
-		}
-	}
 	for (size_t jCol = 0; jCol < d - 1; jCol++) {
 		for (size_t iRow = jCol + 1; iRow < d; iRow++) {
-			grad[LaInd_+vechInd] = -LATA.getElem(iRow, jCol) - nxnd_*vechLwA[vechInd];
+			grad[LaInd_+vechInd] = -ATDP.getElem(iRow, jCol) - nxnd_*vechLwA[vechInd];
 			vechInd++;
 		}
 	}
 	// The T_A gradient
 	// L_A^T (weighted a_j dot product)* L_A T_A
-	LATA.trm('l', 'l', true, true, 1.0, La_);
+	ATDP.trm('l', 'l', true, true, 1.0, La_);
 	// now sum everything and store the result in the gradient vector
 	const double dDub = 2.0*static_cast<double>(d);
 	for (size_t k = 0; k < d; k++) {
-		grad[TaInd_ + k] = 0.5*(nu0_ + dDub - LATA.getElem(k, k) - nxnd_*Ta[k]/weights[k]);
+		grad[TaInd_ + k] = 0.5*(nu0_ + dDub - ATDP.getElem(k, k) - nxnd_*Ta[k]/weights[k]);
 	}
 	// The T_P gradient
 	vector<double> prDotPrd(d, 0.0);
