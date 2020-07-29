@@ -17,13 +17,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// Multiplicative mixture models
+/// Gaussia mixture models
 /** \file
  * \author Anthony J. Greenberg
  * \copyright Copyright (c) 2019 Anthony J. Greenberg
  * \version 1.0
  *
- * Class definition and interface documentation to generate Markov chains for inference from multiplicative Gaussian mixture models. Dual-averaging NUTS and Metropolis samplers for parameters groups are included within a Gibbs sampler.
+ * Class definition and interface documentation to generate Markov chains for inference of Gaussian mixture models. Dual-averaging NUTS and Metropolis samplers for parameters groups are included within a Gibbs sampler.
  *
  */
 #ifndef lme_hpp

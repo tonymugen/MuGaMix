@@ -30,13 +30,36 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
-
 #include <string>
 #include <limits>
 
 #include <Rcpp.h>
+#include <Rcpp/Named.h>
+#include <Rcpp/vector/instantiation.h>
+#include <Rcpp/exceptions/cpp11/exceptions.h>
+#include <Rcpp/utils/tinyformat.h>
 
 #include "mumimo.hpp"
+#include "gmmvb.hpp"
+
+//[[Rcpp::export(name="vbFit")]]
+Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &nuPr, const double &tauPr, const double &ppRatio){
+	if (nPop <= 1) {
+		Rcpp::stop("Number of populations must be greater than 1");
+	}
+	if (d <= 0) {
+		Rcpp::stop("Number of traits must be non-negative");
+	}
+	std::vector<double> theta;
+	std::vector<double> r;
+	std::vector<double> lBound;
+	try {
+		BayesicSpace::GmmVB(&yVec, ppRatio, nuPr, tauPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &theta, &r);
+	} catch (std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("theta", theta), Rcpp::Named("responsibilities", r), Rcpp::Named("lowerBound", lBound));
+}
 
 //[[Rcpp::export(name="testLpostNR")]]
 Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &P, const int32_t &ind, const double &limit, const double &incr){
