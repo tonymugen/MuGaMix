@@ -47,10 +47,10 @@ namespace BayesicSpace {
 	class GmmVB {
 	public:
 		/** \brief Default constructor */
-		GmmVB() : lambda0_{0.0}, nu0_{0.0}, tau0_{0.0}, alpha0_{0.0}, d_{0.0}, nu0p2_{0.0}, nu0p1_{0.0}, nu0mdm1_{0.0}, maxIt_{0}, stoppingDiff_{0.0} {};
+		GmmVB() : yVec_{nullptr}, Nm_{nullptr}, lambda0_{0.0}, nu0_{0.0}, tau0_{0.0}, alpha0_{0.0}, d_{0.0}, dl0_{0.0}, nu0p2_{0.0}, nu0p1_{0.0}, nu0mdm1_{0.0}, maxIt_{0}, stoppingDiff_{0.0} {};
 		/** \brief Constructor
 		 *
-		 * The vectorized matrices must be in the column major format (as in R and FORTRAN). The `theta` vector must have the vectorized matrix of population means first, then each full population concentration matrix.
+		 * The vectorized matrices must be in the column major format (as in R and FORTRAN). For larger population numbers, make sure \f$ \nu_0 > d - 2 \f$.
 		 *
 		 * \param[in] yVec pointer to vectorized data matrix
 		 * \param[in] lambda0 prior precision scale factor
@@ -59,12 +59,14 @@ namespace BayesicSpace {
 		 * \param[in] alpha0 prior population size
 		 * \param[in] nPop number of populations
 		 * \param[in] d number of traits
-		 * \param[in] theta pointer to vector of model parameters
-		 * \param[in] resp pointer to vectorized matrix responsibilities
+		 * \param[in,out] vPopMn pointer to vectorized matrix of population means
+		 * \param[in, out] vSm pointer to vectorized collection of population covariances
+		 * \param[in, out] resp pointer to vectorized matrix responsibilities
+		 * \param[in, out] Nm pointer to vector of effective population sizes
 		 */
-		GmmVB(const vector<double> *yVec, const double &lambda0, const double &nu0, const double &tau0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *theta, vector<double> *resp);
+		GmmVB(const vector<double> *yVec, const double &lambda0, const double &nu0, const double &tau0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
 		/** \brief Destructor */
-		~GmmVB(){};
+		~GmmVB(){ yVec_ = nullptr; Nm_ = nullptr; };
 
 		/** \brief Copy constructor (deleted) */
 		GmmVB(const GmmVB &in) = delete;
@@ -75,12 +77,12 @@ namespace BayesicSpace {
 		 * \param[in] in object to move
 		 */
 		GmmVB(GmmVB &&in);
-		/** \brief Move assignment operator
+		/** \brief Move assignment operator (deleted)
 		 *
 		 * \param[in] in object to be moved
 		 * \return target object
 		 */
-		GmmVB& operator=(GmmVB &&in);
+		GmmVB& operator=(GmmVB &&in) = delete;
 
 		/** \brief Fit model
 		 *
@@ -90,14 +92,22 @@ namespace BayesicSpace {
 		 */
 		void fitModel(vector<double> &lowerBound) const;
 	private:
+		/** \brief Pointer to vectorized data matrix */
+		const vector<double> *yVec_;
 		/** \brief Matrix view of the data */
 		MatrixViewConst Y_;
 		/** \brief Populaiton means matrix view */
 		MatrixView M_;
 		/** \brief Vector of inverse covariance matrix views */
-		vector<MatrixView> Sinv_;
+		vector<MatrixView> S_;
+		/** \brief Vectorized weighted covariance */
+		vector<double> vSigM_;
+		/** \brief Vector of weighted covariance matrix views */
+		vector<MatrixView> SigM_;
 		/** \brief Matrix view of responsibilities */
 		MatrixView R_;
+		/** \brief Pointer to vector of effective population sizes */
+		vector<double> *Nm_;
 
 		// constants
 		/** \brief Prior covariance scale factor */
@@ -110,6 +120,8 @@ namespace BayesicSpace {
 		const double alpha0_;
 		/** \brief Double version of the trait number */
 		const double d_;
+		/** \brief Trait number multiplied by \f$ \lambda_0 \f$ */
+		const double dl0_;
 		/** \brief nu_0 + 2 */
 		const double nu0p2_;
 		/** \brief nu_0 + 1 */
@@ -129,12 +141,12 @@ namespace BayesicSpace {
 
 		// Private functions
 		/** \brief The E-step */
-		void eStep_() const;
+		void eStep_();
 		/** \brief The M-step
 		 *
 		 * \return variational lower bound
 		 */
-		double mStep_() const;
+		double mStep_();
 		/** \brief Euclidean distance between matrix rows
 		 *
 		 * \param[in] m1 first matrix
@@ -143,7 +155,7 @@ namespace BayesicSpace {
 		 * \param[in] row2 index of the second matrix row
 		 * \return euclidean distance between the rows
 		 */
-		double rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixViewConst &m2, const size_t &row2);
+		double rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2);
 		/** \brief K-means clustering
 		 *
 		 * Performs k-means clustering on a matrix of values. Each row of the input matrix is an item with observed values in columns.
@@ -155,6 +167,12 @@ namespace BayesicSpace {
 		 * \param[out] M matrix of cluster means (clusters in rows)
 		 */
 		void kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M);
+		/** \brief Sort the populations
+		 *
+		 * Populations are sorted according to the index of the first individual that belongs to a population with high probability.
+		 * This scheme is also known as left-ordering.
+		 */
+		void sortPops_();
 	};
 }
 

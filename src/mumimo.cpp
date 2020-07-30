@@ -426,7 +426,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 			for (size_t iD = jD; iD < d; iD++) {
 				for (size_t iRow = 0; iRow < N; iRow++) {
 					const double val = ArsdCP[m].getElem(iRow, trInd);
-					ATDP.addToElem(iD, jD, val);
+					ATDP.addToElem(iD, jD, val); //TODO: check if this is right
 				}
 				trInd++;
 			}

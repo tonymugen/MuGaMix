@@ -50,15 +50,17 @@ Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_
 	if (d <= 0) {
 		Rcpp::stop("Number of traits must be non-negative");
 	}
-	std::vector<double> theta;
+	std::vector<double> vPopMn;
+	std::vector<double> vSm;
+	std::vector<double> Nm;
 	std::vector<double> r;
 	std::vector<double> lBound;
 	try {
-		BayesicSpace::GmmVB(&yVec, ppRatio, nuPr, tauPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &theta, &r);
+		BayesicSpace::GmmVB(&yVec, ppRatio, nuPr, tauPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
 	} catch (std::string problem) {
 		Rcpp::stop(problem);
 	}
-	return Rcpp::List::create(Rcpp::Named("theta", theta), Rcpp::Named("responsibilities", r), Rcpp::Named("lowerBound", lBound));
+	return Rcpp::List::create(Rcpp::Named("popMeans", vPopMn), Rcpp::Named("covariances", vSm), Rcpp::Named("effNm", Nm), Rcpp::Named("p", r), Rcpp::Named("lowerBound", lBound));
 }
 
 //[[Rcpp::export(name="testLpostNR")]]
