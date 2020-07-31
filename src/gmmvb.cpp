@@ -27,9 +27,11 @@
  *
  */
 
+#include <algorithm>
 #include <vector>
 #include <string>
 #include <cmath>
+#include <limits>
 
 #include "gmmvb.hpp"
 #include "matrixView.hpp"
@@ -39,9 +41,11 @@
 using namespace BayesicSpace;
 using std::vector;
 using std::string;
+using std::numeric_limits;
 
+const double GmmVB::lnMaxDbl_ = log( numeric_limits<double>::max() );
 
-GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &nu0, const double &tau0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : yVec_{yVec}, Nm_{Nm}, lambda0_{lambda0}, nu0_{nu0}, tau0_{tau0}, alpha0_{alpha0}, d_{static_cast<double>(d)}, dl0_{static_cast<double>(d)*lambda0}, nu0p2_{nu0 + 2.0}, nu0p1_{nu0 + 1.0}, nu0mdm1_{nu0 - static_cast<double>(d) - 1.0}, maxIt_{100}, stoppingDiff_{1e-3} {
+GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &nu0, const double &tau0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : yVec_{yVec}, Nm_{Nm}, lambda0_{lambda0}, nu0_{nu0}, tau0_{tau0}, alpha0_{alpha0}, d_{static_cast<double>(d)}, nu0p2_{nu0 + 2.0}, nu0p1_{nu0 + 1.0}, nu0mdm1_{nu0 - static_cast<double>(d) - 1.0}, dln2pi_{static_cast<double>(d)*0.9189385332}, maxIt_{100}, stoppingDiff_{1e-3} {
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%d) {
 		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the GmmVB constructor");
@@ -70,6 +74,8 @@ GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &nu
 		resp->clear();
 		resp->resize(rDim, 0.0);
 	}
+	lnDet_.resize(nPop, 0.0);
+	sumDiGam_.resize(nPop, 0.0);
 
 	// Set up the matrix views
 	Y_ = MatrixViewConst(yVec, 0, n, d);
@@ -97,22 +103,114 @@ GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &nu
 			}
 		}
 	}
-	sortPops_();
+	//sortPops_();
 	mStep_();
 }
 
-GmmVB::GmmVB(GmmVB &&in) : yVec_{in.yVec_}, Nm_{in.Nm_}, lambda0_{in.lambda0_}, nu0_{in.nu0_}, tau0_{in.tau0_}, alpha0_{in.alpha0_}, d_{in.d_}, dl0_{in.dl0_}, nu0p2_{in.nu0p2_}, nu0p1_{in.nu0p1_}, nu0mdm1_{in.nu0mdm1_}, maxIt_{in.maxIt_}, stoppingDiff_{in.stoppingDiff_} {
+GmmVB::GmmVB(GmmVB &&in) : yVec_{in.yVec_}, Nm_{in.Nm_}, lambda0_{in.lambda0_}, nu0_{in.nu0_}, tau0_{in.tau0_}, alpha0_{in.alpha0_}, d_{in.d_}, nu0p2_{in.nu0p2_}, nu0p1_{in.nu0p1_}, nu0mdm1_{in.nu0mdm1_}, dln2pi_{in.dln2pi_}, maxIt_{in.maxIt_}, stoppingDiff_{in.stoppingDiff_} {
 	if (&in != this) {
-		Y_     = move(in.Y_);
-		M_     = move(in.M_);
-		S_     = move(in.S_);
-		vSigM_ = move(in.vSigM_);
-		SigM_  = move(in.SigM_);
-		R_     = move(in.R_);
-		Nm_    = move(in.Nm_);
+		Y_        = move(in.Y_);
+		M_        = move(in.M_);
+		S_        = move(in.S_);
+		vSigM_    = move(in.vSigM_);
+		SigM_     = move(in.SigM_);
+		lnDet_    = move(in.lnDet_);
+		sumDiGam_ = move(in.sumDiGam_);
+		R_        = move(in.R_);
+		Nm_       = move(in.Nm_);
 
 		in.yVec_ = nullptr;
 		in.Nm_   = nullptr;
+	}
+}
+
+void GmmVB::fitModel(vector<double> &lowerBound) {
+	lowerBound.clear();
+	for (uint16_t it = 0; it < 2; it++) {
+		eStep_();
+		const double curLB = mStep_();
+		if ( lowerBound.size() && ( fabs( (lowerBound.back() - curLB)/lowerBound.back() ) <= stoppingDiff_) ) {
+			lowerBound.push_back(curLB);
+			break;
+		}
+		lowerBound.push_back(curLB);
+	}
+}
+
+void GmmVB::eStep_(){
+	const size_t d    = Y_.getNcols();
+	const size_t N    = Y_.getNrows();
+	const size_t Npop = M_.getNrows();
+	const size_t Ndim = N*d;
+	// start with parameters not varying across individuals
+	vector<double> startSum;
+	vector<double> lamNmRat;
+	vector<double> invLamNm;
+	for (size_t m = 0; m < R_.getNcols(); m++) {
+		const double lNm = lambda0_ + (*Nm_)[m];
+		lamNmRat.push_back( (*Nm_)[m]/lNm );
+		invLamNm.push_back(0.5*(nu0p1_ + (*Nm_)[m])/lNm);
+		startSum.push_back( nuc_.digamma(alpha0_ + (*Nm_)[m]) + 0.5*(sumDiGam_[m] + lnDet_[m] - d_/lNm) );
+	}
+	// scale the mean matrix
+	vector<double> vMsc(Npop*d, 0.0);
+	MatrixView Msc(&vMsc, 0, Npop, d);
+	for (size_t jCol = 0; jCol < d; jCol++) {
+		for (size_t m = 0; m < Npop; m++) {
+			Msc.setElem(m, jCol, M_.getElem(m, jCol)*lamNmRat[m]);
+		}
+	}
+	// calculate crossproducts
+	vector<double> vLnRho(N*Npop, 0.0);
+	MatrixView lnRho(&vLnRho, 0, N, Npop);
+	for (size_t m = 0; m < Npop; m++) {
+		vector<double> vArsd(*yVec_);
+		MatrixView Arsd(&vArsd, 0, N, d);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow ++) {
+				Arsd.subtractFromElem(iRow, jCol, Msc.getElem(m, jCol));
+			}
+		}
+		vector<double> vArsdSig(Ndim, 0.0);
+		MatrixView ArsdSig(&vArsdSig, 0, N, d);
+		Arsd.symm('l', 'r', 1.0, SigM_[m], 0.0, ArsdSig);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				lnRho.addToElem(iRow, m, Arsd.getElem(iRow, jCol)*ArsdSig.getElem(iRow, jCol));
+			}
+		}
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			const double lnRhoLoc = startSum[m] - invLamNm[m]*lnRho.getElem(iRow, m);
+			lnRho.setElem(iRow, m, lnRhoLoc);
+		}
+	}
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			double invRjm   = 1.0;
+			bool noOverflow = true;
+			for (size_t l = 0; l < Npop; l++) {
+				if (l == m) {
+					continue;
+				} else {
+					double diff = lnRho.getElem(iRow, l) - lnRho.getElem(iRow, m);
+					if (diff >= lnMaxDbl_) {                                      // will overflow right away
+						R_.setElem(iRow, m, 0.0);
+						noOverflow = false;
+						break;
+					}
+					diff = exp(diff);
+					if ( (numeric_limits<double>::max() - invRjm) <= diff) {        // will overflow when I add the new value
+						R_.setElem(iRow, m, 0.0);
+						noOverflow = false;
+						break;
+					}
+					invRjm += diff;
+				}
+			}
+			if (noOverflow) {
+				R_.setElem(iRow, m, 1.0/invRjm);
+			}
+		}
 	}
 }
 
@@ -124,6 +222,7 @@ double GmmVB::mStep_() {
 	R_.colSums(*Nm_);
 	for (size_t m = 0; m < Npop; m++) {
 		// calculate aBar_m (weighted mean)
+		// updating the mean is more numerically stable than a straight calculation
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			double aWtMn  = 0.0;
 			double weight = 0.0;
@@ -165,13 +264,12 @@ double GmmVB::mStep_() {
 		// invert
 		SigM_[m].chol();
 		SigM_[m].cholInv();
-		// complete S_m
-		S_[m] /= (*Nm_)[m];
+
 		// calculate the lower bound portion for this population
-		double psiElmt = 0.0;
+		sumDiGam_[m] = 0.0;
 		double k = 1.0;
 		for (size_t kk = 0; kk < d; kk++) {
-			psiElmt += nuc_.digamma( (nu0p2_ + (*Nm_)[m] - k)/2.0 );
+			sumDiGam_[m] += nuc_.digamma( (nu0p2_ + (*Nm_)[m] - k)/2.0 );
 			k += 1.0;
 		}
 		// add the log-pseudo-determinant
@@ -179,12 +277,13 @@ double GmmVB::mStep_() {
 		vector<double> vU(d*d, 0.0);
 		MatrixView U(&vU, 0, d, d);
 		SigM_[m].eigenSafe('l', U, lam);
+		lnDet_[m] = 0.0;
 		for (auto &l : lam){
 			if (l > 0.0) {
-				psiElmt += log(l);
+				lnDet_[m] += log(l);
 			}
 		}
-		psiElmt *= (nu0mdm1_ + (*Nm_)[m])/2.0;
+		double psiElmt = 0.5*(*Nm_)[m]*(nu0mdm1_ + (*Nm_)[m])*(sumDiGam_[m] + lnDet_[m]) - (*Nm_)[m]*dln2pi_;
 		// add the matrix trace
 		double matTr = 0.0;
 		vector<double> vSS(d*d, 0.0);
@@ -213,7 +312,7 @@ double GmmVB::mStep_() {
 			rLnr += r*log(r);
 		}
 		// put it all together (+= because we are summing across populations
-		lwrBound += psiElmt - 0.5*(nu0p1_ + (*Nm_)[m])*(matTr + aSaT) - 0.5*dl0_/lmNmSm - rLnr + nuc_.lnGamma(alpha0_ + (*Nm_)[m]) - 0.5*d_*log(lmNmSm);
+		lwrBound += psiElmt - 0.5*(nu0p1_ + (*Nm_)[m])*(matTr + aSaT) - rLnr + nuc_.lnGamma(alpha0_ + (*Nm_)[m]) - 0.5*d_*log(lmNmSm);
 
 	}
 	return lwrBound;
@@ -299,12 +398,12 @@ void GmmVB::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32
 	}
 }
 
-void GmmVB::sortPops_(){
-	vector<size_t> firstIdx;                                       // vector with indices of the first high-p elements per population
+void GmmVB::sortPops_(){//TODO: fix the sorts; don't seem to be working right at all
+	vector<double> firstIdx;                                       // vector with indices of the first high-p elements per population
 	for (size_t m = 0; m < R_.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < R_.getNrows(); iRow++) {
 			if (R_.getElem(iRow, m) >= 0.95){
-				firstIdx.push_back(iRow);
+				firstIdx.push_back(static_cast<double>(iRow));
 				break;
 			}
 		}
@@ -315,7 +414,8 @@ void GmmVB::sortPops_(){
 		}
 	}
 	vector<size_t> popIdx;
-	nuc_.insertionSort(firstIdx, popIdx);
+	//TODO: fix insertion sort
+	nuc_.sort(firstIdx, popIdx);
 	M_.permuteRows(popIdx);
 	R_.permuteCols(popIdx);
 }

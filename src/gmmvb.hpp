@@ -47,7 +47,7 @@ namespace BayesicSpace {
 	class GmmVB {
 	public:
 		/** \brief Default constructor */
-		GmmVB() : yVec_{nullptr}, Nm_{nullptr}, lambda0_{0.0}, nu0_{0.0}, tau0_{0.0}, alpha0_{0.0}, d_{0.0}, dl0_{0.0}, nu0p2_{0.0}, nu0p1_{0.0}, nu0mdm1_{0.0}, maxIt_{0}, stoppingDiff_{0.0} {};
+		GmmVB() : yVec_{nullptr}, Nm_{nullptr}, lambda0_{0.0}, nu0_{0.0}, tau0_{0.0}, alpha0_{0.0}, d_{0.0}, nu0p2_{0.0}, nu0p1_{0.0}, nu0mdm1_{0.0}, dln2pi_{0.0}, maxIt_{0}, stoppingDiff_{0.0} {};
 		/** \brief Constructor
 		 *
 		 * The vectorized matrices must be in the column major format (as in R and FORTRAN). For larger population numbers, make sure \f$ \nu_0 > d - 2 \f$.
@@ -90,7 +90,7 @@ namespace BayesicSpace {
 		 *
 		 * \param[out] lowerBound vector of lower bounds
 		 */
-		void fitModel(vector<double> &lowerBound) const;
+		void fitModel(vector<double> &lowerBound);
 	private:
 		/** \brief Pointer to vectorized data matrix */
 		const vector<double> *yVec_;
@@ -104,6 +104,10 @@ namespace BayesicSpace {
 		vector<double> vSigM_;
 		/** \brief Vector of weighted covariance matrix views */
 		vector<MatrixView> SigM_;
+		/** \brief `SigM_` log-determinants */
+		vector<double> lnDet_;
+		/** \brief Sum of digammas */
+		vector<double> sumDiGam_;
 		/** \brief Matrix view of responsibilities */
 		MatrixView R_;
 		/** \brief Pointer to vector of effective population sizes */
@@ -120,18 +124,20 @@ namespace BayesicSpace {
 		const double alpha0_;
 		/** \brief Double version of the trait number */
 		const double d_;
-		/** \brief Trait number multiplied by \f$ \lambda_0 \f$ */
-		const double dl0_;
 		/** \brief nu_0 + 2 */
 		const double nu0p2_;
 		/** \brief nu_0 + 1 */
 		const double nu0p1_;
 		/** \brief nu_0 - d - 1 */
 		const double nu0mdm1_;
+		/** \brief \f$ \frac{d}{2} \ln(2\pi) \f$ */
+		const double dln2pi_;
 		/** \brief Maximum number of iterations */
 		const uint16_t maxIt_;
 		/** \brief Stopping criterion */
 		const double stoppingDiff_;
+		/** \brief Natural log of `DBL_MAX` */
+		static const double lnMaxDbl_;
 
 		// Utilities
 		/** \brief Numerical utilities */

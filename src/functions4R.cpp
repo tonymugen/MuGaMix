@@ -56,7 +56,8 @@ Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_
 	std::vector<double> r;
 	std::vector<double> lBound;
 	try {
-		BayesicSpace::GmmVB(&yVec, ppRatio, nuPr, tauPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
+		BayesicSpace::GmmVB vbModel(&yVec, ppRatio, nuPr, tauPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
+		vbModel.fitModel(lBound);
 	} catch (std::string problem) {
 		Rcpp::stop(problem);
 	}
