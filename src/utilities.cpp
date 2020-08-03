@@ -437,9 +437,11 @@ double NumerUtil::dotProd(const vector<double> &v1, const vector<double> &v2) co
 	return dotProd;
 }
 void NumerUtil::updateWeightedMean(const double &xn, const double &wn, double &mu, double &w) const{
-	const double a = mu*w;
-	w += wn;
-	mu = (a + wn*xn)/w;
+	if ( wn > numeric_limits<double>::epsilon() ) {
+		const double a = mu*w;
+		w += wn;
+		mu = (a + wn*xn)/w;
+	}
 }
 double NumerUtil::mean(const double arr[], const size_t &len){
 	double mean = 0.0;
