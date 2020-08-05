@@ -47,7 +47,7 @@ namespace BayesicSpace {
 	class GmmVB {
 	public:
 		/** \brief Default constructor */
-		GmmVB() : yVec_{nullptr}, Nm_{nullptr}, lambda0_{0.0}, nu0_{0.0}, tau0_{0.0}, alpha0_{0.0}, d_{0.0}, nu0p2_{0.0}, nu0p1_{0.0}, nu0mdm1_{0.0}, dln2pi_{0.0}, maxIt_{0}, stoppingDiff_{0.0} {};
+		GmmVB() : yVec_{nullptr}, Nm_{nullptr}, lambda0_{0.0}, nu0_{0.0}, tau0_{0.0}, alpha0_{0.0}, d_{0.0}, nu0p2_{0.0}, nu0p1_{0.0}, dln2_{0.0}, maxIt_{0}, stoppingDiff_{0.0} {};
 		/** \brief Constructor
 		 *
 		 * The vectorized matrices must be in the column major format (as in R and FORTRAN). For larger population numbers, make sure \f$ \nu_0 > d - 2 \f$.
@@ -128,10 +128,8 @@ namespace BayesicSpace {
 		const double nu0p2_;
 		/** \brief nu_0 + 1 */
 		const double nu0p1_;
-		/** \brief nu_0 - d - 1 */
-		const double nu0mdm1_;
-		/** \brief \f$ \frac{d}{2} \ln(2\pi) \f$ */
-		const double dln2pi_;
+		/** \brief \f$ d \ln 2 \f$ */
+		const double dln2_;
 		/** \brief Maximum number of iterations */
 		const uint16_t maxIt_;
 		/** \brief Stopping criterion */
@@ -148,11 +146,13 @@ namespace BayesicSpace {
 		// Private functions
 		/** \brief The E-step */
 		void eStep_();
-		/** \brief The M-step
+		/** \brief The M-step */
+		void mStep_();
+		/** \brief Variational lower bound
 		 *
-		 * \return variational lower bound
+		 * \return The lower bound value (minus the constants)
 		 */
-		double mStep_();
+		double getLowerBound_();
 		/** \brief Euclidean distance between matrix rows
 		 *
 		 * \param[in] m1 first matrix
