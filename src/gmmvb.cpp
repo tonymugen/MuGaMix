@@ -395,15 +395,15 @@ void GmmVB::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32
 	// initialize M with a random pick of X rows (the MacQueen 1967 method)
 	size_t curXind = 0;
 	size_t curMind = 0;
-	double N       = static_cast<double>( X.getNrows() ); // # of remaining rows
-	double n       = static_cast<double>(Kclust);         // # of clusters to be picked
+	double N       = static_cast<double>(X.getNrows() - 1);   // # of remaining rows
+	double n       = static_cast<double>(Kclust);             // # of clusters to be picked
 	while( curMind < M.getNrows() ){
 		curXind += rng_.vitter(n, N);
 		for (size_t jCol = 0; jCol < X.getNcols(); jCol++) {
 			M.setElem( curMind, jCol, X.getElem(curXind, jCol) );
 		}
-		n = n - 1.0;
-		N = N - static_cast<double>(curXind) + 1.0;
+		n -= 1.0;
+		N -= static_cast<double>(curXind);
 		curMind++;
 	}
 	// Iterate the k-means algorithm
