@@ -54,7 +54,6 @@ namespace BayesicSpace {
 		 *
 		 * \param[in] yVec pointer to vectorized data matrix
 		 * \param[in] lambda0 prior precision scale factor
-		 * \param[in] nu0 prior precision degrees of freedom
 		 * \param[in] tau0 prior precision
 		 * \param[in] alpha0 prior population size
 		 * \param[in] nPop number of populations
@@ -64,7 +63,7 @@ namespace BayesicSpace {
 		 * \param[in, out] resp pointer to vectorized matrix responsibilities
 		 * \param[in, out] Nm pointer to vector of effective population sizes
 		 */
-		GmmVB(const vector<double> *yVec, const double &lambda0, const double &nu0, const double &tau0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
+		GmmVB(const vector<double> *yVec, const double &lambda0, const double &tau0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
 		/** \brief Destructor */
 		~GmmVB(){ yVec_ = nullptr; Nm_ = nullptr; };
 

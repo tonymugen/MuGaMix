@@ -43,7 +43,7 @@
 #include "gmmvb.hpp"
 
 //[[Rcpp::export(name="vbFit")]]
-Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &nuPr, const double &tauPr, const double &ppRatio){
+Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &tauPr, const double &ppRatio){
 	if (nPop <= 1) {
 		Rcpp::stop("Number of populations must be greater than 1");
 	}
@@ -56,7 +56,7 @@ Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_
 	std::vector<double> r;
 	std::vector<double> lBound;
 	try {
-		BayesicSpace::GmmVB vbModel(&yVec, ppRatio, nuPr, tauPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
+		BayesicSpace::GmmVB vbModel(&yVec, ppRatio, tauPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
 		vbModel.fitModel(lBound);
 	} catch (std::string problem) {
 		Rcpp::stop(problem);

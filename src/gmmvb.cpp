@@ -28,6 +28,7 @@
  */
 
 #include <algorithm>
+#include <math.h>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -45,7 +46,7 @@ using std::numeric_limits;
 
 const double GmmVB::lnMaxDbl_ = log( numeric_limits<double>::max() );
 
-GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &nu0, const double &tau0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : yVec_{yVec}, Nm_{Nm}, lambda0_{lambda0}, nu0_{nu0}, tau0_{tau0}, alpha0_{alpha0}, d_{static_cast<double>(d)}, nu0p2_{nu0 + 2.0}, nu0p1_{nu0 + 1.0}, dln2_{static_cast<double>(d)*0.6931471806}, maxIt_{200}, stoppingDiff_{1e-4} {
+GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &tau0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : yVec_{yVec}, Nm_{Nm}, lambda0_{lambda0}, nu0_{static_cast<double>(d)}, tau0_{tau0}, alpha0_{alpha0}, d_{static_cast<double>(d)}, nu0p2_{static_cast<double>(d) + 2.0}, nu0p1_{static_cast<double>(d) + 1.0}, dln2_{static_cast<double>(d)*0.6931471806}, maxIt_{200}, stoppingDiff_{1e-4} {
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%d) {
 		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the GmmVB constructor");
@@ -140,13 +141,25 @@ void GmmVB::fitModel(vector<double> &lowerBound) {
 	}
 	// scale the outputs as necessary
 	for (size_t m = 0; m < M_.getNrows(); m++) {  // crossproduct into covariance
-		S_[m] /= (*Nm_)[m];
+		if ( (*Nm_)[m] > numeric_limits<double>::epsilon() ) {
+			S_[m] /= (*Nm_)[m];
+		}
 	}
 	double dm = 2.0;
 	for (size_t m = 2; m <= M_.getNrows(); m++) {  // add ln K! as recommended in Bishop, page 484
 		lowerBound.back() += log(dm);
 		dm                += 1.0;
 	}
+	// add the constant
+	const double n    = static_cast<double>( Y_.getNrows() );
+	const double nPop = static_cast<double>( M_.getNrows() );
+	double sumLnGam   = 0.0;
+	double k          = 1.0;
+	for (size_t kk = 0; kk < Y_.getNcols(); kk++) {
+		sumLnGam += nuc_.lnGamma( 0.5*(nu0p1_ - k) );
+		k        += 1.0;
+	}
+	lowerBound.back() += nuc_.lnGamma(nPop*alpha0_) - nPop*nuc_.lnGamma(alpha0_) - nuc_.lnGamma(nPop*alpha0_ + n) - nPop*sumLnGam + 0.5*d_*(nPop*(nu0_ + nu0_*log(tau0_) + log(lambda0_) + 2.6931471806) - n*0.144729886);
 }
 
 void GmmVB::eStep_(){
@@ -288,11 +301,14 @@ double GmmVB::getLowerBound_(){
 	const size_t N    = Y_.getNrows();
 	double lwrBound   = 0.0;
 	for (size_t m = 0; m < M_.getNrows(); m++) {
-		sumDiGam_[m] = 0.0;
+		sumDiGam_[m]    = 0.0;
+		double sumLnGam = 0.0;
 		const double nu0p2Nm = nu0p2_ + (*Nm_)[m];
 		double k = 1.0;
 		for (size_t kk = 0; kk < d; kk++) {
-			sumDiGam_[m] += nuc_.digamma( (nu0p2Nm - k)/2.0 );
+			const double arg = (nu0p2Nm - k)/2.0;
+			sumDiGam_[m] += nuc_.digamma(arg);
+			sumLnGam     += nuc_.lnGamma(arg);
 			k += 1.0;
 		}
 		// add the log-pseudo-determinant
@@ -306,14 +322,14 @@ double GmmVB::getLowerBound_(){
 				lnDet_[m] += log(l);
 			}
 		}
-		const double psiElmt = 0.5*(sumDiGam_[m] + dln2_ + lnDet_[m]);
+		const double psiElmt = 0.5*(sumDiGam_[m] + dln2_ + (nu0p2Nm + 1.0)*lnDet_[m]);
 		// add the matrix trace
 		double matTr = 0.0;
 		vector<double> vSS(d*d, 0.0);
 		MatrixView SS(&vSS, 0, d, d);
 		SigM_[m].symm('l', 'l', 1.0, S_[m], 0.0, SS);
 		for (size_t kk = 0; kk < d; kk++) {
-			matTr += SS.getElem(kk, kk);
+			matTr += SS.getElem(kk, kk) + tau0_*SigM_[m].getElem(kk, kk);
 		}
 		// a_m crossproduct
 		vector<double> aS(d, 0.0);
@@ -329,12 +345,7 @@ double GmmVB::getLowerBound_(){
 		const double nu0p1Nm = nu0p1_ + (*Nm_)[m];
 		const double lmNmSm  = lambda0_ + (*Nm_)[m];
 		// the big first sum (in curly brackets in the model document), multiplied by N_m
-		const double bigSum  = (*Nm_)[m]*( psiElmt + nu0p1Nm*(lambda0_*(0.5*lambda0_ - (*Nm_)[m])*aSaT/(lmNmSm*lmNmSm) - 0.5*matTr) );
-		// Sig_0 product trace
-		double sg0trace = 0.0;
-		for (size_t kk = 0; kk < d; kk++) {
-			sg0trace += tau0_*SigM_[m].getElem(kk, kk);
-		}
+		const double bigSum  = psiElmt + nu0p1Nm*( (*Nm_)[m]*lambda0_*(0.5*lambda0_ - (*Nm_)[m])*aSaT/(lmNmSm*lmNmSm) - 0.5*matTr );
 		// r_jm ln(r_jm) sum
 		double rLnr = 0.0;
 		for (size_t i = 0; i < N; i++) {
@@ -344,7 +355,7 @@ double GmmVB::getLowerBound_(){
 			}
 		}
 		// put it all together (+= because we are summing across populations)
-		lwrBound += bigSum - 0.5*nu0p1Nm*sg0trace - rLnr + nuc_.lnGamma(alpha0_ + (*Nm_)[m]) - 0.5*d_*log(lmNmSm);
+		lwrBound += bigSum - rLnr + nuc_.lnGamma(alpha0_ + (*Nm_)[m]) - 0.5*d_*log(lmNmSm) + sumLnGam;
 	}
 	return lwrBound;
 }
