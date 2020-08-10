@@ -47,7 +47,7 @@ namespace BayesicSpace {
 	class GmmVB {
 	public:
 		/** \brief Default constructor */
-		GmmVB() : yVec_{nullptr}, Nm_{nullptr}, lambda0_{0.0}, nu0_{0.0}, tau0_{0.0}, alpha0_{0.0}, d_{0.0}, nu0p2_{0.0}, nu0p1_{0.0}, dln2_{0.0}, maxIt_{0}, stoppingDiff_{0.0} {};
+		GmmVB() : yVec_{nullptr}, N_{nullptr}, lambda0_{0.0}, nu0_{0.0}, tau0_{0.0}, alpha0_{0.0}, d_{0.0}, nu0p2_{0.0}, nu0p1_{0.0}, dln2_{0.0}, maxIt_{0}, stoppingDiff_{0.0} {};
 		/** \brief Constructor
 		 *
 		 * The vectorized matrices must be in the column major format (as in R and FORTRAN). For larger population numbers, make sure \f$ \nu_0 > d - 2 \f$.
@@ -65,7 +65,7 @@ namespace BayesicSpace {
 		 */
 		GmmVB(const vector<double> *yVec, const double &lambda0, const double &tau0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
 		/** \brief Destructor */
-		~GmmVB(){ yVec_ = nullptr; Nm_ = nullptr; };
+		~GmmVB(){ yVec_ = nullptr; N_ = nullptr; };
 
 		/** \brief Copy constructor (deleted) */
 		GmmVB(const GmmVB &in) = delete;
@@ -100,17 +100,17 @@ namespace BayesicSpace {
 		/** \brief Vector of inverse covariance matrix views */
 		vector<MatrixView> S_;
 		/** \brief Vectorized weighted covariance */
-		vector<double> vSigM_;
+		vector<double> vW_;
 		/** \brief Vector of weighted covariance matrix views */
-		vector<MatrixView> SigM_;
-		/** \brief `SigM_` log-determinants */
+		vector<MatrixView> W_;
+		/** \brief `W_` log-determinants */
 		vector<double> lnDet_;
 		/** \brief Sum of digammas */
 		vector<double> sumDiGam_;
 		/** \brief Matrix view of responsibilities */
 		MatrixView R_;
 		/** \brief Pointer to vector of effective population sizes */
-		vector<double> *Nm_;
+		vector<double> *N_;
 
 		// constants
 		/** \brief Prior covariance scale factor */
