@@ -47,14 +47,14 @@ namespace BayesicSpace {
 	class GmmVB {
 	public:
 		/** \brief Default constructor */
-		GmmVB() : yVec_{nullptr}, N_{nullptr}, lambda0_{0.0}, nu0_{0.0}, tau0_{0.0}, alpha0_{0.0}, d_{0.0}, nu0p2_{0.0}, nu0p1_{0.0}, dln2_{0.0}, maxIt_{0}, stoppingDiff_{0.0} {};
+		GmmVB() : yVec_{nullptr}, N_{nullptr}, lambda0_{0.0}, nu0_{0.0}, sigmaSq0_{0.0}, alpha0_{0.0}, d_{0.0}, nu0p2_{0.0}, nu0p1_{0.0}, dln2_{0.0}, maxIt_{0}, stoppingDiff_{0.0} {};
 		/** \brief Constructor
 		 *
 		 * The vectorized matrices must be in the column major format (as in R and FORTRAN). For larger population numbers, make sure \f$ \nu_0 > d - 2 \f$.
 		 *
 		 * \param[in] yVec pointer to vectorized data matrix
 		 * \param[in] lambda0 prior precision scale factor
-		 * \param[in] tau0 prior precision
+		 * \param[in] sigmaSq0 prior variance
 		 * \param[in] alpha0 prior population size
 		 * \param[in] nPop number of populations
 		 * \param[in] d number of traits
@@ -63,7 +63,7 @@ namespace BayesicSpace {
 		 * \param[in, out] resp pointer to vectorized matrix responsibilities
 		 * \param[in, out] Nm pointer to vector of effective population sizes
 		 */
-		GmmVB(const vector<double> *yVec, const double &lambda0, const double &tau0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
+		GmmVB(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
 		/** \brief Destructor */
 		~GmmVB(){ yVec_ = nullptr; N_ = nullptr; };
 
@@ -95,12 +95,12 @@ namespace BayesicSpace {
 		const vector<double> *yVec_;
 		/** \brief Matrix view of the data */
 		MatrixViewConst Y_;
-		/** \brief Populaiton means matrix view */
+		/** \brief Population means matrix view */
 		MatrixView M_;
-		/** \brief Vector of inverse covariance matrix views */
+		/** \brief Vector of sample covariance matrix views */
 		vector<MatrixView> S_;
-		/** \brief Vectorized weighted covariance */
-		vector<double> vW_;
+		/** \brief Vectorized covariance */
+		vector<double> vS_;
 		/** \brief Vector of weighted covariance matrix views */
 		vector<MatrixView> W_;
 		/** \brief `W_` log-determinants */
@@ -117,8 +117,8 @@ namespace BayesicSpace {
 		const double lambda0_;
 		/** \brief Prior precision degrees of freedom */
 		const double nu0_;
-		/** \brief Prior precision */
-		const double tau0_;
+		/** \brief Prior variance */
+		const double sigmaSq0_;
 		/** \brief Prior population size */
 		const double alpha0_;
 		/** \brief Double version of the trait number */
@@ -147,6 +147,13 @@ namespace BayesicSpace {
 		void eStep_();
 		/** \brief The M-step */
 		void mStep_();
+		/** \brief DIC function
+		 *
+		 * Calculates the deviance information criterion (DIC).
+		 *
+		 * \return the DIC value
+		 */
+		double getDIC_();
 		/** \brief Variational lower bound
 		 *
 		 * \return The lower bound value (minus the constants)

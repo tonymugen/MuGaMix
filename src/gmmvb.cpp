@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <math.h>
+#include <utility>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -46,7 +47,7 @@ using std::numeric_limits;
 
 const double GmmVB::lnMaxDbl_ = log( numeric_limits<double>::max() );
 
-GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &tau0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : yVec_{yVec}, N_{Nm}, lambda0_{lambda0}, nu0_{static_cast<double>(d)}, tau0_{tau0}, alpha0_{alpha0}, d_{static_cast<double>(d)}, nu0p2_{static_cast<double>(d) + 2.0}, nu0p1_{static_cast<double>(d) + 1.0}, dln2_{static_cast<double>(d)*0.6931471806}, maxIt_{200}, stoppingDiff_{1e-4} {
+GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : yVec_{yVec}, N_{Nm}, lambda0_{lambda0}, nu0_{static_cast<double>(d)}, sigmaSq0_{sigmaSq0}, alpha0_{alpha0}, d_{static_cast<double>(d)}, nu0p2_{static_cast<double>(d) + 2.0}, nu0p1_{static_cast<double>(d) + 1.0}, dln2_{static_cast<double>(d)*0.6931471806}, maxIt_{200}, stoppingDiff_{1e-4} {
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%d) {
 		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the GmmVB constructor");
@@ -83,15 +84,21 @@ GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &ta
 	R_ = MatrixView(resp, 0, n, nPop);
 	M_ = MatrixView(vPopMn, 0, nPop, d);
 
-	vW_.resize(sDim, 0.0);
+	vS_.resize(sDim, 0.0);
 	size_t sigInd = 0;
 	for (size_t m = 0; m < nPop; m++) {
-		S_.push_back( MatrixView(vSm, sigInd, d, d) );
-		W_.push_back( MatrixView(&vW_, sigInd, d, d) );
+		S_.push_back( MatrixView(&vS_, sigInd, d, d) );
+		W_.push_back( MatrixView(vSm, sigInd, d, d) );
 		sigInd += dSq;
 	}
 
 	// Initialize values with k-means
+	vector<size_t> ind;
+	for (size_t m = 0; m < nPop; m++) {
+		for (size_t iLn = 0; iLn < n/nPop; iLn++) {
+			ind.push_back(m);
+		}
+	}
 	Index popInd(nPop);
 	const double smallVal = 0.01/static_cast<double>(nPop - 1);
 	kMeans_(Y_, nPop, 50, popInd, M_);
@@ -106,6 +113,7 @@ GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &ta
 	}
 	//sortPops_();
 	mStep_();
+	// inflating initial covariances may improve convergence
 	for (auto &w : W_){
 		w *= 0.1;
 	}
@@ -114,12 +122,12 @@ GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &ta
 	}
 }
 
-GmmVB::GmmVB(GmmVB &&in) : yVec_{in.yVec_}, N_{in.N_}, lambda0_{in.lambda0_}, nu0_{in.nu0_}, tau0_{in.tau0_}, alpha0_{in.alpha0_}, d_{in.d_}, nu0p2_{in.nu0p2_}, nu0p1_{in.nu0p1_}, dln2_{in.dln2_}, maxIt_{in.maxIt_}, stoppingDiff_{in.stoppingDiff_} {
+GmmVB::GmmVB(GmmVB &&in) : yVec_{in.yVec_}, N_{in.N_}, lambda0_{in.lambda0_}, nu0_{in.nu0_}, sigmaSq0_{in.sigmaSq0_}, alpha0_{in.alpha0_}, d_{in.d_}, nu0p2_{in.nu0p2_}, nu0p1_{in.nu0p1_}, dln2_{in.dln2_}, maxIt_{in.maxIt_}, stoppingDiff_{in.stoppingDiff_} {
 	if (&in != this) {
 		Y_        = move(in.Y_);
 		M_        = move(in.M_);
 		S_        = move(in.S_);
-		vW_       = move(in.vW_);
+		vS_       = move(in.vS_);
 		W_        = move(in.W_);
 		lnDet_    = move(in.lnDet_);
 		sumDiGam_ = move(in.sumDiGam_);
@@ -131,6 +139,19 @@ GmmVB::GmmVB(GmmVB &&in) : yVec_{in.yVec_}, N_{in.N_}, lambda0_{in.lambda0_}, nu
 	}
 }
 
+void GmmVB::fitModel(vector<double> &lowerBound) {
+	lowerBound.clear();
+	for (size_t it = 0; it < 100; it++) {
+		eStep_();
+		mStep_();
+		lowerBound.push_back( getDIC_() );
+	}
+	for (size_t m = 0; m < M_.getNrows(); m++) {  // scale the inverse-covariance
+		W_[m] *= nu0p1_ + (*N_)[m];
+		W_[m].cholInv();
+	}
+}
+/*
 void GmmVB::fitModel(vector<double> &lowerBound) {
 	lowerBound.clear();
 	for (uint16_t it = 0; it < maxIt_; it++) {
@@ -146,10 +167,8 @@ void GmmVB::fitModel(vector<double> &lowerBound) {
 		lowerBound.push_back(curLB);
 	}
 	// scale the outputs as necessary
-	for (size_t m = 0; m < M_.getNrows(); m++) {  // crossproduct into covariance
-		if ( (*N_)[m] > numeric_limits<double>::epsilon() ) {
-			S_[m] /= (*N_)[m];
-		}
+	for (size_t m = 0; m < M_.getNrows(); m++) {  // scale the inverse-covariance
+		W_[m] *= nu0p1_ + (*N_)[m];
 	}
 	double dm = 2.0;
 	for (size_t m = 2; m <= M_.getNrows(); m++) {  // add ln K! as recommended in Bishop, page 484
@@ -167,7 +186,7 @@ void GmmVB::fitModel(vector<double> &lowerBound) {
 	}
 	lowerBound.back() += nuc_.lnGamma(nPop*alpha0_) - nPop*nuc_.lnGamma(alpha0_) - nuc_.lnGamma(nPop*alpha0_ + n) - nPop*sumLnGam + 0.5*d_*(nPop*(nu0_ + nu0_*log(tau0_) + log(lambda0_) + 2.6931471806) - n*0.144729886);
 }
-
+*/
 void GmmVB::eStep_(){
 	const size_t d    = Y_.getNcols();
 	const size_t N    = Y_.getNrows();
@@ -175,21 +194,11 @@ void GmmVB::eStep_(){
 	const size_t Ndim = N*d;
 	// start with parameters not varying across individuals
 	vector<double> startSum;
-	vector<double> lamNmRat;
 	vector<double> nuNm;
-	for (size_t m = 0; m < R_.getNcols(); m++) {
+	for (size_t m = 0; m < Npop; m++) {
 		const double lNm = lambda0_ + (*N_)[m];
-		lamNmRat.push_back( (*N_)[m]/lNm );
 		nuNm.push_back( 0.5*(nu0p1_ + (*N_)[m]) );
 		startSum.push_back( nuc_.digamma(alpha0_ + (*N_)[m]) + 0.5*(sumDiGam_[m] + lnDet_[m] - d_/lNm) );
-	}
-	// scale the mean matrix
-	vector<double> vMsc(Npop*d, 0.0);
-	MatrixView Msc(&vMsc, 0, Npop, d);
-	for (size_t jCol = 0; jCol < d; jCol++) {
-		for (size_t m = 0; m < Npop; m++) {
-			Msc.setElem(m, jCol, M_.getElem(m, jCol)*lamNmRat[m]);
-		}
 	}
 	// calculate crossproducts
 	vector<double> vLnRho(N*Npop, 0.0);
@@ -199,7 +208,7 @@ void GmmVB::eStep_(){
 		MatrixView Arsd(&vArsd, 0, N, d);
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow ++) {
-				Arsd.subtractFromElem(iRow, jCol, Msc.getElem(m, jCol));
+				Arsd.subtractFromElem(iRow, jCol, M_.getElem(m, jCol));
 			}
 		}
 		vector<double> vArsdSig(Ndim, 0.0);
@@ -251,34 +260,27 @@ void GmmVB::mStep_() {
 	const size_t N    = Y_.getNrows();
 	R_.colSums(*N_);
 	for (size_t m = 0; m < Npop; m++) {
-		// calculate aBar_m (weighted mean)
-		// updating the mean is more numerically stable than a straight calculation
-		for (size_t jCol = 0; jCol < d; jCol++) {
-			double aWtMn  = 0.0;
-			double weight = 0.0;
-			for (size_t iRow = 0; iRow < N; iRow++) {
-				nuc_.updateWeightedMean(Y_.getElem(iRow, jCol), R_.getElem(iRow, m), aWtMn, weight);
-			}
-			M_.setElem(m, jCol, aWtMn);
-		}
-		// Calculate regular and weighted residuals
-		vector<double> vArsd(*yVec_);
-		MatrixView Arsd(&vArsd, 0, N, d);
-		vector<double> vWtArsd(N*d, 0.0);
-		MatrixView wtArsd(&vWtArsd, 0, N, d);
+		// Calculate weighted data
+		vector<double> vYsc(*yVec_);
+		MatrixView Ysc(&vYsc, 0, N, d);
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
-				Arsd.subtractFromElem( iRow, jCol, M_.getElem(m, jCol) );
-				wtArsd.setElem( iRow, jCol, Arsd.getElem(iRow, jCol)*R_.getElem(iRow, m) );
+				Ysc.multiplyElem( iRow, jCol, R_.getElem(iRow, m) );
 			}
 		}
-		// unscaled Sm
-		Arsd.gemm(true, 1.0, wtArsd, false, 0.0, S_[m]);
-		const double lNmRatio = (lambda0_*(*N_)[m])/(lambda0_ + (*N_)[m]);
+		const double lamNm = lambda0_ + (*N_)[m];
+		vector<double> mRow;
+		Ysc.colSums(mRow);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			M_.setElem(m, jCol, mRow[jCol]/lamNm);
+		}
+		vector<double> vSS(d*d, 0.0);
+		MatrixView SS(&vSS, 0, d, d);
+		Y_.gemm(true, 1.0, Ysc, false, 0.0, SS);
 		// lower triangle of Sigma_m
 		for (size_t jD = 0; jD < d; jD++) {
 			for (size_t iD = jD; iD < d; iD++) {
-				W_[m].setElem( iD, jD, S_[m].getElem(iD, jD) + lNmRatio*M_.getElem(m, iD)*M_.getElem(m, jD) );
+				W_[m].setElem( iD, jD, SS.getElem(iD, jD) - lamNm*M_.getElem(m, iD)*M_.getElem(m, jD) );
 			}
 		}
 		// complete symmetric matrix
@@ -289,16 +291,120 @@ void GmmVB::mStep_() {
 		}
 		// add S_0 (it is diagonal)
 		for (size_t kk = 0; kk < d; kk++) {
-			W_[m].addToElem(kk, kk, tau0_);
+			W_[m].addToElem(kk, kk, sigmaSq0_);
 		}
-		// invert, trying the faster Cholesky inversion first
-		try {
-			W_[m].chol();
-			W_[m].cholInv();
-		} catch (string problem) {
-			W_[m].pseudoInv();
+		// invert and the log-determinant in one shot
+		W_[m].pseudoInv(lnDet_[m]);
+		// calculate the digamma sum
+		const double nu0p2Nm = nu0p2_ + (*N_)[m];
+		sumDiGam_[m]         = 0.0;
+		double k             = 1.0;
+		for (size_t kk = 0; kk < d; kk++) {
+			sumDiGam_[m] += nuc_.digamma( (nu0p2Nm - k)/2.0 );
+			k            += 1.0;
 		}
 	}
+}
+
+double GmmVB::getDIC_(){
+	const size_t d    = Y_.getNcols();
+	const size_t N    = Y_.getNrows();
+	const size_t Npop = M_.getNrows();
+	const size_t Ndim = N*d;
+	// start with parameters not varying across individuals
+	vector<double> nuNm;
+	for (size_t m = 0; m < Npop; m++) {
+		const double lNm = lambda0_ + (*N_)[m];
+		nuNm.push_back(nu0p1_ + (*N_)[m]);
+	}
+	// calculate the K matrix (kappa_jm)
+	vector<double> vK(N*Npop, 0.0);
+	MatrixView K(&vK, 0, N, Npop);
+	for (size_t m = 0; m < Npop; m++) {
+		vector<double> vArsd(*yVec_);
+		MatrixView Arsd(&vArsd, 0, N, d);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow ++) {
+				Arsd.subtractFromElem(iRow, jCol, M_.getElem(m, jCol));
+			}
+		}
+		vector<double> vArsdSig(Ndim, 0.0);
+		MatrixView ArsdSig(&vArsdSig, 0, N, d);
+		Arsd.symm('l', 'r', 1.0, W_[m], 0.0, ArsdSig);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				K.addToElem(iRow, m, Arsd.getElem(iRow, jCol)*ArsdSig.getElem(iRow, jCol));
+			}
+		}
+	}
+	// add the scalar values
+	vector<double> scSum;
+	for (size_t m = 0; m < Npop; m++) {
+		scSum.push_back( log(alpha0_ + (*N_)[m]) + 0.5*(d_*log(nuNm[m]) + lnDet_[m]) );
+	}
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			const double newVal = scSum[m] - 0.5*nuNm[m]*K.getElem(iRow, m);
+			K.setElem(iRow, m, newVal);
+		}
+	}
+	// Subtract the first column from the rest
+	/*
+	for (size_t m = 1; m < Npop; m++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			const double diff = K.getElem(iRow, m) - K.getElem(iRow, 0);
+			K.setElem(iRow, m, diff);
+		}
+	}
+	*/
+	// sum everything
+	double lnP = 0.0;                                                          // sum of the additive kernel will go here
+	for (size_t iRow = 0; iRow < N; iRow++) {
+		double rowVal = 0.0;
+		for (size_t m = 0; m < Npop; m++) {
+			rowVal += exp(K.getElem(iRow, m));
+		}
+		lnP += log(rowVal);
+	}
+	/*
+	for (size_t iRow = 0; iRow < N; iRow++) {                                  // sacrificing the tight loop to make numerical safety happen
+		double regSum = 0.0;
+		double bigSum = 0.0;                                                   // will be used if large values of Km are encountered
+		for (size_t m = 1; m < Npop; m++) {
+			const double df = K.getElem(iRow, m);
+			if (df >= 100) {                                                   // well into approximation territory, but don't want to do this too often
+				if (bigSum > 0.0) {                                            // something already added
+					double ldif = bigSum - df;
+					if ( (ldif > 0.0) && (ldif <= 5.0) ) {                     // over 5.0 the correction is unnecessary regardless of the df or bigSum value
+						bigSum += log1p( exp(-ldif) );
+					} else if ( (ldif < 0.0) && (ldif >= -5.0) ) {
+						bigSum = df + log1p( exp(ldif) );
+					} else if (ldif < 0.0) {
+						bigSum = df;
+					} // or leave bigSum as is
+				} else {
+					bigSum = df;
+				}
+			} else if (bigSum > 0.0) {
+				if (df >= 95) {
+					bigSum += log1p( exp(df-bigSum) );
+				}
+				// otherwise do nothing
+			} else {
+				const double edf = exp(df);
+				if ( (numeric_limits<double>::max() - regSum) <= edf ) { // do not bother adding any more if regSum will overflow
+					regSum += edf;
+				}
+			}
+		}
+		if (bigSum > 0.0) {
+			lnP += K.getElem(iRow, 0) + bigSum;
+		} else {
+			lnP += K.getElem(iRow, 0) + log1p(regSum);
+		}
+	}
+	*/
+	return(lnP);
 }
 
 double GmmVB::getLowerBound_(){
@@ -335,7 +441,7 @@ double GmmVB::getLowerBound_(){
 		MatrixView SS(&vSS, 0, d, d);
 		W_[m].symm('l', 'l', 1.0, S_[m], 0.0, SS);
 		for (size_t kk = 0; kk < d; kk++) {
-			matTr += SS.getElem(kk, kk) + tau0_*W_[m].getElem(kk, kk);
+			matTr += SS.getElem(kk, kk) + sigmaSq0_*W_[m].getElem(kk, kk);
 		}
 		// a_m crossproduct
 		vector<double> aS(d, 0.0);
