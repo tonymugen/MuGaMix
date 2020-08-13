@@ -27,9 +27,6 @@
  *
  */
 
-#include <algorithm>
-#include <math.h>
-#include <utility>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -84,10 +81,8 @@ GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &si
 	R_ = MatrixView(resp, 0, n, nPop);
 	M_ = MatrixView(vPopMn, 0, nPop, d);
 
-	vS_.resize(sDim, 0.0);
 	size_t sigInd = 0;
 	for (size_t m = 0; m < nPop; m++) {
-		S_.push_back( MatrixView(&vS_, sigInd, d, d) );
 		W_.push_back( MatrixView(vSm, sigInd, d, d) );
 		sigInd += dSq;
 	}
@@ -111,23 +106,13 @@ GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &si
 			}
 		}
 	}
-	//sortPops_();
 	mStep_();
-	// inflating initial covariances may improve convergence
-	for (auto &w : W_){
-		w *= 0.1;
-	}
-	for (auto &ld : lnDet_){
-		ld += d_*log(0.1);
-	}
 }
 
 GmmVB::GmmVB(GmmVB &&in) : yVec_{in.yVec_}, N_{in.N_}, lambda0_{in.lambda0_}, nu0_{in.nu0_}, sigmaSq0_{in.sigmaSq0_}, alpha0_{in.alpha0_}, d_{in.d_}, nu0p2_{in.nu0p2_}, nu0p1_{in.nu0p1_}, dln2_{in.dln2_}, maxIt_{in.maxIt_}, stoppingDiff_{in.stoppingDiff_} {
 	if (&in != this) {
 		Y_        = move(in.Y_);
 		M_        = move(in.M_);
-		S_        = move(in.S_);
-		vS_       = move(in.vS_);
 		W_        = move(in.W_);
 		lnDet_    = move(in.lnDet_);
 		sumDiGam_ = move(in.sumDiGam_);
@@ -139,54 +124,28 @@ GmmVB::GmmVB(GmmVB &&in) : yVec_{in.yVec_}, N_{in.N_}, lambda0_{in.lambda0_}, nu
 	}
 }
 
-void GmmVB::fitModel(vector<double> &lowerBound) {
-	lowerBound.clear();
-	for (size_t it = 0; it < 100; it++) {
+void GmmVB::fitModel(vector<double> &logPost, double &dic) {
+	logPost.clear();
+	dic = 0.0;
+	for (size_t it = 0; it < 500; it++) {
 		eStep_();
 		mStep_();
-		lowerBound.push_back( getDIC_() );
-	}
-	for (size_t m = 0; m < M_.getNrows(); m++) {  // scale the inverse-covariance
-		W_[m] *= nu0p1_ + (*N_)[m];
-		W_[m].cholInv();
-	}
-}
-/*
-void GmmVB::fitModel(vector<double> &lowerBound) {
-	lowerBound.clear();
-	for (uint16_t it = 0; it < maxIt_; it++) {
-		eStep_();
-		mStep_();
-		const double curLB = getLowerBound_();
-		if ( lowerBound.size() ) {
-			if ( fabs( ( curLB - lowerBound.back() )/lowerBound.back() ) <= stoppingDiff_ ) {
-				lowerBound.push_back(curLB);
+		const double curLP = logPost_();
+		if ( logPost.size() ) {
+			if ( fabs( ( curLP - logPost.back() )/logPost.back() ) <= stoppingDiff_ ) {
+				logPost.push_back(curLP);
 				break;
 			}
 		}
-		lowerBound.push_back(curLB);
+		logPost.push_back(curLP);
 	}
-	// scale the outputs as necessary
 	for (size_t m = 0; m < M_.getNrows(); m++) {  // scale the inverse-covariance
 		W_[m] *= nu0p1_ + (*N_)[m];
+		W_[m].chol();
+		W_[m].cholInv();
 	}
-	double dm = 2.0;
-	for (size_t m = 2; m <= M_.getNrows(); m++) {  // add ln K! as recommended in Bishop, page 484
-		lowerBound.back() += log(dm);
-		dm                += 1.0;
-	}
-	// add the constant
-	const double n    = static_cast<double>( Y_.getNrows() );
-	const double nPop = static_cast<double>( M_.getNrows() );
-	double sumLnGam   = 0.0;
-	double k          = 1.0;
-	for (size_t kk = 0; kk < Y_.getNcols(); kk++) {
-		sumLnGam += nuc_.lnGamma( 0.5*(nu0p1_ - k) );
-		k        += 1.0;
-	}
-	lowerBound.back() += nuc_.lnGamma(nPop*alpha0_) - nPop*nuc_.lnGamma(alpha0_) - nuc_.lnGamma(nPop*alpha0_ + n) - nPop*sumLnGam + 0.5*d_*(nPop*(nu0_ + nu0_*log(tau0_) + log(lambda0_) + 2.6931471806) - n*0.144729886);
 }
-*/
+
 void GmmVB::eStep_(){
 	const size_t d    = Y_.getNcols();
 	const size_t N    = Y_.getNrows();
@@ -274,13 +233,11 @@ void GmmVB::mStep_() {
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			M_.setElem(m, jCol, mRow[jCol]/lamNm);
 		}
-		vector<double> vSS(d*d, 0.0);
-		MatrixView SS(&vSS, 0, d, d);
-		Y_.gemm(true, 1.0, Ysc, false, 0.0, SS);
-		// lower triangle of Sigma_m
+		Y_.gemm(true, 1.0, Ysc, false, 0.0, W_[m]);
+		// lower triangle of W_m
 		for (size_t jD = 0; jD < d; jD++) {
 			for (size_t iD = jD; iD < d; iD++) {
-				W_[m].setElem( iD, jD, SS.getElem(iD, jD) - lamNm*M_.getElem(m, iD)*M_.getElem(m, jD) );
+				W_[m].subtractFromElem( iD, jD, lamNm*M_.getElem(m, iD)*M_.getElem(m, jD) );
 			}
 		}
 		// complete symmetric matrix
@@ -294,19 +251,29 @@ void GmmVB::mStep_() {
 			W_[m].addToElem(kk, kk, sigmaSq0_);
 		}
 		// invert and the log-determinant in one shot
-		W_[m].pseudoInv(lnDet_[m]);
+		try {
+			W_[m].chol();
+			lnDet_[m] = 0.0;
+			for (size_t kk = 0; kk < d; kk++) {
+				lnDet_[m] += log( W_[m].getElem(kk, kk) );
+			}
+			lnDet_[m] *= -2.0; // because we did not invert yet
+			W_[m].cholInv();
+		} catch (string problem) {
+			W_[m].pseudoInv(lnDet_[m]);
+		}
 		// calculate the digamma sum
 		const double nu0p2Nm = nu0p2_ + (*N_)[m];
 		sumDiGam_[m]         = 0.0;
 		double k             = 1.0;
 		for (size_t kk = 0; kk < d; kk++) {
-			sumDiGam_[m] += nuc_.digamma( (nu0p2Nm - k)/2.0 );
+			sumDiGam_[m] += nuc_.digamma( 0.5*(nu0p2Nm - k) );
 			k            += 1.0;
 		}
 	}
 }
 
-double GmmVB::getDIC_(){
+double GmmVB::logPost_(){
 	const size_t d    = Y_.getNcols();
 	const size_t N    = Y_.getNrows();
 	const size_t Npop = M_.getNrows();
@@ -349,24 +316,26 @@ double GmmVB::getDIC_(){
 		}
 	}
 	// Subtract the first column from the rest
-	/*
 	for (size_t m = 1; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			const double diff = K.getElem(iRow, m) - K.getElem(iRow, 0);
 			K.setElem(iRow, m, diff);
 		}
 	}
-	*/
 	// sum everything
 	double lnP = 0.0;                                                          // sum of the additive kernel will go here
-	for (size_t iRow = 0; iRow < N; iRow++) {
+	for (size_t iRow = 1; iRow < N; iRow++) {
 		double rowVal = 0.0;
 		for (size_t m = 0; m < Npop; m++) {
 			rowVal += exp(K.getElem(iRow, m));
 		}
-		lnP += log(rowVal);
+		lnP += log1p(rowVal);
+	}
+	for (size_t iRow = 0; iRow < N; iRow++) {
+		lnP += K.getElem(iRow, 0);
 	}
 	/*
+	TODO: get this part to work
 	for (size_t iRow = 0; iRow < N; iRow++) {                                  // sacrificing the tight loop to make numerical safety happen
 		double regSum = 0.0;
 		double bigSum = 0.0;                                                   // will be used if large values of Km are encountered
@@ -405,71 +374,6 @@ double GmmVB::getDIC_(){
 	}
 	*/
 	return(lnP);
-}
-
-double GmmVB::getLowerBound_(){
-	const size_t Npop = M_.getNrows();
-	const size_t d    = M_.getNcols();
-	const size_t N    = Y_.getNrows();
-	double lwrBound   = 0.0;
-	for (size_t m = 0; m < M_.getNrows(); m++) {
-		sumDiGam_[m]    = 0.0;
-		double sumLnGam = 0.0;
-		const double nu0p2Nm = nu0p2_ + (*N_)[m];
-		double k = 1.0;
-		for (size_t kk = 0; kk < d; kk++) {
-			const double arg = (nu0p2Nm - k)/2.0;
-			sumDiGam_[m] += nuc_.digamma(arg);
-			sumLnGam     += nuc_.lnGamma(arg);
-			k += 1.0;
-		}
-		// add the log-pseudo-determinant
-		vector<double> lam;
-		vector<double> vU(d*d, 0.0);
-		MatrixView U(&vU, 0, d, d);
-		W_[m].eigenSafe('l', U, lam);
-		lnDet_[m] = 0.0;
-		for (auto &l : lam){
-			if (l > 0.0) {
-				lnDet_[m] += log(l);
-			}
-		}
-		const double psiElmt = 0.5*(sumDiGam_[m] + dln2_ + (nu0p2Nm + 1.0)*lnDet_[m]);
-		// add the matrix trace
-		double matTr = 0.0;
-		vector<double> vSS(d*d, 0.0);
-		MatrixView SS(&vSS, 0, d, d);
-		W_[m].symm('l', 'l', 1.0, S_[m], 0.0, SS);
-		for (size_t kk = 0; kk < d; kk++) {
-			matTr += SS.getElem(kk, kk) + sigmaSq0_*W_[m].getElem(kk, kk);
-		}
-		// a_m crossproduct
-		vector<double> aS(d, 0.0);
-		for (size_t jD = 0; jD < d; jD++) {
-			for (size_t iD = 0; iD < d; iD++) {
-				aS[jD] += M_.getElem(m, iD)*W_[m].getElem(iD,jD);
-			}
-		}
-		double aSaT = 0.0;
-		for (size_t kk = 0; kk < d; kk++) {
-			aSaT += aS[kk]*M_.getElem(m, kk);
-		}
-		const double nu0p1Nm = nu0p1_ + (*N_)[m];
-		const double lmNmSm  = lambda0_ + (*N_)[m];
-		// the big first sum (in curly brackets in the model document), multiplied by N_m
-		const double bigSum  = psiElmt + nu0p1Nm*( (*N_)[m]*lambda0_*(0.5*lambda0_ - (*N_)[m])*aSaT/(lmNmSm*lmNmSm) - 0.5*matTr );
-		// r_jm ln(r_jm) sum
-		double rLnr = 0.0;
-		for (size_t i = 0; i < N; i++) {
-			const double r = R_.getElem(i, m);
-			if ( r > numeric_limits<double>::epsilon() ) {  // lim x-> 0 (x ln(x) ) = 0
-				rLnr += r*log(r);
-			}
-		}
-		// put it all together (+= because we are summing across populations)
-		lwrBound += bigSum - rLnr + nuc_.lnGamma(alpha0_ + (*N_)[m]) - 0.5*d_*log(lmNmSm) + sumLnGam;
-	}
-	return lwrBound;
 }
 
 double GmmVB::rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){

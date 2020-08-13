@@ -85,11 +85,12 @@ namespace BayesicSpace {
 
 		/** \brief Fit model
 		 *
-		 * Fits the model, returning the lower bound values for each step.
+		 * Fits the model, returning the log-posterior for each step and the end-result deviance information criterion (DIC).
 		 *
-		 * \param[out] lowerBound vector of lower bounds
+		 * \param[out] logPost vector of lower bounds
+		 * \param[out] dic the DIC value
 		 */
-		void fitModel(vector<double> &lowerBound);
+		void fitModel(vector<double> &logPost, double &dic);
 	private:
 		/** \brief Pointer to vectorized data matrix */
 		const vector<double> *yVec_;
@@ -97,10 +98,6 @@ namespace BayesicSpace {
 		MatrixViewConst Y_;
 		/** \brief Population means matrix view */
 		MatrixView M_;
-		/** \brief Vector of sample covariance matrix views */
-		vector<MatrixView> S_;
-		/** \brief Vectorized covariance */
-		vector<double> vS_;
 		/** \brief Vector of weighted covariance matrix views */
 		vector<MatrixView> W_;
 		/** \brief `W_` log-determinants */
@@ -147,18 +144,13 @@ namespace BayesicSpace {
 		void eStep_();
 		/** \brief The M-step */
 		void mStep_();
-		/** \brief DIC function
+		/** \brief Log-posterior function
 		 *
-		 * Calculates the deviance information criterion (DIC).
+		 * Calculates the log-posterior to monitor convergence.
 		 *
-		 * \return the DIC value
+		 * \return the log-posterior value
 		 */
-		double getDIC_();
-		/** \brief Variational lower bound
-		 *
-		 * \return The lower bound value (minus the constants)
-		 */
-		double getLowerBound_();
+		double logPost_();
 		/** \brief Euclidean distance between matrix rows
 		 *
 		 * \param[in] m1 first matrix

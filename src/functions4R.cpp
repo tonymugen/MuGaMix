@@ -43,7 +43,7 @@
 #include "gmmvb.hpp"
 
 //[[Rcpp::export(name="vbFit")]]
-Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &tauPr, const double &ppRatio){
+Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &sigSqPr, const double &ppRatio){
 	if (nPop <= 1) {
 		Rcpp::stop("Number of populations must be greater than 1");
 	}
@@ -54,14 +54,15 @@ Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_
 	std::vector<double> vSm;
 	std::vector<double> Nm;
 	std::vector<double> r;
-	std::vector<double> lBound;
+	std::vector<double> lPost;
+	double dic = 0.0;
 	try {
-		BayesicSpace::GmmVB vbModel(&yVec, ppRatio, tauPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
-		vbModel.fitModel(lBound);
+		BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
+		vbModel.fitModel(lPost, dic);
 	} catch (std::string problem) {
 		Rcpp::stop(problem);
 	}
-	return Rcpp::List::create(Rcpp::Named("popMeans", vPopMn), Rcpp::Named("covariances", vSm), Rcpp::Named("effNm", Nm), Rcpp::Named("p", r), Rcpp::Named("lowerBound", lBound));
+	return Rcpp::List::create(Rcpp::Named("popMeans", vPopMn), Rcpp::Named("covariances", vSm), Rcpp::Named("effNm", Nm), Rcpp::Named("p", r), Rcpp::Named("logPosterior", lPost), Rcpp::Named("DIC", dic));
 }
 
 //[[Rcpp::export(name="testLpostNR")]]

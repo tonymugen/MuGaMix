@@ -4,4 +4,4 @@
 .Rhistory
 .Rdata
 src/.clangd/*
-
+R/.lintr

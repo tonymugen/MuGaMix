@@ -6,8 +6,8 @@
 using namespace Rcpp;
 
 // vbFit
-Rcpp::List vbFit(const std::vector<double>& yVec, const int32_t& d, const int32_t& nPop, const double& alphaPr, const double& tauPr, const double& ppRatio);
-RcppExport SEXP _MuGaMix_vbFit(SEXP yVecSEXP, SEXP dSEXP, SEXP nPopSEXP, SEXP alphaPrSEXP, SEXP tauPrSEXP, SEXP ppRatioSEXP) {
+Rcpp::List vbFit(const std::vector<double>& yVec, const int32_t& d, const int32_t& nPop, const double& alphaPr, const double& sigSqPr, const double& ppRatio);
+RcppExport SEXP _MuGaMix_vbFit(SEXP yVecSEXP, SEXP dSEXP, SEXP nPopSEXP, SEXP alphaPrSEXP, SEXP sigSqPrSEXP, SEXP ppRatioSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -15,9 +15,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type nPop(nPopSEXP);
     Rcpp::traits::input_parameter< const double& >::type alphaPr(alphaPrSEXP);
-    Rcpp::traits::input_parameter< const double& >::type tauPr(tauPrSEXP);
+    Rcpp::traits::input_parameter< const double& >::type sigSqPr(sigSqPrSEXP);
     Rcpp::traits::input_parameter< const double& >::type ppRatio(ppRatioSEXP);
-    rcpp_result_gen = Rcpp::wrap(vbFit(yVec, d, nPop, alphaPr, tauPr, ppRatio));
+    rcpp_result_gen = Rcpp::wrap(vbFit(yVec, d, nPop, alphaPr, sigSqPr, ppRatio));
     return rcpp_result_gen;
 END_RCPP
 }
