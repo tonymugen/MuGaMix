@@ -34,7 +34,8 @@
 #' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{thetaChain}, each chain a column), a matrix of population assignments (named \code{piChain}), a matrix of inverse-covariances (named \code{iSigChain}), a matrix of imputed missing data (if any; named \code{imputed}), the list of lines used in model fitting (ordered the same as in the output and possibly modified from the user's input if missing rows are eliminated; named \code{lineIDs}), the number of retained samples per chain (named \code{n.samples}), and the number of population specified in the model (named \code{n.pops})
 #'
 #' @export
-fitModel <- function(data, trait.colums, n.pop, factor.column = NULL, n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5){
+fitModel <- function(data, trait.colums, n.pop, factor.column = NULL,
+				n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5) {
 	d    <- length(trait.colums)
 	if (d <= 1) {
 		stop("Must have at least two traits")
@@ -48,12 +49,12 @@ fitModel <- function(data, trait.colums, n.pop, factor.column = NULL, n.burnin =
 			stop("Missing data with no replication not supported yet")
 		} else {
 			res            <- runSamplerNR(yVec, d, n.pop, n.burnin, n.sampling, n.thin, n.chains)
-			res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
-			res$piChain    <- matrix(res$piChain, ncol=n.chains)
-			res$iSigChain  <- matrix(res$iSigChain, ncol=n.chains)
+			res$thetaChain <- matrix(res$thetaChain, ncol = n.chains)
+			res$piChain    <- matrix(res$piChain, ncol = n.chains)
+			res$iSigChain  <- matrix(res$iSigChain, ncol = n.chains)
 			res$imputed    <- NULL
 			res$lineIDs    <- rownames(data)
-			res$n.samples  <- n.sampling/n.thin
+			res$n.samples  <- n.sampling / n.thin
 			res$n.pops     <- n.pop
 			class(res)     <- "mugamix"
 			return(res)
@@ -63,47 +64,47 @@ fitModel <- function(data, trait.colums, n.pop, factor.column = NULL, n.burnin =
 			lnFac <- data[, factor.column]
 			lnInd <- as.integer(lnFac)
 		} else {
-			lnFac <- factor(data[, factor.column], levels=unique(data[, factor.column]))
+			lnFac <- factor(data[, factor.column], levels = unique(data[, factor.column]))
 			lnInd <- as.integer(lnFac)
 		}
 		if (any(is.na(yVec))) {
-			missRowCount <- apply(data[,trait.colums], 1, function(vec){sum(is.na(vec))})
+			missRowCount <- apply(data[,trait.colums], 1, function(vec) {sum(is.na(vec))})
 			d            <- length(trait.colums)
 			if (any(missRowCount == d)) {
 				warning("WARNING: sime rows have only missing data; deleting them. This may result in loss of some lines")
-				data <- data[-which(missRowCount == d),]
+				data <- data[-which(missRowCount == d), ]
 				# re-define the line factor, since there is no guarantee every line has data
 				if (is.factor(data[, factor.column])) {
 					oldLev <- levels(data[, factor.column]) # want to preserve the user's level order
 					lnFac  <- as.character(data[, factor.column])
-					lnFac  <- factor(lnFac, levels=oldLev[oldLev %in% unique(lnFac)])
+					lnFac  <- factor(lnFac, levels = oldLev[oldLev %in% unique(lnFac)])
 					lnInd  <- as.integer(lnFac)
 				} else {
-					lnFac <- factor(data[, factor.column], levels=unique(data[, factor.column]))
+					lnFac <- factor(data[, factor.column], levels = unique(data[, factor.column]))
 					lnInd <- as.integer(lnFac)
 				}
 			}
-			missInd <- rep(0, times=length(yVec))
+			missInd <- rep(0, times = length(yVec))
 			missInd[which(is.na(yVec))] <- 1
 			yVec[which(missInd == 1)]   <- 0.0 # lazy "imputation"; the right thing will be done by the model
 			res            <- runSamplerMiss(yVec, lnInd, as.integer(missInd), n.pop, n.burnin, n.sampling, n.thin, n.chains)
-			res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
-			res$piChain    <- matrix(res$piChain, ncol=n.chains)
-			res$iSigChain  <- matrix(res$iSigChain, ncol=n.chains)
-			res$imputed    <- matrix(res$imputed, ncol=n.chains)
+			res$thetaChain <- matrix(res$thetaChain, ncol = n.chains)
+			res$piChain    <- matrix(res$piChain, ncol = n.chains)
+			res$iSigChain  <- matrix(res$iSigChain, ncol = n.chains)
+			res$imputed    <- matrix(res$imputed, ncol = n.chains)
 			res$lineIDs    <- levels(lnFac)
-			res$n.samples  <- n.sampling/n.thin
+			res$n.samples  <- n.sampling / n.thin
 			res$n.pops     <- n.pop
 			class(res)     <- "mugamix"
 			return(res)
 		} else {
 			res            <- runSampler(yVec, lnInd, n.pop, n.burnin, n.sampling, n.thin, n.chains)
-			res$thetaChain <- matrix(res$thetaChain, ncol=n.chains)
-			res$piChain    <- matrix(res$piChain, ncol=n.chains)
-			res$iSigChain  <- matrix(res$iSigChain, ncol=n.chains)
+			res$thetaChain <- matrix(res$thetaChain, ncol = n.chains)
+			res$piChain    <- matrix(res$piChain, ncol = n.chains)
+			res$iSigChain  <- matrix(res$iSigChain, ncol = n.chains)
 			res$imputed    <- NULL
 			res$lineIDs    <- levels(lnFac)
-			res$n.samples  <- n.sampling/n.thin
+			res$n.samples  <- n.sampling / n.thin
 			res$n.pops     <- n.pop
 			class(res)     <- "mugamix"
 			return(res)
@@ -121,34 +122,34 @@ fitModel <- function(data, trait.colums, n.pop, factor.column = NULL, n.burnin =
 #' @return a plot object (either \code{ggplot} or \code{barplot})
 #'
 #' @export
-plot.mugamix <- function(obj){
+plot.mugamix <- function(obj) {
 	# Calculate medians across samples and chains
-	Nln      <- length(obj$lineIDs)
-	lnPopFac <- paste(rep(obj$lineIDs, each=obj$n.pops), rep(1:(obj$n.pops), times=Nln), sep=".")
-	lnPopFac <- factor(rep(lnPopFac, times=obj$n.samples*ncol(obj$piChain)), levels=lnPopFac)
-	popP     <- matrix(tapply(array(obj$piChain), lnPopFac, median), ncol=obj$n.pops, byrow=TRUE)
+	nLn      <- length(obj$lineIDs)
+	lnPopFac <- paste(rep(obj$lineIDs, each = obj$n.pops), rep(1:(obj$n.pops), times = nLn), sep = ".")
+	lnPopFac <- factor(rep(lnPopFac, times = obj$n.samples * ncol(obj$piChain)), levels = lnPopFac)
+	popP     <- matrix(tapply(array(obj$piChain), lnPopFac, median), ncol = obj$n.pops, byrow = TRUE)
 	colnames(popP) <- as.character(1:obj$n.pops)
 	popAss   <- NULL
-	if (requireNamespace("data.table", quietly=TRUE)) { # if we have data.table installed
+	if (requireNamespace("data.table", quietly = TRUE)) { # if we have data.table installed
 		popP   <- data.table::as.data.table(popP)
 		data.table::set(popP, NULL, "line", obj$lineIDs)
 		popP   <- data.table::setorderv(popP, as.character(1:obj$n.pops), rep(-1, obj$n.pops))
-		popAss <- data.table::melt(popP, measure=as.character(1:obj$n.pops), variable.name="population", value.name="p")
-		data.table::set(popAss, NULL, "line", factor(popAss[,"line"], levels=unique(popAss[,"line"])))
+		popAss <- data.table::melt(popP, measure = as.character(1:obj$n.pops), variable.name = "population", value.name = "p")
+		data.table::set(popAss, NULL, "line", factor(popAss[, "line"], levels = unique(popAss[, "line"])))
 	} else {
 		popP      <- as.data.frame(popP)
 		popP$line <- obj$lineIDs
-		popP      <- popP[do.call(order, -popP[,1:obj$n.pops]),]
-		popAss    <- data.frame(p=unlist(popP[,1:obj$n.pops]),
-						line=factor(rep(as.character(popP[,"line"]), times=obj$n.pops), levels=unique(as.character(popP[,"line"]))),
-						population=rep(as.character(1:obj$n.pops), each=Nln))
+		popP      <- popP[do.call(order, -popP[, 1:obj$n.pops]), ]
+		popAss    <- data.frame(p = unlist(popP[, 1:obj$n.pops]),
+						line = factor(rep(as.character(popP[, "line"]), times = obj$n.pops),
+										levels = unique(as.character(popP[, "line"]))),
+						population = rep(as.character(1:obj$n.pops), each = nLn))
 	}
-	if (requireNamespace("ggplot2", quietly=TRUE)) {
-		return(ggplot2::ggplot(data=popAss, ggplot2::aes(x=line, y=p, fill=population)) + ggplot2::geom_col())
+	if (requireNamespace("ggplot2", quietly = TRUE)) {
+		return(ggplot2::ggplot(data = popAss, ggplot2::aes(x = line, y = p, fill = population)) + ggplot2::geom_col())
 	} else {
-		popMat <- t(as.matrix(popP[,1:obj$n.pops]))
-		colnames(popMat) <- unlist(popP[,"line"])
-		return(barplot(popMat, border=NA, col=rainbow(obj$n.pops), ylab="p", las=2))
+		popMat <- t(as.matrix(popP[, 1:obj$n.pops]))
+		colnames(popMat) <- unlist(popP[, "line"])
+		return(barplot(popMat, border = NA, col = rainbow(obj$n.pops), ylab = "p", las = 2))
 	}
 }
-

@@ -131,14 +131,22 @@ void GmmVB::fitModel(vector<double> &logPost, double &dic) {
 		eStep_();
 		mStep_();
 		const double curLP = logPost_();
-		if ( logPost.size() ) {
-			if ( fabs( ( curLP - logPost.back() )/logPost.back() ) <= stoppingDiff_ ) {
-				logPost.push_back(curLP);
-				break;
-			}
+		if ( logPost.size() && (fabs( ( curLP - logPost.back() )/logPost.back() ) <= stoppingDiff_) ) {
+			logPost.push_back(curLP);
+			break;
 		}
 		logPost.push_back(curLP);
 	}
+	// complete the DIC
+	const double nmAlphaN = static_cast<double>( M_.getNrows() )*alpha0_ + static_cast<double>( Y_.getNrows() );
+	double pD = 0.0;
+	for (size_t m = 0; m < M_.getNrows(); m++) {
+		const double alpha_m = alpha0_ + (*N_)[m];
+		pD += (*N_)[m]*(2.0*( log(alpha_m) - nuc_.digamma(alpha_m) ) + d_*log(nu0p1_ + (*N_)[m]) - sumDiGam_[m] + 1.0/(lambda0_ + (*N_)[m]));
+	}
+	dic = 2*( pD - logPost.back() ) - static_cast<double>( Y_.getNrows() )*( 2.0*log(nmAlphaN) - d_*0.4515827053 - 4.0*nuc_.digamma(nmAlphaN) ); // 0.4515827053 is log(pi/2)
+
+	//scale the inverse covariance and invert
 	for (size_t m = 0; m < M_.getNrows(); m++) {  // scale the inverse-covariance
 		W_[m] *= nu0p1_ + (*N_)[m];
 		W_[m].chol();

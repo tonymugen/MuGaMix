@@ -34,21 +34,20 @@
 #include <limits>
 
 #include <Rcpp.h>
-#include <Rcpp/Named.h>
-#include <Rcpp/vector/instantiation.h>
-#include <Rcpp/exceptions/cpp11/exceptions.h>
-#include <Rcpp/utils/tinyformat.h>
 
 #include "mumimo.hpp"
 #include "gmmvb.hpp"
 
 //[[Rcpp::export(name="vbFit")]]
-Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &sigSqPr, const double &ppRatio){
+Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &sigSqPr, const double &ppRatio, const int32_t nReps){
 	if (nPop <= 1) {
 		Rcpp::stop("Number of populations must be greater than 1");
 	}
 	if (d <= 0) {
 		Rcpp::stop("Number of traits must be non-negative");
+	}
+	if (nReps <= 0) {
+		Rcpp::stop("Number of replicate runs must be positive");
 	}
 	std::vector<double> vPopMn;
 	std::vector<double> vSm;
@@ -59,6 +58,25 @@ Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_
 	try {
 		BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
 		vbModel.fitModel(lPost, dic);
+		for (int iRep = 1; iRep < nReps; iRep++) {
+			std::vector<double> vPopMnLoc;
+			std::vector<double> vSmLoc;
+			std::vector<double> NmLoc;
+			std::vector<double> rLoc;
+			std::vector<double> lPostLoc;
+			double dicLoc = 0.0;
+
+			BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMnLoc, &vSmLoc, &rLoc, &NmLoc);
+			vbModel.fitModel(lPostLoc, dicLoc);
+			if (dicLoc < dic) { // if we found a better DIC
+				vPopMn.assign( vPopMnLoc.begin(), vPopMnLoc.end() );
+				vSm.assign( vSmLoc.begin(), vSmLoc.end() );
+				Nm.assign( NmLoc.begin(), NmLoc.end() );
+				r.assign( rLoc.begin(), rLoc.end() );
+				lPost.assign( lPostLoc.begin(), lPostLoc.end() );
+				dic = dicLoc;
+			}
+		}
 	} catch (std::string problem) {
 		Rcpp::stop(problem);
 	}
