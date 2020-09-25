@@ -1278,6 +1278,5 @@ namespace BayesicSpace {
 		size_t Ncol_;
 	};
 }
-
-
 #endif /* matrixView_hpp */
+

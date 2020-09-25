@@ -27,7 +27,6 @@
  *
  */
 
-#include <cstddef>
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -37,10 +36,17 @@
 #include <Rcpp.h>
 
 #include "Rcpp/Named.h"
-#include "Rcpp/utils/tinyformat.h"
 #include "matrixView.hpp"
 #include "mumimo.hpp"
 #include "gmmvb.hpp"
+
+//[[Rcpp::export(name="tstMiss")]]
+Rcpp::List tstMiss(std::vector<double> &inVec, const int32_t &nRow, const int32_t &nCol){
+	BayesicSpace::MatrixView test(&inVec, 0, nRow, nCol);
+	std::vector<double> out;
+	test.rowSumsMiss(out);
+	return Rcpp::List::create(Rcpp::Named("out", out));
+}
 
 //[[Rcpp::export(name="testLpostNR")]]
 Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &P, const int32_t &ind, const double &limit, const double &incr){

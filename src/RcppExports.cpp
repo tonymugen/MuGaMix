@@ -5,18 +5,16 @@
 
 using namespace Rcpp;
 
-// selectFeatures
-Rcpp::List selectFeatures(const std::vector<double>& yVec, const std::vector<double>& pVec, const int32_t& d, const int32_t& nPops, const double& pi);
-RcppExport SEXP _MuGaMix_selectFeatures(SEXP yVecSEXP, SEXP pVecSEXP, SEXP dSEXP, SEXP nPopsSEXP, SEXP piSEXP) {
+// tstMiss
+Rcpp::List tstMiss(std::vector<double>& inVec, const int32_t& nRow, const int32_t& nCol);
+RcppExport SEXP _MuGaMix_tstMiss(SEXP inVecSEXP, SEXP nRowSEXP, SEXP nColSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type pVec(pVecSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type nPops(nPopsSEXP);
-    Rcpp::traits::input_parameter< const double& >::type pi(piSEXP);
-    rcpp_result_gen = Rcpp::wrap(selectFeatures(yVec, pVec, d, nPops, pi));
+    Rcpp::traits::input_parameter< std::vector<double>& >::type inVec(inVecSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type nRow(nRowSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type nCol(nColSEXP);
+    rcpp_result_gen = Rcpp::wrap(tstMiss(inVec, nRow, nCol));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -322,7 +320,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_MuGaMix_selectFeatures", (DL_FUNC) &_MuGaMix_selectFeatures, 5},
+    {"_MuGaMix_tstMiss", (DL_FUNC) &_MuGaMix_tstMiss, 3},
     {"_MuGaMix_testLpostNR", (DL_FUNC) &_MuGaMix_testLpostNR, 8},
     {"_MuGaMix_testLpostP", (DL_FUNC) &_MuGaMix_testLpostP, 8},
     {"_MuGaMix_testLpostLocNR", (DL_FUNC) &_MuGaMix_testLpostLocNR, 8},
