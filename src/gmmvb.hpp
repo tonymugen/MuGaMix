@@ -39,6 +39,9 @@
 using std::vector;
 
 namespace BayesicSpace {
+	// forward declarations
+	class GmmVB;
+	class GmmVBmiss;
 
 	/** \brief Variational Bayes class
 	 *
@@ -91,7 +94,7 @@ namespace BayesicSpace {
 		 * \param[out] dic the DIC value
 		 */
 		void fitModel(vector<double> &logPost, double &dic);
-	private:
+	protected:
 		/** \brief Pointer to vectorized data matrix */
 		const vector<double> *yVec_;
 		/** \brief Matrix view of the data */
@@ -141,16 +144,16 @@ namespace BayesicSpace {
 
 		// Private functions
 		/** \brief The E-step */
-		void eStep_();
+		virtual void eStep_();
 		/** \brief The M-step */
-		void mStep_();
+		virtual void mStep_();
 		/** \brief Log-posterior function
 		 *
 		 * Calculates the log-posterior to monitor convergence.
 		 *
 		 * \return the log-posterior value
 		 */
-		double logPost_();
+		virtual double logPost_();
 		/** \brief Euclidean distance between matrix rows
 		 *
 		 * \param[in] m1 first matrix
@@ -159,7 +162,7 @@ namespace BayesicSpace {
 		 * \param[in] row2 index of the second matrix row
 		 * \return euclidean distance between the rows
 		 */
-		double rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2);
+		virtual double rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2);
 		/** \brief K-means clustering
 		 *
 		 * Performs k-means clustering on a matrix of values. Each row of the input matrix is an item with observed values in columns.
@@ -170,13 +173,84 @@ namespace BayesicSpace {
 		 * \param[out] x2m `Index` relating clusters to values
 		 * \param[out] M matrix of cluster means (clusters in rows)
 		 */
-		void kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M);
-		/** \brief Sort the populations
+		virtual void kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M);
+	};
+	/** \brief Variational Bayes with missing data
+	 *
+	 * Implements Gaussian mixture model fit using variational Bayes. Missing data are allowed.
+	 *
+	 */
+	class GmmVBmiss final : public GmmVB {
+	public:
+		/** \brief Default constructor */
+		GmmVBmiss() : GmmVB() {};
+		/** \brief Constructor
 		 *
-		 * Populations are sorted according to the index of the first individual that belongs to a population with high probability.
-		 * This scheme is also known as left-ordering.
+		 * The vectorized matrices must be in the column major format (as in R and FORTRAN). Missing values must be marked with `nan("")`. For larger population numbers, make sure \f$ \nu_0 > d - 2 \f$.
+		 *
+		 * \param[in] yVec pointer to vectorized data matrix
+		 * \param[in] lambda0 prior precision scale factor
+		 * \param[in] sigmaSq0 prior variance
+		 * \param[in] alpha0 prior population size
+		 * \param[in] nPop number of populations
+		 * \param[in] d number of traits
+		 * \param[in,out] vPopMn pointer to vectorized matrix of population means
+		 * \param[in, out] vSm pointer to vectorized collection of population covariances
+		 * \param[in, out] resp pointer to vectorized matrix responsibilities
+		 * \param[in, out] Nm pointer to vector of effective population sizes
 		 */
-		void sortPops_();
+		GmmVBmiss(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : GmmVB(yVec, lambda0, sigmaSq0, alpha0, nPop, d, vPopMn, vSm, resp, Nm) {};
+		/** \brief Destructor */
+		~GmmVBmiss(){ yVec_ = nullptr; N_ = nullptr; };
+
+		/** \brief Copy constructor (deleted) */
+		GmmVBmiss(const GmmVBmiss &in) = delete;
+		/** \brief Copy assignment (deleted) */
+		GmmVBmiss& operator=(const GmmVBmiss &in) = delete;
+		/** \brief Move constructor
+		 *
+		 * \param[in] in object to move
+		 */
+		GmmVBmiss(GmmVBmiss &&in);
+		/** \brief Move assignment operator (deleted)
+		 *
+		 * \param[in] in object to be moved
+		 * \return target object
+		 */
+		GmmVBmiss& operator=(GmmVBmiss &&in) = delete;
+	protected:
+		// Private functions
+		/** \brief The E-step */
+		void eStep_() override;
+		/** \brief The M-step */
+		void mStep_() override;
+		/** \brief Log-posterior function
+		 *
+		 * Calculates the log-posterior to monitor convergence.
+		 *
+		 * \return the log-posterior value
+		 */
+		double logPost_() override;
+		/** \brief Euclidean distance between matrix rows
+		 *
+		 * \param[in] m1 first matrix
+		 * \param[in] row1 index of the first matrix row
+		 * \param[in] m2 second matrix
+		 * \param[in] row2 index of the second matrix row
+		 * \return euclidean distance between the rows
+		 */
+		double rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2) override;
+		/** \brief K-means clustering
+		 *
+		 * Performs k-means clustering on a matrix of values. Each row of the input matrix is an item with observed values in columns.
+		 *
+		 * \param[in] X matrix of observations to be clustered
+		 * \param[in] Kclust number of clusters
+		 * \param[in] maxIt maximum number of iterations
+		 * \param[out] x2m `Index` relating clusters to values
+		 * \param[out] M matrix of cluster means (clusters in rows)
+		 */
+		void kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M) override;
 	};
 }
 

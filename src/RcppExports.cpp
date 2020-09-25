@@ -5,20 +5,18 @@
 
 using namespace Rcpp;
 
-// vbFit
-Rcpp::List vbFit(const std::vector<double>& yVec, const int32_t& d, const int32_t& nPop, const double& alphaPr, const double& sigSqPr, const double& ppRatio, const int32_t nReps);
-RcppExport SEXP _MuGaMix_vbFit(SEXP yVecSEXP, SEXP dSEXP, SEXP nPopSEXP, SEXP alphaPrSEXP, SEXP sigSqPrSEXP, SEXP ppRatioSEXP, SEXP nRepsSEXP) {
+// selectFeatures
+Rcpp::List selectFeatures(const std::vector<double>& yVec, const std::vector<double>& pVec, const int32_t& d, const int32_t& nPops, const double& pi);
+RcppExport SEXP _MuGaMix_selectFeatures(SEXP yVecSEXP, SEXP pVecSEXP, SEXP dSEXP, SEXP nPopsSEXP, SEXP piSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type pVec(pVecSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type nPop(nPopSEXP);
-    Rcpp::traits::input_parameter< const double& >::type alphaPr(alphaPrSEXP);
-    Rcpp::traits::input_parameter< const double& >::type sigSqPr(sigSqPrSEXP);
-    Rcpp::traits::input_parameter< const double& >::type ppRatio(ppRatioSEXP);
-    Rcpp::traits::input_parameter< const int32_t >::type nReps(nRepsSEXP);
-    rcpp_result_gen = Rcpp::wrap(vbFit(yVec, d, nPop, alphaPr, sigSqPr, ppRatio, nReps));
+    Rcpp::traits::input_parameter< const int32_t& >::type nPops(nPopsSEXP);
+    Rcpp::traits::input_parameter< const double& >::type pi(piSEXP);
+    rcpp_result_gen = Rcpp::wrap(selectFeatures(yVec, pVec, d, nPops, pi));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -253,6 +251,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// vbFit
+Rcpp::List vbFit(const std::vector<double>& yVec, const int32_t& d, const int32_t& nPop, const double& alphaPr, const double& sigSqPr, const double& ppRatio, const int32_t nReps);
+RcppExport SEXP _MuGaMix_vbFit(SEXP yVecSEXP, SEXP dSEXP, SEXP nPopSEXP, SEXP alphaPrSEXP, SEXP sigSqPrSEXP, SEXP ppRatioSEXP, SEXP nRepsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type nPop(nPopSEXP);
+    Rcpp::traits::input_parameter< const double& >::type alphaPr(alphaPrSEXP);
+    Rcpp::traits::input_parameter< const double& >::type sigSqPr(sigSqPrSEXP);
+    Rcpp::traits::input_parameter< const double& >::type ppRatio(ppRatioSEXP);
+    Rcpp::traits::input_parameter< const int32_t >::type nReps(nRepsSEXP);
+    rcpp_result_gen = Rcpp::wrap(vbFit(yVec, d, nPop, alphaPr, sigSqPr, ppRatio, nReps));
+    return rcpp_result_gen;
+END_RCPP
+}
 // runSamplerNR
 Rcpp::List runSamplerNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Npop, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin, const int32_t& Nchains);
 RcppExport SEXP _MuGaMix_runSamplerNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NpopSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP, SEXP NchainsSEXP) {
@@ -307,7 +322,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_MuGaMix_vbFit", (DL_FUNC) &_MuGaMix_vbFit, 7},
+    {"_MuGaMix_selectFeatures", (DL_FUNC) &_MuGaMix_selectFeatures, 5},
     {"_MuGaMix_testLpostNR", (DL_FUNC) &_MuGaMix_testLpostNR, 8},
     {"_MuGaMix_testLpostP", (DL_FUNC) &_MuGaMix_testLpostP, 8},
     {"_MuGaMix_testLpostLocNR", (DL_FUNC) &_MuGaMix_testLpostLocNR, 8},
@@ -321,6 +336,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_MuGaMix_lpTestSI", (DL_FUNC) &_MuGaMix_lpTestSI, 8},
     {"_MuGaMix_gradTestSInr", (DL_FUNC) &_MuGaMix_gradTestSInr, 8},
     {"_MuGaMix_gradTestSI", (DL_FUNC) &_MuGaMix_gradTestSI, 8},
+    {"_MuGaMix_vbFit", (DL_FUNC) &_MuGaMix_vbFit, 7},
     {"_MuGaMix_runSamplerNR", (DL_FUNC) &_MuGaMix_runSamplerNR, 7},
     {"_MuGaMix_runSampler", (DL_FUNC) &_MuGaMix_runSampler, 7},
     {"_MuGaMix_runSamplerMiss", (DL_FUNC) &_MuGaMix_runSamplerMiss, 8},

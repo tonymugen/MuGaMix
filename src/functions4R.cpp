@@ -27,6 +27,7 @@
  *
  */
 
+#include <cstddef>
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -35,53 +36,11 @@
 
 #include <Rcpp.h>
 
+#include "Rcpp/Named.h"
+#include "Rcpp/utils/tinyformat.h"
+#include "matrixView.hpp"
 #include "mumimo.hpp"
 #include "gmmvb.hpp"
-
-//[[Rcpp::export(name="vbFit")]]
-Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &sigSqPr, const double &ppRatio, const int32_t nReps){
-	if (nPop <= 1) {
-		Rcpp::stop("Number of populations must be greater than 1");
-	}
-	if (d <= 0) {
-		Rcpp::stop("Number of traits must be non-negative");
-	}
-	if (nReps <= 0) {
-		Rcpp::stop("Number of replicate runs must be positive");
-	}
-	std::vector<double> vPopMn;
-	std::vector<double> vSm;
-	std::vector<double> Nm;
-	std::vector<double> r;
-	std::vector<double> lPost;
-	double dic = 0.0;
-	try {
-		BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
-		vbModel.fitModel(lPost, dic);
-		for (int iRep = 1; iRep < nReps; iRep++) {
-			std::vector<double> vPopMnLoc;
-			std::vector<double> vSmLoc;
-			std::vector<double> NmLoc;
-			std::vector<double> rLoc;
-			std::vector<double> lPostLoc;
-			double dicLoc = 0.0;
-
-			BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMnLoc, &vSmLoc, &rLoc, &NmLoc);
-			vbModel.fitModel(lPostLoc, dicLoc);
-			if (dicLoc < dic) { // if we found a better DIC
-				vPopMn.assign( vPopMnLoc.begin(), vPopMnLoc.end() );
-				vSm.assign( vSmLoc.begin(), vSmLoc.end() );
-				Nm.assign( NmLoc.begin(), NmLoc.end() );
-				r.assign( rLoc.begin(), rLoc.end() );
-				lPost.assign( lPostLoc.begin(), lPostLoc.end() );
-				dic = dicLoc;
-			}
-		}
-	} catch (std::string problem) {
-		Rcpp::stop(problem);
-	}
-	return Rcpp::List::create(Rcpp::Named("popMeans", vPopMn), Rcpp::Named("covariances", vSm), Rcpp::Named("effNm", Nm), Rcpp::Named("p", r), Rcpp::Named("logPosterior", lPost), Rcpp::Named("DIC", dic));
-}
 
 //[[Rcpp::export(name="testLpostNR")]]
 Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &P, const int32_t &ind, const double &limit, const double &incr){
@@ -361,6 +320,75 @@ Rcpp::List gradTestSI(const std::vector<double> &yVec, const std::vector<int32_t
 	}
 	return Rcpp::List::create(Rcpp::Named("gradVal", gradVal));
 }
+
+//' Variational Bayes model fit
+//'
+//' Fits a Gaussian mixture model using variational Bayes. Assumes no missing data.
+//'
+//' @param yVec    vectorized data matrix
+//' @param d       number of traits
+//' @param nPop    number of populations
+//' @param alphaPr prior population size
+//' @param sigSqPr prior variance
+//' @param ppRatio population to error covariance ratio
+//' @param nReps   number of model fit attempts before picking the best fit
+//' @return list containing population means (\code{popMeans}), covariances (\code{covariances}), effective population sizes (\code{effNm}), population assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
+//'
+//' @keywords internal
+//'
+//[[Rcpp::export(name="vbFit")]]
+Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &sigSqPr, const double &ppRatio, const int32_t nReps){
+	if (nPop <= 1) {
+		Rcpp::stop("Number of populations must be greater than 1");
+	}
+	if (d <= 0) {
+		Rcpp::stop("Number of traits must be non-negative");
+	}
+	if (nReps <= 0) {
+		Rcpp::stop("Number of replicate runs must be positive");
+	}
+	if (alphaPr <= 0.0) {
+		Rcpp::stop("Prior population size must be positive");
+	}
+	if (sigSqPr <= 0.0) {
+		Rcpp::stop("Prior variance must be positive");
+	}
+	if (ppRatio <= 0.0) {
+		Rcpp::stop("Variance ratio must be positive");
+	}
+	std::vector<double> vPopMn;
+	std::vector<double> vSm;
+	std::vector<double> Nm;
+	std::vector<double> r;
+	std::vector<double> lPost;
+	double dic = 0.0;
+	try {
+		BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
+		vbModel.fitModel(lPost, dic);
+		for (int iRep = 1; iRep < nReps; iRep++) {
+			std::vector<double> vPopMnLoc;
+			std::vector<double> vSmLoc;
+			std::vector<double> NmLoc;
+			std::vector<double> rLoc;
+			std::vector<double> lPostLoc;
+			double dicLoc = 0.0;
+
+			BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMnLoc, &vSmLoc, &rLoc, &NmLoc);
+			vbModel.fitModel(lPostLoc, dicLoc);
+			if (dicLoc < dic) { // if we found a better DIC
+				vPopMn = vPopMnLoc;
+				vSm    = vSmLoc;
+				Nm     = NmLoc;
+				r      = rLoc;
+				dic    = dicLoc;
+			}
+		}
+	} catch (std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("popMeans", vPopMn), Rcpp::Named("covariances", vSm), Rcpp::Named("effNm", Nm), Rcpp::Named("p", r), Rcpp::Named("DIC", dic));
+}
+
 //' Run the sampler with no replication
 //'
 //' Runs the sampler on the data assuming no fixed effects, missing trait data, or replication.

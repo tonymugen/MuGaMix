@@ -71,7 +71,7 @@ SamplerNUTS::SamplerNUTS(SamplerNUTS &&in) {
 		theta_             = in.theta_;
 		in.model_ = nullptr;
 		in.theta_ = nullptr;
-		memcpy( lastEpsilons_, in.lastEpsilons_, 20*sizeof(double) );
+		memcpy( lastEpsilons_, in.lastEpsilons_, 20 * sizeof(double) );
 	}
 }
 SamplerNUTS& SamplerNUTS::operator=(SamplerNUTS &&in){
@@ -88,7 +88,7 @@ SamplerNUTS& SamplerNUTS::operator=(SamplerNUTS &&in){
 		theta_             = in.theta_;
 		in.model_ = nullptr;
 		in.theta_ = nullptr;
-		memcpy( lastEpsilons_, in.lastEpsilons_, 20*sizeof(double) );
+		memcpy( lastEpsilons_, in.lastEpsilons_, 20 * sizeof(double) );
 	}
 	return *this;
 }
@@ -128,14 +128,14 @@ void SamplerNUTS::findInitialEpsilon_(){
 			a = '1';
 		}
 	} else {
-		logp      -= 0.5*nuc_.dotProd(r0);
-		logpPrime -= 0.5*nuc_.dotProd(rPrime);
+		logp      -= 0.5 * nuc_.dotProd(r0);
+		logpPrime -= 0.5 * nuc_.dotProd(rPrime);
 		a          = ((logpPrime - logp) > -0.6931472 ? '1' : '\0' );  // -0.6931472 = log(0.5); taking a log of the I() condition; '\0' equivalent to a = -1.0 in Algorithm 4
 	}
 
 	if (a) { // a = 1.0
 		for (uint16_t i = 0; i < 7; i++) { // do not do more than seven doublings; initial values may be wrong and result in epsilon_ too large for regular operation
-			epsilon_   = 2.0*epsilon_;
+			epsilon_   = 2.0 * epsilon_;
 			thetaPrime = *theta_;
 			rPrime     = r0;
 			leapfrog_(thetaPrime, rPrime, epsilon_);
@@ -150,7 +150,7 @@ void SamplerNUTS::findInitialEpsilon_(){
 					throw string("log-posterior evaluates to +Inf in findInitialEpsilon_. This should never happen. Check your implementation.");
 				}
 			} else {
-				logpPrime -= 0.5*nuc_.dotProd(rPrime);
+				logpPrime -= 0.5 * nuc_.dotProd(rPrime);
 				if ((logpPrime - logp) > -0.6931472) {  // take a log of the while() test inequality; a = 1.0 so the direction is the same as in the description
 					break;
 				}
@@ -158,7 +158,7 @@ void SamplerNUTS::findInitialEpsilon_(){
 		}
 	} else { // a = -1.0
 		for (uint16_t i = 0; i < 7; i++) { // do not do more than seven halves or epsilon_ will be too small
-			epsilon_   = 0.5*epsilon_;
+			epsilon_   = 0.5 * epsilon_;
 			thetaPrime = *theta_;
 			rPrime     = r0;
 			leapfrog_(thetaPrime, rPrime, epsilon_);
@@ -173,7 +173,7 @@ void SamplerNUTS::findInitialEpsilon_(){
 					throw string("log-posterior evaluates to +Inf in findInitialEpsilon_. This should never happen. Check your implementation.");
 				}
 			} else {
-				logpPrime -= 0.5*nuc_.dotProd(rPrime);
+				logpPrime -= 0.5 * nuc_.dotProd(rPrime);
 				if ((logpPrime - logp) < -0.6931472) {  // take a log of the while() test inequality; a = -1.0, so the inequality is switched
 					break;
 				}
@@ -187,13 +187,13 @@ void SamplerNUTS::leapfrog_(vector<double> &theta, vector<double> &r, const doub
 	vector<double> thtGrad;  // Make sure that the model implementing the gradient resizes it properly!
 	model_->gradient(theta, thtGrad);
 	for (size_t j = 0; j < theta.size(); j++) {
-		r[j]     += 0.5*epsilon*thtGrad[j];  // half-step update of r
-		theta[j] += epsilon*r[j];            // leapfrog update of theta
+		r[j]     += 0.5 * epsilon*thtGrad[j];  // half-step update of r
+		theta[j] += epsilon * r[j];            // leapfrog update of theta
 	}
 	model_->gradient(theta, thtGrad);
 	// one more half-step update of r
 	for (size_t k = 0; k < theta.size(); k++) {
-		r[k] += 0.5*epsilon*thtGrad[k];
+		r[k] += 0.5 * epsilon*thtGrad[k];
 	}
 
 }
@@ -218,7 +218,7 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 				throw string("log-posterior evaluates to +Inf in buildTreePos_. This should never happen. Check your implementation.");
 			}
 		} else {
-			testVal -= 0.5*nuc_.dotProd(rPrime);
+			testVal -= 0.5 * nuc_.dotProd(rPrime);
 			nPrime   = (lu <= testVal ? 1.0 : 0.0);
 			s        = (lu < (deltaMax_ + testVal) ? '1' : '\0');
 		}
@@ -231,7 +231,7 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 			vector<double> thetaDprm;  // theta''
 			buildTreePos_(thetaPlus, rPlus, lu, epsilon, j-1, thetaPlus, rPlus, thetaMinus, rMinus, thetaDprm, nDprm, sDPrm);
 			nPrime += nDprm;
-			if ( nPrime && (rng_.runif() <= nDprm/nPrime) ) { // nPrime now nPrime+nDprm
+			if ( nPrime && (rng_.runif() <= nDprm / nPrime) ) { // nPrime now nPrime+nDprm
 				thetaPrime = move(thetaDprm);
 			}
 			if (sDPrm) { // only now necessary to test the dot-product condition; equivalent to s''I(...) in Algorithm 3
@@ -277,7 +277,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 				throw string("log-posterior evaluates to +Inf in buildTreeNeg_. This should never happen. Check your implementation.");
 			}
 		} else {
-			testVal -= 0.5*nuc_.dotProd(rPrime);
+			testVal -= 0.5 * nuc_.dotProd(rPrime);
 			nPrime   = (lu <= testVal ? 1.0 : 0.0);
 			s        = (lu < (deltaMax_ + testVal) ? '1' : '\0');
 		}
@@ -290,7 +290,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 			vector<double> thetaDprm;  // theta''
 			buildTreeNeg_(thetaMinus, rMinus, lu, epsilon, j-1, thetaPlus, rPlus, thetaMinus, rMinus, thetaDprm, nDprm, sDPrm);
 			nPrime += nDprm;
-			if ( nPrime && (rng_.runif() <= nDprm/nPrime) ) { // nPrime now nPrime+nDprm
+			if ( nPrime && (rng_.runif() <= nDprm / nPrime) ) { // nPrime now nPrime+nDprm
 				thetaPrime = move(thetaDprm);
 			}
 			if (sDPrm) { // only now necessary to test the dot-product condition; equivalent to s''I(...) in Algorithm 3
@@ -336,7 +336,7 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 				throw string("log-posterior evaluates to +Inf in adaptive buildTreePos_. This should never happen. Check your implementation.");
 			}
 		} else {
-			testVal -= 0.5*nuc_.dotProd(rPrime);
+			testVal -= 0.5 * nuc_.dotProd(rPrime);
 			nPrime     = (lu <= testVal ? 1.0 : 0.0);
 			s          = (lu < (deltaMax_ + testVal) ? '1' : '\0');
 			const double pDiff = testVal - nH0_;
@@ -357,7 +357,7 @@ void SamplerNUTS::buildTreePos_(const vector<double> &theta, const vector<double
 			alphaPrime  += alphaDprm;
 			nAlphaPrime += nAlphaDprm;
 			nPrime      += nDprm;
-			if ( (nPrime > 0.0) && (nDprm > 0.0) && (rng_.runif() <= nDprm/nPrime) ) { // nPrime now nPrime+nDprm
+			if ( (nPrime > 0.0) && (nDprm > 0.0) && (rng_.runif() <= nDprm / nPrime) ) { // nPrime now nPrime+nDprm
 				thetaPrime = move(thetaDprm);
 			}
 			if (sDPrm) { // only now necessary to test the dot-product condition; equivalent to s''I(...) in Algorithm 3 and 6
@@ -402,7 +402,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 				throw string("log-posterior evaluates to +Inf in adaptive buildTreeNeg_. This should never happen. Check your implementation.");
 			}
 		} else {
-			testVal -= 0.5*nuc_.dotProd(rPrime);
+			testVal -= 0.5 * nuc_.dotProd(rPrime);
 			nPrime     = (lu <= testVal ? 1.0 : 0.0);
 			s          = (lu < (deltaMax_ + testVal) ? '1' : '\0');
 			const double pDiff = testVal - nH0_;
@@ -423,7 +423,7 @@ void SamplerNUTS::buildTreeNeg_(const vector<double> &theta, const vector<double
 			alphaPrime  += alphaDprm;
 			nAlphaPrime += nAlphaDprm;
 			nPrime      += nDprm;
-			if ( (nPrime > 0.0) && (nDprm > 0.0) && (rng_.runif() <= nDprm/nPrime) ) { // nPrime now nPrime+nDprm
+			if ( (nPrime > 0.0) && (nDprm > 0.0) && (rng_.runif() <= nDprm / nPrime) ) { // nPrime now nPrime+nDprm
 				thetaPrime = move(thetaDprm);
 			}
 			if (sDPrm) { // only now necessary to test the dot-product condition; equivalent to s''I(...) in Algorithm 3 and 6
@@ -485,11 +485,11 @@ int16_t SamplerNUTS::adapt(){
 				}
 			}
 			const double mt0    = m_ + t0_;
-			Hprevious_          = (1.0 - 1.0/mt0)*Hprevious_ + delta_/mt0;
-			const double logEps = mu_ - (sqrt(m_)*Hprevious_)/gamma_;
+			Hprevious_          = (1.0 - 1.0 / mt0) * Hprevious_ + delta_ / mt0;
+			const double logEps = mu_ - (sqrt(m_) * Hprevious_) / gamma_;
 			epsilon_            = exp(logEps);
 			const double mPwr   = pow(m_, negKappa_);
-			logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
+			logEpsBarPrevious_  = mPwr * logEps + (1.0 - mPwr) * logEpsBarPrevious_;
 			lastEpsilons_[static_cast<size_t>(m_)%20] = epsilon_;
 			m_ += 1.0;
 			return -1;
@@ -498,7 +498,7 @@ int16_t SamplerNUTS::adapt(){
 		}
 
 	}
-	nH0_ -= 0.5*nuc_.dotProd(r0);
+	nH0_ -= 0.5 * nuc_.dotProd(r0);
 	const double lu = log( rng_.runifnz() ) + nH0_;   // log(slice variable)
 
 	vector<double> thetaPlus(*theta_);
@@ -517,7 +517,7 @@ int16_t SamplerNUTS::adapt(){
 			buildTreeNeg_(thetaMinus, rMinus, lu, -epsilon_, j, thetaPlus, rPlus, thetaMinus, rMinus, thetaPrime, nPrime, sPrime, alpha, nAlpha);
 		}
 		if (sPrime) {
-			if ( (nPrime >= n) || (rng_.runif() <= nPrime/n) ) {
+			if ( (nPrime >= n) || (rng_.runif() <= nPrime / n) ) {
 				(*theta_) = move(thetaPrime);
 				nAcc += 1.0;
 			}
@@ -551,16 +551,16 @@ int16_t SamplerNUTS::adapt(){
 	// Supplement the Hoffman and Gelman approach by looking at the actual acceptance rates when there is a large enough number of HMC steps.
 	// This seems to bump up epsilon a bit to reduce the number of steps.
 	// Using the nAcc/n statistic by itself makes epsilon too large, primarily because small n does not allow for a good acceptance rate estimate.
-	double aFrac = alpha/nAlpha;
+	double aFrac = alpha / nAlpha;
 	if (n >= 5) {
-		aFrac = max(aFrac, nAcc/n);
+		aFrac = max(aFrac, nAcc / n);
 	}
 	const double mt0    = m_ + t0_;
-	Hprevious_          = (1.0 - 1.0/mt0)*Hprevious_ + (delta_ - aFrac)/mt0;
-	const double logEps = mu_ - (sqrt(m_)*Hprevious_)/gamma_;
+	Hprevious_          = (1.0 - 1.0 / mt0) * Hprevious_ + (delta_ - aFrac) / mt0;
+	const double logEps = mu_ - (sqrt(m_) * Hprevious_) / gamma_;
 	epsilon_            = exp(logEps);
 	const double mPwr   = pow(m_, negKappa_);
-	logEpsBarPrevious_  = mPwr*logEps + (1.0 - mPwr)*logEpsBarPrevious_;
+	logEpsBarPrevious_  = mPwr * logEps + (1.0 - mPwr) * logEpsBarPrevious_;
 	lastEpsilons_[static_cast<size_t>(m_)%20] = epsilon_;
 	m_ += 1.0;
 
@@ -614,7 +614,7 @@ int16_t SamplerNUTS::update() {
 		}
 
 	}
-	const double lu = log( rng_.runifnz() ) + lPost - 0.5*nuc_.dotProd(rPlus);   // log(slice variable)
+	const double lu = log( rng_.runifnz() ) + lPost - 0.5 * nuc_.dotProd(rPlus);   // log(slice variable)
 
 	vector<double> thetaPlus(*theta_);
 	vector<double> thetaMinus(*theta_);
@@ -631,7 +631,7 @@ int16_t SamplerNUTS::update() {
 			buildTreeNeg_(thetaMinus, rMinus, lu, -epsilon_, j, thetaPlus, rPlus, thetaMinus, rMinus, thetaPrime, nPrime, sPrime);
 		}
 		if (sPrime) {
-			if ( (nPrime >= n) || (rng_.runif() <= nPrime/n) ) {
+			if ( (nPrime >= n) || (rng_.runif() <= nPrime / n) ) {
 				(*theta_) = move(thetaPrime);
 			}
 			vector<double> thetaDiff;
@@ -682,7 +682,7 @@ SamplerMetro& SamplerMetro::operator=(SamplerMetro &&in){
 int16_t SamplerMetro::adapt(){
 	vector<double> thetaPrime = *theta_;
 	for (auto &t : thetaPrime) {
-		t += incr_*rng_.rnorm();
+		t += incr_ * rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
 	double lU     = log( rng_.runifnz() );
@@ -697,7 +697,7 @@ int16_t SamplerMetro::adapt(){
 int16_t SamplerMetro::update(){
 	vector<double> thetaPrime = *theta_;
 	for (auto &t : thetaPrime) {
-		t += incr_*rng_.rnorm();
+		t += incr_ * rng_.rnorm();
 	}
 	double lAlpha = model_->logPost(thetaPrime) - model_->logPost(*theta_);
 	double lU     = log( rng_.runifnz() );

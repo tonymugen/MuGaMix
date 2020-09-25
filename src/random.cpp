@@ -347,19 +347,19 @@ double RanDraw::rnorm() const{
 		}
 		double y;
 		if (i < 127){
-			y = ytab_[i+1] + (ytab_[i]-ytab_[i+1])*(this->runifno());
+			y = ytab_[i+1] + (ytab_[i]-ytab_[i+1]) * (this->runifno());
 		} else {
 			double U1 = this->runifnz(); // (0,1]
 			double U2 = this->runifno(); // [0,1)
-			x = paramR_ - log(U1)/paramR_;
-			y = exp(-paramR_*(x - 0.5*paramR_)) * U2;
+			x = paramR_ - log(U1) / paramR_;
+			y = exp(-paramR_ * (x - 0.5 * paramR_)) * U2;
 		}
-		if ( y < exp(-0.5*x*x) ){
+		if ( y < exp(-0.5 * x * x) ){
 			break;
 		}
 	}
 
-	return sign*x;
+	return sign * x;
 }
 
 double RanDraw::rgamma(const double &alpha) const{
@@ -367,30 +367,30 @@ double RanDraw::rgamma(const double &alpha) const{
 		return nan("");
 	}
 	if (alpha < 1.0) {
-		return this->rgamma(alpha + 1.0)*pow(this->runifop(), 1.0/alpha);
+		return this->rgamma(alpha + 1.0) * pow(this->runifop(), 1.0 / alpha);
 	}
 	double x, v, u;
 	double d = alpha - 0.3333333333;
-	double c = 0.3333333333/sqrt(d);
+	double c = 0.3333333333 / sqrt(d);
 
 	while (1) {
 		do {
 			x = this->rnorm();
-			v = 1.0 + c*x;
+			v = 1.0 + c * x;
 		} while (v <= 0.0);
 
-		v = v*v*v;
+		v = v * v * v;
 		u = this->runifop();
 
-		if (u < 1.0 - 0.0331*x*x*x*x){
+		if (u < 1.0 - 0.0331 * x * x * x * x){
 			break;
 		}
-		if (log(u) < 0.5*x*x + d*(1.0 - v + log(v))){
+		if (log(u) < 0.5 * x * x + d * (1.0 - v + log(v))){
 			break;
 		}
 	}
 
-	return d*v;
+	return d * v;
 }
 
 void RanDraw::rdirichlet(const vector<double> &alpha, vector<double> &p) const{
@@ -405,7 +405,7 @@ void RanDraw::rdirichlet(const vector<double> &alpha, vector<double> &p) const{
 		sum += p[k];
 	}
 	for (auto &e : p) {
-		e = e/sum;
+		e = e / sum;
 	}
 }
 
@@ -414,7 +414,7 @@ uint64_t RanDraw::vitterA(const double &n, const double &N) const{
 	// Note that my runif() is on [0,1] (Vitter assumes (0,1)), so I have to sometimes adjust accordingly
 	uint64_t S  = 0;
 	double top  = N - n;
-	double quot = top/N;
+	double quot = top / N;
 	double v;
 
 	// some trivial conditions first
@@ -437,7 +437,7 @@ uint64_t RanDraw::vitterA(const double &n, const double &N) const{
 		S++;
 		top--;
 		Nloc--;
-		quot = quot*top/Nloc;
+		quot = quot*top / Nloc;
 	}
 
 	return S;
@@ -448,7 +448,7 @@ uint64_t RanDraw::vitter(const double &n, const double &N) const{
 	// Note that my runif() is on [0,1] (Vitter assumes (0,1)), so I have to sometimes adjust accordingly
 	uint64_t S = 0;
 	double alphaInv = 13.0;
-	if (n >= N/alphaInv) { // if the threshold is not satisfied, use Vitter's A algorithm
+	if (n >= N / alphaInv) { // if the threshold is not satisfied, use Vitter's A algorithm
 		return this->vitterA(n, N);
 	} else if (n == 1){ // trivial case
 		do {
@@ -460,8 +460,8 @@ uint64_t RanDraw::vitter(const double &n, const double &N) const{
 	}
 
 	// if we pass all thresholds, we use Vitter's rejection scheme
-	double nInv     = 1.0/n;
-	double nMin1inv = 1.0/(n - 1.0);
+	double nInv     = 1.0 / n;
+	double nMin1inv = 1.0 / (n - 1.0);
 	double qu1db    = 1.0 + N - n;
 	uint64_t qu1    = static_cast<uint64_t>(qu1db);
 	double Vprime;
@@ -483,8 +483,8 @@ uint64_t RanDraw::vitter(const double &n, const double &N) const{
 
 		U      = this->runif();
 		Sdb    = static_cast<double>(S);
-		y1     = pow(U*N/qu1db, nMin1inv);
-		Vprime = y1 * (1.0 - X/N) * (qu1db/(qu1db - Sdb));
+		y1     = pow(U * N / qu1db, nMin1inv);
+		Vprime = y1 * (1.0 - X / N) * (qu1db / (qu1db - Sdb));
 		if (Vprime < 1.0) { // Step D3: accept test 2.8 (Vitter 1987)
 			break;
 		}
@@ -503,11 +503,11 @@ uint64_t RanDraw::vitter(const double &n, const double &N) const{
 
 		// calculate f(|_X_|)
 		for (double t = N - 1.0; t >= limit; t--) {
-			y2 = y2 * top/bottom;
+			y2 = y2 * top / bottom;
 			top--;
 			bottom--;
 		}
-		if (N/(N - X) >= y1 * pow(y2, nMin1inv)) { // Accept D4 condition
+		if (N / (N - X) >= y1 * pow(y2, nMin1inv)) { // Accept D4 condition
 			break;
 		}
 		// reject everything, go back to the start

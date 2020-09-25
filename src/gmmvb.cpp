@@ -41,25 +41,27 @@ using namespace BayesicSpace;
 using std::vector;
 using std::string;
 using std::numeric_limits;
+using std::isnan;
 
 const double GmmVB::lnMaxDbl_ = log( numeric_limits<double>::max() );
 
-GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : yVec_{yVec}, N_{Nm}, lambda0_{lambda0}, nu0_{static_cast<double>(d)}, sigmaSq0_{sigmaSq0}, alpha0_{alpha0}, d_{static_cast<double>(d)}, nu0p2_{static_cast<double>(d) + 2.0}, nu0p1_{static_cast<double>(d) + 1.0}, dln2_{static_cast<double>(d)*0.6931471806}, maxIt_{200}, stoppingDiff_{1e-4} {
+// GmmVB methods
+GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : yVec_{yVec}, N_{Nm}, lambda0_{lambda0}, nu0_{static_cast<double>(d)}, sigmaSq0_{sigmaSq0}, alpha0_{alpha0}, d_{static_cast<double>(d)}, nu0p2_{static_cast<double>(d) + 2.0}, nu0p1_{static_cast<double>(d) + 1.0}, dln2_{static_cast<double>(d) * 0.6931471806}, maxIt_{200}, stoppingDiff_{1e-4} {
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%d) {
 		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the GmmVB constructor");
 	}
 #endif
-	const size_t n   = yVec->size()/d;
-	const size_t dSq = d*d;
+	const size_t n   = yVec->size() / d;
+	const size_t dSq = d * d;
 
 	// Set up correct dimensions
-	const size_t popDim = nPop*d;
+	const size_t popDim = nPop * d;
 	if (vPopMn->size() != popDim) {
 		vPopMn->clear();
 		vPopMn->resize(popDim, 0.0);
 	}
-	const size_t sDim = dSq*nPop;
+	const size_t sDim = dSq * nPop;
 	if (vSm->size() != sDim) {
 		vSm->clear();
 		vSm->resize(sDim, 0.0);
@@ -68,7 +70,7 @@ GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &si
 		Nm->clear();
 		Nm->resize(nPop, 0.0);
 	}
-	const size_t rDim = nPop*n;
+	const size_t rDim = nPop * n;
 	if (resp->size() != rDim) {
 		resp->clear();
 		resp->resize(rDim, 0.0);
@@ -86,27 +88,6 @@ GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &si
 		W_.push_back( MatrixView(vSm, sigInd, d, d) );
 		sigInd += dSq;
 	}
-
-	// Initialize values with k-means
-	vector<size_t> ind;
-	for (size_t m = 0; m < nPop; m++) {
-		for (size_t iLn = 0; iLn < n/nPop; iLn++) {
-			ind.push_back(m);
-		}
-	}
-	Index popInd(nPop);
-	const double smallVal = 0.01/static_cast<double>(nPop - 1);
-	kMeans_(Y_, nPop, 50, popInd, M_);
-	for (size_t m = 0; m < nPop; m++) {
-		for (size_t iRow = 0; iRow < n; iRow++) {
-			if (popInd.groupID(iRow) == m){
-				R_.setElem(iRow, m, 0.99);
-			} else {
-				R_.setElem(iRow, m, smallVal);
-			}
-		}
-	}
-	mStep_();
 }
 
 GmmVB::GmmVB(GmmVB &&in) : yVec_{in.yVec_}, N_{in.N_}, lambda0_{in.lambda0_}, nu0_{in.nu0_}, sigmaSq0_{in.sigmaSq0_}, alpha0_{in.alpha0_}, d_{in.d_}, nu0p2_{in.nu0p2_}, nu0p1_{in.nu0p1_}, dln2_{in.dln2_}, maxIt_{in.maxIt_}, stoppingDiff_{in.stoppingDiff_} {
@@ -125,28 +106,49 @@ GmmVB::GmmVB(GmmVB &&in) : yVec_{in.yVec_}, N_{in.N_}, lambda0_{in.lambda0_}, nu
 }
 
 void GmmVB::fitModel(vector<double> &logPost, double &dic) {
+	// Initialize values with k-means
+	vector<size_t> ind;
+	for (size_t m = 0; m < M_.getNrows(); m++) {
+		for (size_t iLn = 0; iLn < Y_.getNrows() / M_.getNrows(); iLn++) {
+			ind.push_back(m);
+		}
+	}
+	Index popInd( M_.getNrows() );
+	const double smallVal = 0.01 / static_cast<double>(M_.getNrows() - 1);
+	kMeans_(Y_, M_.getNrows(), 50, popInd, M_);
+	for (size_t m = 0; m < M_.getNrows(); m++) {
+		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+			if (popInd.groupID(iRow) == m){
+				R_.setElem(iRow, m, 0.99);
+			} else {
+				R_.setElem(iRow, m, smallVal);
+			}
+		}
+	}
+	mStep_();
+	// Fit model
 	logPost.clear();
 	dic = 0.0;
 	for (size_t it = 0; it < 500; it++) {
 		eStep_();
 		mStep_();
 		const double curLP = logPost_();
-		if ( logPost.size() && (fabs( ( curLP - logPost.back() )/logPost.back() ) <= stoppingDiff_) ) {
+		if ( logPost.size() && (fabs( ( curLP - logPost.back() ) / logPost.back() ) <= stoppingDiff_) ) {
 			logPost.push_back(curLP);
 			break;
 		}
 		logPost.push_back(curLP);
 	}
 	// complete the DIC
-	const double nmAlphaN = static_cast<double>( M_.getNrows() )*alpha0_ + static_cast<double>( Y_.getNrows() );
+	const double nmAlphaN = static_cast<double>( M_.getNrows() ) * alpha0_ + static_cast<double>( Y_.getNrows() );
 	double pD = 0.0;
 	for (size_t m = 0; m < M_.getNrows(); m++) {
 		const double alpha_m = alpha0_ + (*N_)[m];
-		pD += (*N_)[m]*(2.0*( log(alpha_m) - nuc_.digamma(alpha_m) ) + d_*log(nu0p1_ + (*N_)[m]) - sumDiGam_[m] + 1.0/(lambda0_ + (*N_)[m]));
+		pD += (*N_)[m] * (2.0 * ( log(alpha_m) - nuc_.digamma(alpha_m) ) + d_ * log(nu0p1_ + (*N_)[m]) - sumDiGam_[m] + 1.0 / (lambda0_ + (*N_)[m]));
 	}
-	dic = 2*( pD - logPost.back() ) - static_cast<double>( Y_.getNrows() )*( 2.0*log(nmAlphaN) - d_*0.4515827053 - 4.0*nuc_.digamma(nmAlphaN) ); // 0.4515827053 is log(pi/2)
+	dic = 2.0 * ( pD - logPost.back() ) - static_cast<double>( Y_.getNrows() ) * ( 2.0 * log(nmAlphaN) - d_ * 0.4515827053 - 4.0 * nuc_.digamma(nmAlphaN) ); // 0.4515827053 is log(pi/2)
 
-	//scale the inverse covariance and invert
+	// scale the inverse covariance and invert
 	for (size_t m = 0; m < M_.getNrows(); m++) {  // scale the inverse-covariance
 		W_[m] *= nu0p1_ + (*N_)[m];
 		W_[m].chol();
@@ -158,17 +160,17 @@ void GmmVB::eStep_(){
 	const size_t d    = Y_.getNcols();
 	const size_t N    = Y_.getNrows();
 	const size_t Npop = M_.getNrows();
-	const size_t Ndim = N*d;
+	const size_t Ndim = N * d;
 	// start with parameters not varying across individuals
 	vector<double> startSum;
 	vector<double> nuNm;
 	for (size_t m = 0; m < Npop; m++) {
 		const double lNm = lambda0_ + (*N_)[m];
-		nuNm.push_back( 0.5*(nu0p1_ + (*N_)[m]) );
-		startSum.push_back( nuc_.digamma(alpha0_ + (*N_)[m]) + 0.5*(sumDiGam_[m] + lnDet_[m] - d_/lNm) );
+		nuNm.push_back( 0.5 * (nu0p1_ + (*N_)[m]) );
+		startSum.push_back( nuc_.digamma(alpha0_ + (*N_)[m]) + 0.5 * (sumDiGam_[m] + lnDet_[m] - d_ / lNm) );
 	}
 	// calculate crossproducts
-	vector<double> vLnRho(N*Npop, 0.0);
+	vector<double> vLnRho(N * Npop, 0.0);
 	MatrixView lnRho(&vLnRho, 0, N, Npop);
 	for (size_t m = 0; m < Npop; m++) {
 		vector<double> vArsd(*yVec_);
@@ -183,11 +185,11 @@ void GmmVB::eStep_(){
 		Arsd.symm('l', 'r', 1.0, W_[m], 0.0, ArsdSig);
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
-				lnRho.addToElem(iRow, m, Arsd.getElem(iRow, jCol)*ArsdSig.getElem(iRow, jCol));
+				lnRho.addToElem(iRow, m, Arsd.getElem(iRow, jCol) * ArsdSig.getElem(iRow, jCol));
 			}
 		}
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			const double lnRhoLoc = startSum[m] - nuNm[m]*lnRho.getElem(iRow, m);
+			const double lnRhoLoc = startSum[m] - nuNm[m] * lnRho.getElem(iRow, m);
 			lnRho.setElem(iRow, m, lnRhoLoc);
 		}
 	}
@@ -215,7 +217,7 @@ void GmmVB::eStep_(){
 				}
 			}
 			if (noOverflow) {
-				R_.setElem(iRow, m, 1.0/invRjm);
+				R_.setElem(iRow, m, 1.0 / invRjm);
 			}
 		}
 	}
@@ -239,13 +241,13 @@ void GmmVB::mStep_() {
 		vector<double> mRow;
 		Ysc.colSums(mRow);
 		for (size_t jCol = 0; jCol < d; jCol++) {
-			M_.setElem(m, jCol, mRow[jCol]/lamNm);
+			M_.setElem(m, jCol, mRow[jCol] / lamNm);
 		}
 		Y_.gemm(true, 1.0, Ysc, false, 0.0, W_[m]);
 		// lower triangle of W_m
 		for (size_t jD = 0; jD < d; jD++) {
 			for (size_t iD = jD; iD < d; iD++) {
-				W_[m].subtractFromElem( iD, jD, lamNm*M_.getElem(m, iD)*M_.getElem(m, jD) );
+				W_[m].subtractFromElem( iD, jD, lamNm * M_.getElem(m, iD) * M_.getElem(m, jD) );
 			}
 		}
 		// complete symmetric matrix
@@ -275,7 +277,7 @@ void GmmVB::mStep_() {
 		sumDiGam_[m]         = 0.0;
 		double k             = 1.0;
 		for (size_t kk = 0; kk < d; kk++) {
-			sumDiGam_[m] += nuc_.digamma( 0.5*(nu0p2Nm - k) );
+			sumDiGam_[m] += nuc_.digamma( 0.5 * (nu0p2Nm - k) );
 			k            += 1.0;
 		}
 	}
@@ -285,7 +287,7 @@ double GmmVB::logPost_(){
 	const size_t d    = Y_.getNcols();
 	const size_t N    = Y_.getNrows();
 	const size_t Npop = M_.getNrows();
-	const size_t Ndim = N*d;
+	const size_t Ndim = N * d;
 	// start with parameters not varying across individuals
 	vector<double> nuNm;
 	for (size_t m = 0; m < Npop; m++) {
@@ -293,7 +295,7 @@ double GmmVB::logPost_(){
 		nuNm.push_back(nu0p1_ + (*N_)[m]);
 	}
 	// calculate the K matrix (kappa_jm)
-	vector<double> vK(N*Npop, 0.0);
+	vector<double> vK(N * Npop, 0.0);
 	MatrixView K(&vK, 0, N, Npop);
 	for (size_t m = 0; m < Npop; m++) {
 		vector<double> vArsd(*yVec_);
@@ -308,20 +310,20 @@ double GmmVB::logPost_(){
 		Arsd.symm('l', 'r', 1.0, W_[m], 0.0, ArsdSig);
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
-				K.addToElem(iRow, m, Arsd.getElem(iRow, jCol)*ArsdSig.getElem(iRow, jCol));
+				K.addToElem(iRow, m, Arsd.getElem(iRow, jCol) * ArsdSig.getElem(iRow, jCol));
 			}
 		}
 	}
 	// add the scalar values
 	vector<double> scSum;
 	for (size_t m = 0; m < Npop; m++) {
-		scSum.push_back( log(alpha0_ + (*N_)[m]) + 0.5*(d_*log(nuNm[m]) + lnDet_[m]) );
+		scSum.push_back( log(alpha0_ + (*N_)[m]) + 0.5 * (d_ * log(nuNm[m]) + lnDet_[m]) );
 	}
 	vector<size_t> maxInd(N, 0);                                          // index of the largest kernel value
 	vector<double> curMaxVal( N, -numeric_limits<double>::infinity() );   // store the current largest kernel value here
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			const double newVal = scSum[m] - 0.5*nuNm[m]*K.getElem(iRow, m);
+			const double newVal = scSum[m] - 0.5 * nuNm[m] * K.getElem(iRow, m);
 			if (newVal > curMaxVal[iRow]) {
 				maxInd[iRow]    = m;
 				curMaxVal[iRow] = newVal;
@@ -351,17 +353,17 @@ double GmmVB::rowDistance_(const MatrixViewConst &m1, const size_t &row1, const 
 	if ( m1.getNcols() != m2.getNcols() ) {
 		throw string("ERROR: m1 and m2 matrices must have the same number of columns in GmmVB::rowDist_()");
 	}
-	if ( row1+1 > m1.getNrows() ) {
+	if ( row1 + 1 > m1.getNrows() ) {
 		throw string("ERROR: row1  index out of bounds in GmmVB::rowDist_()");
 	}
-	if ( row2+1 > m2.getNrows() ) {
+	if ( row2 + 1 > m2.getNrows() ) {
 		throw string("ERROR: row2  index out of bounds in GmmVB::rowDist_()");
 	}
 #endif
 	double dist = 0.0;
 	for (size_t jCol = 0; jCol < m1.getNcols(); jCol++) {
 		double diff = m1.getElem(row1, jCol) - m2.getElem(row2, jCol);
-		dist += diff*diff;
+		dist += diff * diff;
 	}
 	return sqrt(dist);
 }
@@ -416,34 +418,98 @@ void GmmVB::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32
 		// calculate the magnitude of cluster assignment change
 		double nDiff = 0.0;
 		for (size_t i = 0; i < sNew.size(); i++) {
-			if (sNew[i] != sPrevious[i] ) {
+			if (sNew[i] != sPrevious[i]) {
 				nDiff++;
 			}
 		}
-		if ( ( nDiff/static_cast<double>( X.getNrows() ) ) <= 0.1 ) { // fewer than 10% of assignments changed
+		if ( ( nDiff / static_cast<double>( X.getNrows() ) ) <= 0.1 ) { // fewer than 10% of assignments changed
 			break;
 		}
 	}
 }
 
-void GmmVB::sortPops_(){//TODO: fix the sorts; don't seem to be working right at all
-	vector<double> firstIdx;                                       // vector with indices of the first high-p elements per population
-	for (size_t m = 0; m < R_.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < R_.getNrows(); iRow++) {
-			if (R_.getElem(iRow, m) >= 0.95){
-				firstIdx.push_back(static_cast<double>(iRow));
-				break;
+// GmmVBmiss methods
+double GmmVBmiss::rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){
+#ifndef PKG_DEBUG_OFF
+	if ( m1.getNcols() != m2.getNcols() ) {
+		throw string("ERROR: m1 and m2 matrices must have the same number of columns in GmmVBmiss::rowDist_()");
+	}
+	if ( row1 + 1 > m1.getNrows() ) {
+		throw string("ERROR: row1  index out of bounds in GmmVBmiss::rowDist_()");
+	}
+	if ( row2 + 1 > m2.getNrows() ) {
+		throw string("ERROR: row2  index out of bounds in GmmVBmiss::rowDist_()");
+	}
+#endif
+	double dist = 0.0;
+	for (size_t jCol = 0; jCol < m1.getNcols(); jCol++) {
+		const double m1e = m1.getElem(row1, jCol);
+		const double m2e = m2.getElem(row2, jCol);
+		if (!isnan(m1e) && !isnan(m2e)) {
+			double diff = m1e - m2e;
+			dist += diff * diff;
+		}
+	}
+	return sqrt(dist);
+}
+
+void GmmVBmiss::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M){
+#ifndef PKG_DEBUG_OFF
+	if (M.getNrows() != Kclust) {
+		throw string("ERROR: Matrix of means must have one row per cluster in GmmVBmiss::kMeans_()");
+	}
+	if ( X.getNcols() != M.getNcols() ) {
+		throw string("ERROR: Matrix of observations must have the same number of columns as the matrix of means in GmmVBmiss::kMeans_()");
+	}
+	if ( M.getNrows() != x2m.groupNumber() ) {
+		throw string("ERROR: observation to cluster index must be the same number of groups as the number of populations in GmmVBmiss::kMeans_()");
+	}
+#endif
+	// initialize M with a random pick of X rows (the MacQueen 1967 method)
+	size_t curXind = 0;
+	size_t curMind = 0;
+	double N       = static_cast<double>(X.getNrows() - 1);   // # of remaining rows
+	double n       = static_cast<double>(Kclust);             // # of clusters to be picked
+	while( curMind < M.getNrows() ){
+		curXind += rng_.vitter(n, N);
+		for (size_t jCol = 0; jCol < X.getNcols(); jCol++) {
+			M.setElem( curMind, jCol, X.getElem(curXind, jCol) );
+		}
+		n -= 1.0;
+		N -= static_cast<double>(curXind);
+		curMind++;
+	}
+	// Iterate the k-means algorithm
+	vector<size_t> sPrevious;             // previous cluster assignment vector
+	vector<size_t> sNew(X.getNrows(), 0); // new cluster assignment vector
+	for (uint32_t i = 0; i < maxIt; i++) {
+		// save the previous S vector
+		sPrevious = sNew;
+		// assign cluster IDs according to minimal distance
+		for (size_t iRow = 0; iRow < X.getNrows(); iRow++) {
+			sNew[iRow]  = 0;
+			double dist = rowDistance_(X, iRow, M, 0);
+			for (size_t iCl = 1; iCl < M.getNrows(); iCl++) {
+				double curDist = rowDistance_(X, iRow, M, iCl);
+				if (dist > curDist) {
+					sNew[iRow] = iCl;
+					dist       = curDist;
+				}
 			}
 		}
-	}
-	if ( firstIdx.size() < R_.getNcols() ){                      // some populations may have no high-probability individuals
-		while ( firstIdx.size() != R_.getNcols() ){
-			firstIdx.push_back( R_.getNrows() );                 // add one past the last index, to guarantee that these populations will be put last
+		x2m.update(sNew);
+		// recalculate cluster means
+		X.colMeans(x2m, M);
+		// calculate the magnitude of cluster assignment change
+		double nDiff = 0.0;
+		for (size_t i = 0; i < sNew.size(); i++) {
+			if (sNew[i] != sPrevious[i]) {
+				nDiff++;
+			}
+		}
+		if ( ( nDiff / static_cast<double>( X.getNrows() ) ) <= 0.1 ) { // fewer than 10% of assignments changed
+			break;
 		}
 	}
-	vector<size_t> popIdx;
-	//TODO: fix insertion sort
-	nuc_.sort(firstIdx, popIdx);
-	M_.permuteRows(popIdx);
-	R_.permuteCols(popIdx);
 }
+

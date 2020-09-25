@@ -103,7 +103,7 @@ double NumerUtil::logistic(const double &x) const{
 	} else if (x >= 3.5){  // approximation for largish x
 		return 1.0 - exp(-x);
 	} else {
-		return 1.0/( 1 + exp(-x) );
+		return 1.0 / ( 1 + exp(-x) );
 	}
 }
 void NumerUtil::sort(const vector<double> &target, vector<size_t> &outIdx) const{
@@ -116,7 +116,7 @@ void NumerUtil::sort(const vector<double> &target, vector<size_t> &outIdx) const
 	// pick the initial increment
 	size_t inc = 1;
 	do {
-		inc = inc*3 + 1;
+		inc = inc * 3 + 1;
 	} while ( inc <= target.size() );
 
 	// start the sort
@@ -155,16 +155,16 @@ double NumerUtil::lnGamma(const double &x) const{
 	double y     = x;
 	double gamma = 5.24218750000000000; // 671/128
 	double tmp   = x + gamma;
-	tmp          = (x + 0.5)*log(tmp) - tmp;
+	tmp          = (x + 0.5) * log(tmp) - tmp;
 	double logPi = 0.91893853320467267;  // 0.5*log(2.0*pi)
 	tmp         += logPi;
 	double cZero = 0.999999999999997092; // c_0
 
 	for (size_t i = 0; i < 14; i++) {
-		cZero += gCoeff_[i]/(++y);
+		cZero += gCoeff_[i] / (++y);
 	}
 
-	return tmp + log(cZero/x);
+	return tmp + log(cZero / x);
 }
 double NumerUtil::digamma(const double &x) const{
 	const int32_t nMax = 100;
@@ -176,30 +176,30 @@ double NumerUtil::digamma(const double &x) const{
 	}
 	// very large x
 	double xln = log(x);
-	double lrg = 1/( 2.0*numeric_limits<double>::epsilon() );
+	double lrg = 1.0 / ( 2.0 * numeric_limits<double>::epsilon() );
 	if(x * xln > lrg) {
 		return xln;
 	}
 	const int32_t n    = (-numeric_limits<double>::min_exponent < numeric_limits<double>::max_exponent ? -numeric_limits<double>::min_exponent : numeric_limits<double>::max_exponent);
-	const double r1m4  = 0.5*numeric_limits<double>::epsilon();
+	const double r1m4  = 0.5 * numeric_limits<double>::epsilon();
 	const double r1m5  = 0.301029995663981195213738894724;            // log_10(2)
 	const double wdtol = (r1m4 > 0.5e-18 ? r1m4 : 0.5e-18);
-	const double elim  = 2.302*(static_cast<double>(n)*r1m5 - 3.0);  // = 700.6174...
+	const double elim  = 2.302 * (static_cast<double>(n) * r1m5 - 3.0);  // = 700.6174...
 	// small x and underflow conditions
 	if (xln < -elim){
 		return nan(""); // underflow
 	} else if (x < wdtol){
-		return -1.0/x;
+		return -1.0 / x;
 	}
 
 	// regular calculations
-	double rln   = r1m5*static_cast<double>(numeric_limits<double>::digits);
+	double rln   = r1m5 * static_cast<double>(numeric_limits<double>::digits);
 	rln          = (rln < 18.06 ? rln : 18.06);
 	double fln   = (rln > 3.0 ? rln-3.0 : 0.0);
 	if (fln < 0.0){
 		throw string("ERROR: fln value ") + to_string(fln) + string(" less than 0 in locDigamma()");
 	}
-	const double fn   = 3.50 + 0.40*fln;
+	const double fn   = 3.50 + 0.40 * fln;
 	const double xmin = ceil(fn);
 	double xdmy       = x;
 	double xdmln      = xln;
@@ -210,17 +210,17 @@ double NumerUtil::digamma(const double &x) const{
 		xdmln = log(xdmy);
 	}
 
-	double tk     = 2.0*xdmln;
+	double tk     = 2.0 * xdmln;
 	if (tk <= elim) { // for x not large
-		double t1   = 0.5/xdmy;
+		double t1   = 0.5 / xdmy;
 		double tst  = wdtol*t1;
-		double rxsq = 1.0/(xdmy*xdmy);
-		double t    = 0.5*rxsq;
-		double s    = t*bvalues_[2];
+		double rxsq = 1.0 / (xdmy * xdmy);
+		double t    = 0.5 * rxsq;
+		double s    = t * bvalues_[2];
 		if (fabs(s) >= tst) {
 			tk = 2.0;
 			for(uint16_t k = 4; k <= 22; k++) {
-				t         *= ( (tk + 1.0)/(tk + 1.0) )*( tk/(tk + 2.0) )*rxsq;
+				t         *= ( (tk + 1.0) / (tk + 1.0) ) * ( tk / (tk + 2.0) ) * rxsq;
 				double tmp = t * bvalues_[k-1];
 				if (fabs(tmp) < tst) {
 					break;
@@ -237,7 +237,7 @@ double NumerUtil::digamma(const double &x) const{
 				throw string("Increment ") + to_string(nx) + string(" too large in locDigamma()");
 			}
 			for(int32_t i = 1; i <= nx; i++){
-				s += 1.0/( x + static_cast<double>(nx - i) ); // avoid disastrous cancellation, according to the comment in the R code
+				s += 1.0 / ( x + static_cast<double>(nx - i) ); // avoid disastrous cancellation, according to the comment in the R code
 			}
 		}
 		return xdmln - s;
@@ -246,7 +246,7 @@ double NumerUtil::digamma(const double &x) const{
 		double den = x;
 		for(uint32_t i=0; i < static_cast<uint32_t>(fln) + 1; i++) { // checked fln for < 0.0, so this should be safe
 			den += 1.0;
-			s   += 1.0/den;
+			s   += 1.0 / den;
 		}
 		return -s;
 	}
@@ -273,7 +273,7 @@ void NumerUtil::phi2p(const MatrixViewConst &Phi, MatrixView &P) const{
 				P.setElem(iRow, m, rowProd[iRow]);
 			} else {
 				double psi = P.getElem(iRow, m);
-				P.setElem( iRow, m, rowProd[iRow]*(1.0 - psi) );
+				P.setElem( iRow, m, rowProd[iRow] * (1.0 - psi) );
 				rowProd[iRow] *= psi;
 			}
 		}
@@ -329,7 +329,7 @@ void NumerUtil::w2p(const MatrixViewConst &W, MatrixView &P) const{
 				P.setElem(iRow, m, rowProd[iRow]);
 			} else {
 				double psi = W.getElem(iRow, m);
-				P.setElem( iRow, m, rowProd[iRow]*(1.0 - psi) );
+				P.setElem( iRow, m, rowProd[iRow] * (1.0 - psi) );
 				rowProd[iRow] *= psi;
 			}
 		}
@@ -357,7 +357,7 @@ void NumerUtil::phi2p(const MatrixView &Phi, MatrixView &P) const{
 				P.setElem(iRow, m, rowProd[iRow]);
 			} else {
 				double psi = P.getElem(iRow, m);
-				P.setElem( iRow, m, rowProd[iRow]*(1.0 - psi) );
+				P.setElem( iRow, m, rowProd[iRow] * (1.0 - psi) );
 				rowProd[iRow] *= psi;
 			}
 		}
@@ -413,7 +413,7 @@ void NumerUtil::w2p(const MatrixView &W, MatrixView &P) const{
 				P.setElem(iRow, m, rowProd[iRow]);
 			} else {
 				double psi = W.getElem(iRow, m);
-				P.setElem( iRow, m, rowProd[iRow]*(1.0 - psi) );
+				P.setElem( iRow, m, rowProd[iRow] * (1.0 - psi) );
 				rowProd[iRow] *= psi;
 			}
 		}
@@ -422,7 +422,7 @@ void NumerUtil::w2p(const MatrixView &W, MatrixView &P) const{
 double NumerUtil::dotProd(const vector<double> &v) const{
 	double dotProd = 0.0;
 	for (auto &element : v) {
-		dotProd += element*element;
+		dotProd += element * element;
 	}
 	return dotProd;
 }
@@ -432,22 +432,22 @@ double NumerUtil::dotProd(const vector<double> &v1, const vector<double> &v2) co
 	auto v2It = v2.begin();
 	// this ensures that we don't go beyond one of the vectors; worth declaring the iterators outside the loop and the extra operations
 	for ( ; (v1It != v1.end()) && (v2It != v2.end()); ++v1It, ++v2It) {
-		dotProd += (*v1It)*(*v2It);
+		dotProd += (*v1It) * (*v2It);
 	}
 	return dotProd;
 }
 void NumerUtil::updateWeightedMean(const double &xn, const double &wn, double &mu, double &w) const{
 	if ( wn > numeric_limits<double>::epsilon() ) {
-		const double a = mu*w;
+		const double a = mu * w;
 		w += wn;
-		mu = (a + wn*xn)/w;
+		mu = (a + wn * xn) / w;
 	}
 }
 double NumerUtil::mean(const double arr[], const size_t &len){
 	double mean = 0.0;
 
 	for (size_t i = 0; i < len; i++) {
-		mean += (arr[i] - mean)/static_cast<double>(i + 1);
+		mean += (arr[i] - mean) / static_cast<double>(i + 1);
 	}
 	return mean;
 }

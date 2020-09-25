@@ -65,21 +65,21 @@ MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *lnpVec, const s
 		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the MumiNR constructor");
 	}
 #endif
-	const size_t n  = yVec->size()/d;
-	Y_              = MatrixViewConst(yVec, 0, n, d);
-	lnP_            = MatrixViewConst(lnpVec, 0, n, Npop);
+	const size_t n = yVec->size() / d;
+	Y_             = MatrixViewConst(yVec, 0, n, d);
+	lnP_           = MatrixViewConst(lnpVec, 0, n, Npop);
 
-	vLa_.resize(d*d, 0.0);
+	vLa_.resize(d * d, 0.0);
 	La_ = MatrixView(&vLa_, 0, d, d);
 	for (size_t k = 0; k < d; k++) {
 		La_.setElem(k, k, 1.0);
 	}
-	LaInd_ = (Npop+1)*d;
-	TaInd_ = LaInd_ + d*(d-1)/2;
+	LaInd_ = (Npop+1) * d;
+	TaInd_ = LaInd_ + d * (d-1) / 2;
 	TpInd_ = TaInd_ + d;
-	NAnd_  = static_cast<double>( Y_.getNrows() ) + nu0_ + 2.0*static_cast<double>(d);
-	NPnd_  = static_cast<double>(Npop) + nu0_ + 2.0*static_cast<double>(d);
-	nxnd_  = nu0_*( nu0_ + 2.0*static_cast<double>(d) );
+	NAnd_  = static_cast<double>( Y_.getNrows() ) + nu0_ + 2.0 * static_cast<double>(d);
+	NPnd_  = static_cast<double>(Npop) + nu0_ + 2.0 * static_cast<double>(d);
+	nxnd_  = nu0_ * ( nu0_ + 2.0 * static_cast<double>(d) );
 }
 MumiNR::MumiNR(MumiNR &&in) {
 	if (this != &in) {
@@ -138,7 +138,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	const size_t d    = Y_.getNcols();
 	const size_t Npop = lnP_.getNcols();
 	MatrixViewConst Mp(&theta, 0, lnP_.getNcols(), d);
-	MatrixViewConst mu(&theta, lnP_.getNcols()*d, 1, d);                       // overall mean
+	MatrixViewConst mu(&theta, lnP_.getNcols() * d, 1, d);                       // overall mean
 
 	// calculate T_A
 	vector<double> Ta;
@@ -151,7 +151,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 		Tp.push_back( exp(theta[k]) );
 	}
 	// set up the matrix of population kernels
-	vector<double> vKm(N*Npop, 0.0);
+	vector<double> vKm(N * Npop, 0.0);
 	MatrixView Km( &vKm, 0, N, lnP_.getNcols() );
 	for (size_t m = 0; m < Npop; m++) {                                        // m is the population index as in the model description document
 		vector<double> vResid(*yVec_);                                         // copy over Y_
@@ -165,18 +165,18 @@ double MumiNR::logPost(const vector<double> &theta) const{
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
 				double rsd    = mResid.getElem(iRow, jCol);
-				Km.addToElem(iRow, m,  Ta[jCol]*rsd*rsd);                      // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+				Km.addToElem(iRow, m,  Ta[jCol] * rsd * rsd);                  // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
 			}
 		}
 	}
 
 	for (size_t iRow = 0; iRow < N; iRow++) {                                  // ln(p) - 0.5*Km for the first population
-		double diff = lnP_.getElem(iRow, 0) - 0.5*Km.getElem(iRow, 0);
+		double diff = lnP_.getElem(iRow, 0) - 0.5 * Km.getElem(iRow, 0);
 		Km.setElem(iRow, 0, diff);
 	}
 	for (size_t m = 1; m < Npop; m++) {                                        // Km[,2...] now the difference with the first population
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			const double diff = lnP_.getElem(iRow, m) - 0.5*Km.getElem(iRow, m) - Km.getElem(iRow, 0);
+			const double diff = lnP_.getElem(iRow, m) - 0.5 * Km.getElem(iRow, m) - Km.getElem(iRow, 0);
 			Km.setElem(iRow, m, diff);
 		}
 	}
@@ -222,13 +222,13 @@ double MumiNR::logPost(const vector<double> &theta) const{
 		double dp = 0.0;
 		for (size_t iRow = 0; iRow < Npop; ++iRow) {
 			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
-			dp += diff*diff;
+			dp += diff * diff;
 		}
-		mTrace += Tp[jCol]*dp;
+		mTrace += Tp[jCol] * dp;
 	}
 	double pTrace = 0.0;
 	for (size_t jCol = 0; jCol < d; jCol++) {
-		pTrace += mu.getElem(0, jCol)*mu.getElem(0, jCol);
+		pTrace += mu.getElem(0, jCol) * mu.getElem(0, jCol);
 	}
 	pTrace *= tau0_;
 	// Sum of log-determinants
@@ -242,18 +242,18 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	ldetSumP *= NPnd_;
 	// Calculate the prior inverse-covariance components; k and m are as in the derivation document; doing the L_E and L_A in one pass
 	// first element has just the diagonal
-	double isPrior = log(nu0_*Ta[0] + invAsq_) + log(nu0_*Tp[0] + invAsq_);
+	double isPrior = log(nu0_ * Ta[0] + invAsq_) + log(nu0_ * Tp[0] + invAsq_);
 	for (size_t k = 1; k < d; k++) {                                       // k starts from the second element (k=1)
 		double sA = 0.0;
 		for (size_t m = 0; m <= k - 1; m++) {                              // the <= is intentional; excluding only m = k
-			sA += Ta[m]*La_.getElem(k, m)*La_.getElem(k, m);
+			sA += Ta[m] * La_.getElem(k, m) * La_.getElem(k, m);
 		}
 		sA += Ta[k];
-		isPrior += log(nu0_*sA + invAsq_) + log(nu0_*Tp[k] + invAsq_);
+		isPrior += log(nu0_ * sA + invAsq_) + log(nu0_ * Tp[k] + invAsq_);
 	}
-	isPrior *= nu0_ + 2.0*static_cast<double>(d);
+	isPrior *= nu0_ + 2.0 * static_cast<double>(d);
 	// now sum to get the log-posterior
-	return 0.5*(addMMsum - mTrace - pTrace + ldetSumA + ldetSumP - isPrior);
+	return 0.5 * (addMMsum - mTrace - pTrace + ldetSumA + ldetSumP - isPrior);
 }
 void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	expandISvec_(theta);
@@ -263,12 +263,12 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	grad.resize(theta.size(), 0.0);
 	const size_t N      = Y_.getNrows();
 	const size_t d      = Y_.getNcols();
-	const size_t trDim  = d*(d+1)/2;
-	const size_t dSq    = d*d;
+	const size_t trDim  = d * (d+1) / 2;
+	const size_t dSq    = d * d;
 	const size_t Npop   = lnP_.getNcols();
-	const size_t Ydim   = Y_.getNrows()*Y_.getNcols();
-	const size_t Mdim   = lnP_.getNcols()*Y_.getNcols();
-	const size_t PopDim = N*Npop;
+	const size_t Ydim   = Y_.getNrows() * Y_.getNcols();
+	const size_t Mdim   = lnP_.getNcols() * Y_.getNcols();
+	const size_t PopDim = N * Npop;
 	MatrixViewConst M(&theta, 0, Npop, d);
 	MatrixViewConst mu(&theta, Mdim, 1, d);
 
@@ -290,7 +290,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	for (size_t jCol = 0; jCol < d - 1; jCol++) {
 		LATA.setElem(jCol, jCol, Ta[jCol]);
 		for (size_t iRow = jCol + 1; iRow < d; iRow++) {
-			LATA.setElem(iRow, jCol, La_.getElem(iRow, jCol)*Ta[jCol]);
+			LATA.setElem(iRow, jCol, La_.getElem(iRow, jCol) * Ta[jCol]);
 		}
 	}
 	vLATA.back() = Ta.back();
@@ -298,25 +298,25 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	// set up the matrix of population kernels
 	vector<double> vKm(PopDim, 0.0);
 	MatrixView Km(&vKm, 0, N, Npop);
-	vector<double> vArsdCP(PopDim*trDim, 0.0);
+	vector<double> vArsdCP(PopDim * trDim, 0.0);
 	vector<MatrixView> ArsdCP(Npop);                                                     // (a_j - mu_m)^T(a_j - mu_m) lower triangles with diagonal
-	vector<double> vResidEachPop(Ydim*Npop, 0.0);                                        // will have Y residuals, multiplied by L_A T_A L_A^T, with each population mean
+	vector<double> vResidEachPop(Ydim * Npop, 0.0);                                        // will have Y residuals, multiplied by L_A T_A L_A^T, with each population mean
 	vector<MatrixView> mResidEachPop(Npop);
 	for (size_t m = 0; m < Npop; m++) {                                                  // m is the population index as in the model description document
-		memcpy( vResidEachPop.data() + Ydim*m, yVec_->data(), Ydim*sizeof(double) );
-		mResidEachPop[m] = MatrixView(&vResidEachPop, Ydim*m, N, d);
+		memcpy( vResidEachPop.data() + Ydim * m, yVec_->data(), Ydim * sizeof(double) );
+		mResidEachPop[m] = MatrixView(&vResidEachPop, Ydim * m, N, d);
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
 				mResidEachPop[m].subtractFromElem( iRow, jCol, M.getElem(m, jCol) );     // mResid now Y - mu_m
 			}
 		}
-		ArsdCP[m] = MatrixView(&vArsdCP, N*trDim*m, N, trDim);                           // addressing the portion that belongs to the current population
+		ArsdCP[m] = MatrixView(&vArsdCP, N * trDim * m, N, trDim);                           // addressing the portion that belongs to the current population
 		size_t trInd = 0;
 		for (size_t jD = 0; jD < d; jD++) {                                              // lower triangle including the diagonal
 			for (size_t iD = jD; iD < d; iD++) {
 				for (size_t iRow = 0; iRow < N; iRow++) {
 					ArsdCP[m].setElem(iRow, trInd,
-						mResidEachPop[m].getElem(iRow, jD)*mResidEachPop[m].getElem(iRow, iD));
+						mResidEachPop[m].getElem(iRow, jD) * mResidEachPop[m].getElem(iRow, iD));
 				}
 				trInd++;
 			}
@@ -325,20 +325,20 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
 				const double rsd   = mResidEachPop[m].getElem(iRow, jCol);
-				const double tArsd = Ta[jCol]*rsd;
+				const double tArsd = Ta[jCol] * rsd;
 				mResidEachPop[m].setElem(iRow, jCol, tArsd);                             // mResid now (Y-mu_m)L_A T_A
-				Km.addToElem(iRow, m,  tArsd*rsd);                                       // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+				Km.addToElem(iRow, m,  tArsd * rsd);                                     // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
 			}
 		}
 		mResidEachPop[m].trm('l', 'r', true, true, 1.0, La_);                            // mResid now (Y-mu_m)L_A T_A L_A^T
 	}
 	for (size_t m = 0; m < Npop; m++) {                                                  // Km now ln(p) - 0.5*Km
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			const double diff = lnP_.getElem(iRow, m) - 0.5*Km.getElem(iRow, m);
+			const double diff = lnP_.getElem(iRow, m) - 0.5 * Km.getElem(iRow, m);
 			Km.setElem(iRow, m, diff);
 		}
 	}
-	vector<double> vPrat(N*Npop, 0.0);
+	vector<double> vPrat(N * Npop, 0.0);
 	MatrixView Prat(&vPrat, 0, N, Npop);                                                 // the e^{kern, m}/sum(e^{kern, l}) ratio
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
@@ -363,7 +363,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 			if ( isnan(denominator) ) {
 				Prat.setElem(iRow, m, 0.0);
 			} else {
-				Prat.setElem(iRow, m, 1.0/denominator);
+				Prat.setElem(iRow, m, 1.0 / denominator);
 			}
 		}
 	}
@@ -385,14 +385,14 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	}
 	for (size_t jCol = 0; jCol < d; jCol++) {
 		for (size_t iRow = 0; iRow < Npop; iRow++) {
-			gM.subtractFromElem(iRow, jCol, POPresid.getElem(iRow, jCol)*Tp[jCol]);
+			gM.subtractFromElem(iRow, jCol, POPresid.getElem(iRow, jCol) * Tp[jCol]);
 		}
 	}
 	// mu partial derivatives
 	vector <double> PresSum; // colSums will resize
 	POPresid.colSums(PresSum);
 	for (size_t jCol = 0; jCol < d; jCol++) {
-		PresSum[jCol] -= mu.getElem(0, jCol)*tau0_;
+		PresSum[jCol] -= mu.getElem(0, jCol) * tau0_;
 	}
 	for (size_t jCol = 0; jCol < d; jCol++) {
 		gmu.setElem(0, jCol, PresSum[jCol]);
@@ -404,16 +404,16 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	for (size_t jCol = 0; jCol < d - 1; jCol++) {                       // nothing to be done for the last column (it only has a diagonal element)
 		for (size_t iRow = jCol + 1; iRow < d; iRow++) {
 			vechLwA.push_back( LATA.getElem(iRow, jCol) );
-			weights[iRow] += vechLwA.back()*La_.getElem(iRow, jCol);    // unweighted for now
+			weights[iRow] += vechLwA.back() * La_.getElem(iRow, jCol);    // unweighted for now
 		}
 	}
 	for (size_t k = 0; k < d; k++) {
-		weights[k] = nu0_*(weights[k] + Ta[k]) + invAsq_;
+		weights[k] = nu0_ * (weights[k] + Ta[k]) + invAsq_;
 	}
 	size_t vechInd = 0;
 	for (size_t jCol = 0; jCol < d - 1; jCol++) {
 		for (size_t iRow = jCol + 1; iRow < d; iRow++) {
-			vechLwA[vechInd] = vechLwA[vechInd]/weights[iRow];
+			vechLwA[vechInd] = vechLwA[vechInd] / weights[iRow];
 			vechInd++;
 		}
 	}
@@ -453,7 +453,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	vechInd = 0;
 	for (size_t jCol = 0; jCol < d - 1; jCol++) {
 		for (size_t iRow = jCol + 1; iRow < d; iRow++) {
-			grad[LaInd_+vechInd] = -ATDP.getElem(iRow, jCol) - nxnd_*vechLwA[vechInd];
+			grad[LaInd_+vechInd] = -ATDP.getElem(iRow, jCol) - nxnd_ * vechLwA[vechInd];
 			vechInd++;
 		}
 	}
@@ -461,21 +461,21 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	// L_A^T (weighted a_j dot product)* L_A T_A
 	ATDP.trm('l', 'l', true, true, 1.0, La_);
 	// now sum everything and store the result in the gradient vector
-	const double dDub = 2.0*static_cast<double>(d);
+	const double dDub = 2.0 * static_cast<double>(d);
 	for (size_t k = 0; k < d; k++) {
-		grad[TaInd_ + k] = 0.5*(nu0_ + dDub - ATDP.getElem(k, k) - nxnd_*Ta[k]/weights[k]);
+		grad[TaInd_ + k] = 0.5 * (nu0_ + dDub - ATDP.getElem(k, k) - nxnd_ * Ta[k] / weights[k]);
 	}
 	// The T_P gradient
 	vector<double> prDotPrd(d, 0.0);
 	for (size_t jCol = 0; jCol < d; jCol++) {
 		for (size_t iRow = 0; iRow < Npop; iRow++) {
 			const double rsd = POPresid.getElem(iRow, jCol);
-			prDotPrd[jCol] += rsd*rsd;
+			prDotPrd[jCol] += rsd * rsd;
 		}
 	}
 	// now sum everything and store the result in the gradient vector
 	for (size_t k = 0; k < d; k++) {
-		grad[TpInd_ + k] = 0.5*( NPnd_ - Tp[k]*( prDotPrd[k] + nxnd_/(nu0_*Tp[k] + invAsq_) ) );
+		grad[TpInd_ + k] = 0.5 * ( NPnd_ - Tp[k] * ( prDotPrd[k] + nxnd_ / (nu0_ * Tp[k] + invAsq_) ) );
 	}
 }
 
@@ -486,18 +486,18 @@ MumiPNR::MumiPNR(const vector<double> *yVec, const vector<double> *theta, const 
 		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the MumiPNR constructor");
 	}
 #endif
-	const size_t n  = yVec->size()/d;
+	const size_t n  = yVec->size() / d;
 
 	Y_  = MatrixViewConst(yVec, 0, n, d);
 	M_  = MatrixViewConst(theta_, 0, Npop, d);
-	mu_ = MatrixViewConst(theta_, Npop*d, 1, d);
-	vLa_.resize(d*d, 0.0);
+	mu_ = MatrixViewConst(theta_, Npop * d, 1, d);
+	vLa_.resize(d * d, 0.0);
 	La_ = MatrixView(&vLa_, 0, d, d);
 	for (size_t k = 0; k < d; k++) {
 		La_.setElem(k, k, 1.0);
 	}
-	LaInd_ = (Npop+1)*d;
-	TaInd_ = LaInd_ + d*(d-1)/2;
+	LaInd_ = (Npop+1) * d;
+	TaInd_ = LaInd_ + d * (d-1) / 2;
 	TpInd_ = TaInd_ + d;
 #ifndef PKG_DEBUG_OFF
 	if ( (theta_->size() <= LaInd_) || (theta_->size() <= TaInd_) || (theta_->size() <= TpInd_) ){
@@ -522,7 +522,7 @@ MumiPNR::MumiPNR(MumiPNR &&in) {
 		in.theta_ = nullptr;
 
 		M_  = MatrixViewConst( theta_, 0, in.M_.getNrows(), in.M_.getNcols() );
-		mu_ = MatrixViewConst( theta_, M_.getNrows()*M_.getNcols(), 1, M_.getNcols() );
+		mu_ = MatrixViewConst( theta_, M_.getNrows() * M_.getNcols(), 1, M_.getNcols() );
 	}
 }
 
@@ -542,7 +542,7 @@ MumiPNR& MumiPNR::operator=(MumiPNR &&in){
 		in.theta_ = nullptr;
 
 		M_  = MatrixViewConst( theta_, 0, in.M_.getNrows(), in.M_.getNcols() );
-		mu_ = MatrixViewConst( theta_, M_.getNrows()*M_.getNcols(), 1, M_.getNcols() );
+		mu_ = MatrixViewConst( theta_, M_.getNrows() * M_.getNcols(), 1, M_.getNcols() );
 	}
 	return *this;
 }
@@ -564,7 +564,7 @@ double MumiPNR::logPost(const vector<double> &vPhi) const{
 	const size_t d    = Y_.getNcols();
 	const size_t Npop = M_.getNrows();
 	MatrixViewConst Phi(&vPhi, 0, N, Npop-1);
-	vector<double> vlnP(N*Npop, 0.0);
+	vector<double> vlnP(N * Npop, 0.0);
 	MatrixView lnP(&vlnP, 0, N, Npop);
 	nuc_.phi2lnp(Phi, lnP);
 
@@ -581,7 +581,7 @@ double MumiPNR::logPost(const vector<double> &vPhi) const{
 		Ta.push_back( exp( (*theta_)[k] ) );
 	}
 	// set up the matrix of population kernels
-	vector<double> vKm(N*Npop, 0.0);
+	vector<double> vKm(N * Npop, 0.0);
 	MatrixView Km(&vKm, 0, N, Npop);
 	for (size_t m = 0; m < Npop; m++) {                                        // m is the population index as in the model description document
 		vector<double> vResid(*yVec_);                                         // copy over Y_
@@ -595,18 +595,18 @@ double MumiPNR::logPost(const vector<double> &vPhi) const{
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
 				double rsd    = mResid.getElem(iRow, jCol);
-				Km.addToElem(iRow, m,  Ta[jCol]*rsd*rsd);                      // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+				Km.addToElem(iRow, m,  Ta[jCol] * rsd * rsd);                  // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
 			}
 		}
 	}
 
 	for (size_t iRow = 0; iRow < N; iRow++) {                                  // ln(p) - 0.5*Km for the first population
-		double diff = lnP.getElem(iRow, 0) - 0.5*Km.getElem(iRow, 0);
+		double diff = lnP.getElem(iRow, 0) - 0.5 * Km.getElem(iRow, 0);
 		Km.setElem(iRow, 0, diff);
 	}
 	for (size_t m = 1; m < Npop; m++) {                             // Km[,2...] now the difference with the first population
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			const double diff = lnP.getElem(iRow, m) - 0.5*Km.getElem(iRow, m) - Km.getElem(iRow, 0);
+			const double diff = lnP.getElem(iRow, m) - 0.5 * Km.getElem(iRow, m) - Km.getElem(iRow, 0);
 			Km.setElem(iRow, m, diff);
 		}
 	}
@@ -665,7 +665,7 @@ void MumiPNR::gradient(const vector<double> &vPhi, vector<double> &grad) const{
 		vW.push_back( nuc_.logistic(ph) );
 	}
 	MatrixView W(&vW, 0, N, Npop-1);
-	vector<double> vP(N*Npop, 0.0);
+	vector<double> vP(N * Npop, 0.0);
 	MatrixView P(&vP, 0, N, Npop);
 	nuc_.w2p(W, P);
 	vector<double> Ta;
@@ -673,7 +673,7 @@ void MumiPNR::gradient(const vector<double> &vPhi, vector<double> &grad) const{
 		Ta.push_back( exp( (*theta_)[k] ) );
 	}
 	vector<double> vYresid(yVec_->size(), 0.0);
-	vector<double> vKm(N*Npop, 0.0);
+	vector<double> vKm(N * Npop, 0.0);
 	MatrixView Km(&vKm, 0, N, Npop);
 	for (size_t m = 0; m < Npop; m++) {
 		vYresid.assign( yVec_->begin(), yVec_->begin() + yVec_->size() );       // copy over Y_
@@ -688,7 +688,7 @@ void MumiPNR::gradient(const vector<double> &vPhi, vector<double> &grad) const{
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
 				double yrsd = Yresid.getElem(iRow, jCol);
-				Km.addToElem( iRow, m, Ta[jCol]*yrsd*yrsd );                    // calculate the (j,m) kernel
+				Km.addToElem( iRow, m, Ta[jCol] * yrsd * yrsd );                // calculate the (j,m) kernel
 			}
 		}
 	}
@@ -698,13 +698,13 @@ void MumiPNR::gradient(const vector<double> &vPhi, vector<double> &grad) const{
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			double w   = W.getElem(iRow, m);
 			double oMw = 1.0 - w;
-			double phi = P.getElem(iRow, m)*w*Km.getElem(iRow, m);
+			double phi = P.getElem(iRow, m) * w * Km.getElem(iRow, m);
 			double pl  = 0.0;
 			for (size_t l = m+1; l < Npop; l++) {
-				pl += P.getElem(iRow, l)*Km.getElem(iRow, l);
+				pl += P.getElem(iRow, l) * Km.getElem(iRow, l);
 			}
-			phi -= oMw*pl;
-			phi  = 0.5*phi - alphaPr_*( w - oMw*static_cast<double>(Npop - m - 1) );  // alphaPr_ already with 1.0 subtracted; Npop guaranteed > m+1
+			phi -= oMw * pl;
+			phi  = 0.5 * phi - alphaPr_ * ( w - oMw * static_cast<double>(Npop - m - 1) );  // alphaPr_ already with 1.0 subtracted; Npop guaranteed > m+1
 			gPhi.setElem(iRow, m, phi);
 		}
 	}
@@ -718,18 +718,18 @@ MumiLocNR::MumiLocNR(const vector<double> *yVec, const size_t &d, const vector<d
 		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the MumiLocNR constructor");
 	}
 #endif
-	const size_t n  = yVec->size()/d;
+	const size_t n  = yVec->size() / d;
 	Y_              = MatrixViewConst(yVec, 0, n, d);
 
-	vLa_.resize(d*d, 0.0);
+	vLa_.resize(d * d, 0.0);
 	La_ = MatrixView(&vLa_, 0, d, d);
 	for (size_t k = 0; k < d; k++) {
 		La_.setElem(k, k, 1.0);
 	}
-	size_t trLen = d*(d-1)/2;
+	size_t trLen = d * (d-1) / 2;
 	fTaInd_      = trLen;
 	fTpInd_      = fTaInd_ + d;
-	PhiBegInd_   = (Npop_ + 1)*d;
+	PhiBegInd_   = (Npop_ + 1) * d;
 }
 
 MumiLocNR::MumiLocNR(MumiLocNR &&in) {
@@ -784,13 +784,13 @@ double MumiLocNR::logPost(const vector<double> &theta) const{
 	expandISvec_();
 	const size_t N    = Y_.getNrows();
 	const size_t d    = Y_.getNcols();
-	const size_t Ndim = N*d;
+	const size_t Ndim = N * d;
 	MatrixViewConst Mp(&theta, 0, Npop_, d);
-	MatrixViewConst mu(&theta, Npop_*d, 1, d); // overall mean
+	MatrixViewConst mu(&theta, Npop_ * d, 1, d); // overall mean
 	MatrixViewConst Phi(&theta, PhiBegInd_, N, Npop_-1);
 
 	// backtransform the logit-psi_jp
-	vector<double> vP(N*Npop_, 0.0);
+	vector<double> vP(N * Npop_, 0.0);
 	MatrixView P(&vP, 0, N, Npop_);
 	nuc_.phi2p(Phi, P);
 
@@ -818,18 +818,18 @@ double MumiLocNR::logPost(const vector<double> &theta) const{
 		MatrixView mResid = MatrixView(&vResid, 0, N, d);                        // mResid now has the Y values
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
-				mResid.subtractFromElem( iRow, jCol, Mp.getElem(m, jCol) );        // mResid now Y - mu_m
+				mResid.subtractFromElem( iRow, jCol, Mp.getElem(m, jCol) );      // mResid now Y - mu_m
 			}
 		}
 		mResid.trm('l', 'r', false, true, 1.0, La_);                             // mResid now (Y-mu_m)L_A
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
 				double rsd    = mResid.getElem(iRow, jCol);
-				locAtr[iRow] += Ta[jCol]*rsd*rsd;                                // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+				locAtr[iRow] += Ta[jCol] * rsd * rsd;                            // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
 			}
 		}
 		for (size_t j = 0; j < N; j++) {
-			AtraceVec[j] += P.getElem(j, m)*locAtr[j];                           // P_m(Y-mu_m)L_A T_A L_A^T(Y-mu_m)^T
+			AtraceVec[j] += P.getElem(j, m) * locAtr[j];                         // P_m(Y-mu_m)L_A T_A L_A^T(Y-mu_m)^T
 		}
 	}
 	double aTrace = 0.0;
@@ -842,17 +842,17 @@ double MumiLocNR::logPost(const vector<double> &theta) const{
 		double dp = 0.0;
 		for (size_t iRow = 0; iRow < Npop_; ++iRow) {
 			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
-			dp += diff*diff;
+			dp += diff * diff;
 		}
-		mTrace += exp( (*iSigTheta_)[fTpInd_ + jCol] )*dp;
+		mTrace += exp( (*iSigTheta_)[fTpInd_ + jCol] ) * dp;
 	}
 	double pTrace = 0.0;
 	for (size_t jCol = 0; jCol < d; jCol++) {
-		pTrace += mu.getElem(0, jCol)*mu.getElem(0, jCol);
+		pTrace += mu.getElem(0, jCol) * mu.getElem(0, jCol);
 	}
 	pTrace *= tau0_;
 	// now sum to get the log-posterior
-	return -0.5*(aTrace + mTrace + pTrace) + dirPr;
+	return -0.5 * (aTrace + mTrace + pTrace) + dirPr;
 }
 
 void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) const {
@@ -861,8 +861,8 @@ void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) cons
 		grad.clear();
 	}
 	grad.resize(theta.size(), 0.0);
-	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
-	const size_t Mdim = Npop_*Y_.getNcols();
+	const size_t Ydim = Y_.getNrows() * Y_.getNcols();
+	const size_t Mdim = Npop_ * Y_.getNcols();
 	MatrixViewConst M( &theta, 0, Npop_, Y_.getNcols() );
 	MatrixViewConst mu( &theta, Mdim, 1, Y_.getNcols() ); // overall mean
 	MatrixViewConst Phi(&theta, PhiBegInd_, Y_.getNrows(), Npop_-1);
@@ -873,7 +873,7 @@ void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) cons
 	MatrixView gPhi(&grad, PhiBegInd_, Y_.getNrows(), Npop_-1);
 
 	// L_AxT_A
-	vector<double> vISigA(Y_.getNcols()*Y_.getNcols(), 0.0);
+	vector<double> vISigA(Y_.getNcols() * Y_.getNcols(), 0.0);
 	vector<double> Tx;
 	MatrixView iSigA( &vISigA, 0, Y_.getNcols(), Y_.getNcols() );
 	for (size_t k = 0; k < iSigA.getNcols(); k++) {
@@ -882,16 +882,16 @@ void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) cons
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
 		iSigA.setElem(jCol, jCol, Tx[jCol]);
 		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			iSigA.setElem(iRow, jCol, La_.getElem(iRow, jCol)*Tx[jCol]);
+			iSigA.setElem(iRow, jCol, La_.getElem(iRow, jCol) * Tx[jCol]);
 		}
 	}
 	vISigA.back() = Tx.back();
 	iSigA.trm('l', 'r', true, true, 1.0, La_);
 
 	// backtransform the logit-p_jp and calculate row sums
-	vector<double> vP( Phi.getNrows()*Npop_ );
+	vector<double> vP( Phi.getNrows() * Npop_ );
 	MatrixView P(&vP, 0, Phi.getNrows(), Npop_);
-	vector<double> vW( Phi.getNrows()*Phi.getNcols() );
+	vector<double> vW( Phi.getNrows() * Phi.getNcols() );
 	MatrixView W( &vW, 0, Phi.getNrows(), Phi.getNcols() );
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
@@ -901,7 +901,7 @@ void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) cons
 	// Re-weight p_jm using the Betancourt (2012) method
 	nuc_.w2p(W, P);
 	vector<double> vYresid(yVec_->size(), 0.0);
-	vector<double> vKm(P.getNrows()*P.getNcols(), 0.0);
+	vector<double> vKm(P.getNrows() * P.getNcols(), 0.0);
 	MatrixView Km( &vKm, 0, P.getNrows(), P.getNcols() );
 	for (size_t m = 0; m < Npop_; m++) {
 		vYresid.assign( yVec_->begin(), yVec_->begin() + Ydim );                                      // copy over Y_
@@ -911,13 +911,13 @@ void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) cons
 				Yresid.subtractFromElem( iRow, jCol, M.getElem(m, jCol) );                            // Y - mu_m
 			}
 		}
-		vector<double> vYresISA(Y_.getNrows()*Y_.getNcols(), 0.0);
+		vector<double> vYresISA(Y_.getNrows() * Y_.getNcols(), 0.0);
 		MatrixView YresISA( &vYresISA, 0, Y_.getNrows(), Y_.getNcols() );
 		Yresid.symm('l', 'r', 1.0, iSigA, 0.0, YresISA);                                              // (Y - mu_m)Sigma^{-1}_A
 
 		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
-				Km.addToElem( iRow, m, Yresid.getElem(iRow, jCol)*YresISA.getElem(iRow, jCol) );      // calculate the (j,m) kernel
+				Km.addToElem( iRow, m, Yresid.getElem(iRow, jCol) * YresISA.getElem(iRow, jCol) );      // calculate the (j,m) kernel
 			}
 		}
 
@@ -958,7 +958,7 @@ void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) cons
 	vector <double> PresSum; // colSums will resize
 	POPresid.colSums(PresSum);
 	for (size_t jCol = 0; jCol < M.getNcols(); jCol++) {
-		PresSum[jCol] -= mu.getElem(0, jCol)*tau0_;
+		PresSum[jCol] -= mu.getElem(0, jCol) * tau0_;
 	}
 	for (size_t jCol = 0; jCol < gmu.getNcols(); jCol++) {
 		gmu.setElem(0, jCol, PresSum[jCol]);
@@ -968,13 +968,13 @@ void MumiLocNR::gradient(const vector<double> &theta, vector<double> &grad) cons
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
 			double w   = W.getElem(iRow, m);
 			double oMw = 1.0 - w;
-			double phi = P.getElem(iRow, m)*w*Km.getElem(iRow, m);
+			double phi = P.getElem(iRow, m) * w * Km.getElem(iRow, m);
 			double pl  = 0.0;
 			for (size_t l = m+1; l < Npop_; l++) {
-				pl += P.getElem(iRow, l)*Km.getElem(iRow, l);
+				pl += P.getElem(iRow, l) * Km.getElem(iRow, l);
 			}
-			phi -= oMw*pl;
-			phi  = 0.5*phi - alphaPr_*( w - oMw*static_cast<double>(Npop_ - m - 1) );  // alphaPr_ already with 1.0 subtracted; Npop_ guaranteed > m+1
+			phi -= oMw * pl;
+			phi  = 0.5 * phi - alphaPr_ * ( w - oMw * static_cast<double>(Npop_ - m - 1) );  // alphaPr_ already with 1.0 subtracted; Npop_ guaranteed > m+1
 			gPhi.setElem(iRow, m, phi);
 		}
 	}
@@ -989,22 +989,22 @@ MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, cons
 		throw string("ERROR: Y dimensions not compatible with the number of data points implied by the replicate factor");
 	}
 #endif
-	const size_t d  = yVec->size()/n;
+	const size_t d  = yVec->size() / n;
 	Y_              = MatrixViewConst(yVec, 0, n, d);
 
-	vLx_.resize(2*d*d, 0.0);
+	vLx_.resize(2 * d * d, 0.0);
 	Le_ = MatrixView(&vLx_, 0, d, d);
-	La_ = MatrixView(&vLx_, d*d, d, d);
+	La_ = MatrixView(&vLx_, d * d, d, d);
 	for (size_t k = 0; k < d; k++) {
 		Le_.setElem(k, k, 1.0);
 		La_.setElem(k, k, 1.0);
 	}
-	size_t trLen = d*(d-1)/2;
+	size_t trLen = d * (d-1) / 2;
 	fTeInd_      = trLen;
 	fLaInd_      = trLen + d;
 	fTaInd_      = fLaInd_ + trLen;
 	fTpInd_      = fTaInd_ + d;
-	PhiBegInd_   = ( (*hierInd_)[0].groupNumber() + Npop_ + 1 )*d;
+	PhiBegInd_   = ( (*hierInd_)[0].groupNumber() + Npop_ + 1 ) * d;
 }
 
 MumiLoc::MumiLoc(MumiLoc &&in) {
@@ -1065,10 +1065,10 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	// make L matrices
 	expandISvec_();
 	const size_t Nln  = (*hierInd_)[0].groupNumber();
-	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
+	const size_t Ydim = Y_.getNrows() * Y_.getNcols();
 	MatrixViewConst A( &theta, 0, Nln, Y_.getNcols() );
-	MatrixViewConst Mp( &theta, Nln*Y_.getNcols(), Npop_, Y_.getNcols() );
-	MatrixViewConst mu( &theta, (Nln+Npop_)*Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
+	MatrixViewConst Mp( &theta, Nln * Y_.getNcols(), Npop_, Y_.getNcols() );
+	MatrixViewConst mu( &theta, (Nln+Npop_) * Y_.getNcols(), 1, Y_.getNcols() ); // overall mean
 	MatrixViewConst Phi( &theta, PhiBegInd_, Nln, Npop_ );
 
 	// Calculate the residual Y - ZA matrix
@@ -1087,20 +1087,20 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
 		double dp = 0.0;
 		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
-			dp += mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
+			dp += mResid.getElem(iRow, jCol) * mResid.getElem(iRow, jCol);
 		}
-		eTrace   += exp( (*iSigTheta_)[fTeInd_ + jCol] )*dp;
+		eTrace   += exp( (*iSigTheta_)[fTeInd_ + jCol] ) * dp;
 	}
 
 	// backtransform the logit-p_jp, calculate row sums and sum of squares
-	vector<double> vP(Phi.getNrows()*Phi.getNcols(), 0.0);
+	vector<double> vP(Phi.getNrows() * Phi.getNcols(), 0.0);
 	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
 	vector<double> pPopSum(Nln, 0.0);
 	double sumPhiSq = 0.0;
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi.getNrows(); iRow++) {
 			double phi     = Phi.getElem(iRow, m);
-			sumPhiSq      += phi*phi;
+			sumPhiSq      += phi * phi;
 			double p       = nuc_.logistic(phi);
 			pPopSum[iRow] += p;
 			P.setElem(iRow, m, p);
@@ -1118,7 +1118,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 					} else {
 						aSum += exp(Phi.getElem(iRow, jCol) - phiM);
 					}
-					P.setElem(iRow, m, 1.0/aSum);
+					P.setElem(iRow, m, 1.0 / aSum);
 				}
 			} else {
 				P.divideElem(iRow, m, pPopSum[iRow]);
@@ -1143,24 +1143,24 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	for (size_t k = fTaInd_; k < fTpInd_; k++) {
 		Ta.push_back( exp( (*iSigTheta_)[k] ) );
 	}
-	for (size_t m = 0; m < Npop_; m++) {                                           // m is the population index as in the model description document
+	for (size_t m = 0; m < Npop_; m++) {                                             // m is the population index as in the model description document
 		vector<double> locAtr(Nln, 0.0);
-		vResid.assign( theta.begin(), theta.begin() + A.getNrows()*A.getNcols() ); // copy over A
-		mResid = MatrixView( &vResid, 0, A.getNrows(), A.getNcols() );             // mResid now has the A values
+		vResid.assign( theta.begin(), theta.begin() + A.getNrows() * A.getNcols() ); // copy over A
+		mResid = MatrixView( &vResid, 0, A.getNrows(), A.getNcols() );               // mResid now has the A values
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
 				mResid.subtractFromElem( iRow, jCol, Mp.getElem(m, jCol) );          // mResid now A - mu_m
 			}
 		}
-		mResid.trm('l', 'r', false, true, 1.0, La_);                               // mResid now (A-mu_m)L_A
+		mResid.trm('l', 'r', false, true, 1.0, La_);                                 // mResid now (A-mu_m)L_A
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
 				double rsd    = mResid.getElem(iRow, jCol);
-				locAtr[iRow] += Ta[jCol]*rsd*rsd;                                  // (A-mu_m)L_A T_A L_A^T(A - mu_p)^T
+				locAtr[iRow] += Ta[jCol] * rsd * rsd;                                // (A-mu_m)L_A T_A L_A^T(A - mu_p)^T
 			}
 		}
 		for (size_t j = 0; j < Nln; j++) {
-			AtraceVec[j] += P.getElem(j, m)*locAtr[j];                             // P_m(A-mu_m)L_A T_A L_A^T(A-mu_m)^T
+			AtraceVec[j] += P.getElem(j, m) * locAtr[j];                             // P_m(A-mu_m)L_A T_A L_A^T(A-mu_m)^T
 		}
 	}
 	double aTrace = 0.0;
@@ -1173,17 +1173,17 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 		double dp = 0.0;
 		for (size_t iRow = 0; iRow < Mp.getNrows(); ++iRow) {
 			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
-			dp += diff*diff;
+			dp += diff * diff;
 		}
-		mTrace += exp( (*iSigTheta_)[fTpInd_ + jCol] )*dp;
+		mTrace += exp( (*iSigTheta_)[fTpInd_ + jCol] ) * dp;
 	}
 	double pTrace = 0.0;
 	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
-		pTrace += mu.getElem(0, jCol)*mu.getElem(0, jCol);
+		pTrace += mu.getElem(0, jCol) * mu.getElem(0, jCol);
 	}
 	pTrace *= tau0_;
 	// now sum to get the log-posterior
-	return -0.5*(eTrace + aTrace + tauPrPhi_*sumPhiSq + mTrace + pTrace) + gpSum;
+	return -0.5 * (eTrace + aTrace + tauPrPhi_ * sumPhiSq + mTrace + pTrace) + gpSum;
 }
 
 void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
@@ -1193,9 +1193,9 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	}
 	grad.resize(theta.size(), 0.0);
 	const size_t Nln  = (*hierInd_)[0].groupNumber();
-	const size_t Ydim = Y_.getNrows()*Y_.getNcols();
-	const size_t Adim = Nln*Y_.getNcols();
-	const size_t Mdim = Npop_*Y_.getNcols();
+	const size_t Ydim = Y_.getNrows() * Y_.getNcols();
+	const size_t Adim = Nln * Y_.getNcols();
+	const size_t Mdim = Npop_ * Y_.getNcols();
 	MatrixViewConst A( &theta, 0, Nln, Y_.getNcols() );
 	MatrixViewConst M( &theta, Adim, Npop_, Y_.getNcols() );
 	MatrixViewConst mu( &theta, Adim + Mdim, 1, Y_.getNcols() ); // overall mean
@@ -1218,7 +1218,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	}
 
 	// Make precision matrices
-	vector<double> vISigE(Y_.getNcols()*Y_.getNcols(), 0.0);
+	vector<double> vISigE(Y_.getNcols() * Y_.getNcols(), 0.0);
 	MatrixView iSigE( &vISigE, 0, Y_.getNcols(), Y_.getNcols() );
 	// L_ExT_E
 	vector<double> Tx;
@@ -1228,13 +1228,13 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
 		iSigE.setElem(jCol, jCol, Tx[jCol]);
 		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			iSigE.setElem(iRow, jCol, Le_.getElem(iRow, jCol)*Tx[jCol]);
+			iSigE.setElem(iRow, jCol, Le_.getElem(iRow, jCol) * Tx[jCol]);
 		}
 	}
 	// last element of the vector is the lower right corner element
 	vISigE.back() = Tx.back();
 	iSigE.trm('l', 'r', true, true, 1.0, Le_);
-	vector<double> vISigA(Y_.getNcols()*Y_.getNcols(), 0.0);
+	vector<double> vISigA(Y_.getNcols() * Y_.getNcols(), 0.0);
 	MatrixView iSigA( &vISigA, 0, Y_.getNcols(), Y_.getNcols() );
 	for (size_t k = 0; k < iSigA.getNcols(); k++) {
 		Tx[k] = exp( (*iSigTheta_)[k + fTaInd_] );
@@ -1242,7 +1242,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
 		iSigA.setElem(jCol, jCol, Tx[jCol]);
 		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			iSigA.setElem(iRow, jCol, La_.getElem(iRow, jCol)*Tx[jCol]);
+			iSigA.setElem(iRow, jCol, La_.getElem(iRow, jCol) * Tx[jCol]);
 		}
 	}
 	vISigA.back() = Tx.back();
@@ -1253,7 +1253,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	mResid.symm('l', 'r', 1.0, iSigE, 0.0, mResISE);
 
 	// backtransform the logit-p_jp and calculate row sums
-	vector<double> vP( Phi.getNrows()*Phi.getNcols() );
+	vector<double> vP( Phi.getNrows() * Phi.getNcols() );
 	MatrixView P( &vP, 0, Phi.getNrows(), Phi.getNcols() );
 	vector<double> pPopSum(Nln, 0.0);
 	for (size_t m = 0; m < Phi.getNcols(); m++) {
@@ -1275,7 +1275,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 					} else {
 						aSum += exp(Phi.getElem(iRow, jCol) - phiM);
 					}
-					P.setElem(iRow, m, 1.0/aSum);
+					P.setElem(iRow, m, 1.0 / aSum);
 				}
 			} else {
 				P.divideElem(iRow, m, pPopSum[iRow]);
@@ -1298,17 +1298,17 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 				Aresid.subtractFromElem( iRow, jCol, M.getElem(m, jCol) );                            // A - mu_m
 			}
 		}
-		vector<double> vAresISA(A.getNrows()*A.getNcols(), 0.0);
+		vector<double> vAresISA(A.getNrows() * A.getNcols(), 0.0);
 		MatrixView AresISA( &vAresISA, 0, A.getNrows(), A.getNcols() );
 		Aresid.symm('l', 'r', 1.0, iSigA, 0.0, AresISA);                                            // (A - mu_m)Sigma^{-1}_A
 
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				gPhi.addToElem( iRow, m, Aresid.getElem(iRow, jCol)*AresISA.getElem(iRow, jCol) );    // calculate the (j,m) kernel and store in gPhi to calculate phi partials later
+				gPhi.addToElem( iRow, m, Aresid.getElem(iRow, jCol) * AresISA.getElem(iRow, jCol) );    // calculate the (j,m) kernel and store in gPhi to calculate phi partials later
 			}
 		}
 		for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-			kernSum[iRow] += P.getElem(iRow, m)*gPhi.getElem(iRow, m);                              // add the kernels together
+			kernSum[iRow] += P.getElem(iRow, m) * gPhi.getElem(iRow, m);                              // add the kernels together
 		}
 
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
@@ -1360,7 +1360,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	vector <double> PresSum; // colSums will resize
 	POPresid.colSums(PresSum);
 	for (size_t jCol = 0; jCol < M.getNcols(); jCol++) {
-		PresSum[jCol] -= mu.getElem(0, jCol)*tau0_;
+		PresSum[jCol] -= mu.getElem(0, jCol) * tau0_;
 	}
 	for (size_t jCol = 0; jCol < gmu.getNcols(); jCol++) {
 		gmu.setElem(0, jCol, PresSum[jCol]);
@@ -1369,20 +1369,20 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	for (size_t m = 0; m < Npop_; m++) {
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
 			// gPhi already has the weighted kernel product sums (with population sums subtracted) stored from before; t_A element missing because we have one Sigma_A
-			double phi     = -0.5*gPhi.getElem(iRow, m);
+			double phi     = -0.5 * gPhi.getElem(iRow, m);
 			double wtDGsum = 0.0;
 			for (size_t mp = 0; mp < Npop_; mp++) {
-				wtDGsum += P.getElem(iRow, mp)*digamLNsum[mp];
+				wtDGsum += P.getElem(iRow, mp) * digamLNsum[mp];
 			}
 			phi     += digamLNsum[m] - wtDGsum;
 			double p = P.getElem(iRow, m);
-			phi     *= p*(1.0 - p);
-			gPhi.setElem( iRow, m, phi - tauPrPhi_*Phi.getElem(iRow, m) );
+			phi     *= p * (1.0 - p);
+			gPhi.setElem( iRow, m, phi - tauPrPhi_ * Phi.getElem(iRow, m) );
 		}
 	}
 }
 
-//MumiISigNR methods
+// MumiISigNR methods
 MumiISigNR::MumiISigNR(const vector<double> *yVec, const size_t &d, const vector<double> *vTheta, const double &nu0, const double &invAsq, const size_t &nPops) : Model(), nu0_{nu0}, invAsq_{invAsq} {
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%d) {
@@ -1392,21 +1392,21 @@ MumiISigNR::MumiISigNR(const vector<double> *yVec, const size_t &d, const vector
 		throw string("MumiISigNR constructor ERROR: vectorized parameter set length not divisible by number of traits");
 	}
 #endif
-	const size_t N = yVec->size()/d;
+	const size_t N = yVec->size() / d;
 	Y_   = MatrixViewConst(yVec, 0, N, d);
 	Mp_  = MatrixViewConst(vTheta, 0, nPops, d);
-	mu_  = MatrixViewConst(vTheta, nPops*d, 1, d);
-	Phi_ = MatrixViewConst(vTheta, (nPops+1)*d, N, nPops-1);
-	vLa_.resize(d*d, 0.0);
+	mu_  = MatrixViewConst(vTheta, nPops * d, 1, d);
+	Phi_ = MatrixViewConst(vTheta, (nPops+1) * d, N, nPops-1);
+	vLa_.resize(d * d, 0.0);
 	La_ = MatrixView(&vLa_, 0, d, d);
 	for (size_t k = 0; k < d; k++) {
 		La_.setElem(k, k, 1.0);
 	}
-	fTaInd_ = d*(d-1)/2;
+	fTaInd_ = d * (d-1) / 2;
 	fTpInd_ = fTaInd_ + d;
-	nxnd_   = nu0_*( nu0_ + 2.0*static_cast<double>(d) );
-	NAnd_   = static_cast<double>( Y_.getNrows() ) + nu0_ + 2.0*static_cast<double>(d);
-	NPnd_   = static_cast<double>(nPops) + nu0_ + 2.0*static_cast<double>(d);
+	nxnd_   = nu0_ * ( nu0_ + 2.0 * static_cast<double>(d) );
+	NAnd_   = static_cast<double>( Y_.getNrows() ) + nu0_ + 2.0 * static_cast<double>(d);
+	NPnd_   = static_cast<double>(nPops) + nu0_ + 2.0 * static_cast<double>(d);
 }
 
 MumiISigNR::MumiISigNR(MumiISigNR &&in) {
@@ -1419,7 +1419,7 @@ MumiISigNR::MumiISigNR(MumiISigNR &&in) {
 		mu_      = move(in.mu_);
 		Phi_     = move(in.Phi_);
 		vLa_     = move(in.vLa_);
-		La_      = MatrixView( &vLa_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
+		La_      = MatrixView( &vLa_, Y_.getNcols() * Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
 		fTaInd_  = in.fTaInd_;
 		nxnd_    = in.nxnd_;
 		NAnd_    = in.NAnd_;
@@ -1437,7 +1437,7 @@ MumiISigNR& MumiISigNR::operator=(MumiISigNR &&in){
 		mu_      = move(in.mu_);
 		Phi_     = move(in.Phi_);
 		vLa_     = move(in.vLa_);
-		La_      = MatrixView( &vLa_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
+		La_      = MatrixView( &vLa_, Y_.getNcols() * Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
 		fTaInd_  = in.fTaInd_;
 		fTpInd_  = in.fTpInd_;
 		nxnd_    = in.nxnd_;
@@ -1461,12 +1461,12 @@ double MumiISigNR::logPost(const vector<double> &viSig) const{
 	// expand the element vector to make the L matrices
 	expandISvec_(viSig);
 	// backtransform the logit-p_jp and sum
-	vector<double> vP(Phi_.getNrows()*(Phi_.getNcols()+1), 0.0);
+	vector<double> vP(Phi_.getNrows() * (Phi_.getNcols()+1), 0.0);
 	MatrixView P(&vP, 0, Phi_.getNrows(), Phi_.getNcols()+1);
 	nuc_.phi2p(Phi_, P);
 
 	// Clear the Y residuals and re-use for A residuals
-	vector<double> vResid(Y_.getNrows()*Y_.getNcols(), 0.0);
+	vector<double> vResid(Y_.getNrows() * Y_.getNcols(), 0.0);
 	MatrixView mResid( &vResid, 0, Y_.getNrows(), Y_.getNcols() );
 	vector<double> AtraceVec(Y_.getNrows(), 0.0); // accumulate A trace values here
 	// calculate T_A
@@ -1490,11 +1490,11 @@ double MumiISigNR::logPost(const vector<double> &viSig) const{
 		for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
 				double rsd    = mResid.getElem(iRow, jCol);
-				locAtr[iRow] += Ta[jCol]*rsd*rsd;                                  // (A-mu_m)L_A T_A L_A^T(A - mu_p)^T
+				locAtr[iRow] += Ta[jCol] * rsd * rsd;                                  // (A-mu_m)L_A T_A L_A^T(A - mu_p)^T
 			}
 		}
 		for (size_t j = 0; j < Y_.getNrows(); j++) {
-			AtraceVec[j] += P.getElem(j, m)*locAtr[j];                             // P_m(A-mu_m)L_A T_A L_A^T(A-mu_m)^T
+			AtraceVec[j] += P.getElem(j, m) * locAtr[j];                             // P_m(A-mu_m)L_A T_A L_A^T(A-mu_m)^T
 		}
 	}
 	double aTrace = 0.0;
@@ -1507,9 +1507,9 @@ double MumiISigNR::logPost(const vector<double> &viSig) const{
 		double dp = 0.0;
 		for (size_t iRow = 0; iRow < Mp_.getNrows(); ++iRow) {
 			double diff = Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol);
-			dp += diff*diff;
+			dp += diff * diff;
 		}
-		mTrace += exp(viSig[fTpInd_ + jCol])*dp;
+		mTrace += exp(viSig[fTpInd_ + jCol]) * dp;
 	}
 	// Sum of log-determinants
 	double ldetSumA = 0.0;
@@ -1522,17 +1522,17 @@ double MumiISigNR::logPost(const vector<double> &viSig) const{
 	ldetSumP *= NPnd_;
 	// Calculate the prior components; k and m are as in the derivation document; doing the L_E and L_A in one pass
 	// first element has just the diagonal
-	double pTrace = log(nu0_*Ta[0] + invAsq_) + log(nu0_*Tp[0] + invAsq_);
+	double pTrace = log(nu0_ * Ta[0] + invAsq_) + log(nu0_ * Tp[0] + invAsq_);
 	for (size_t k = 1; k < La_.getNcols(); k++) { // k starts from the second element (k=1)
 		double sA = 0.0;
 		for (size_t m = 0; m <= k - 1; m++) { // the <= is intentional; excluding only m = k
-			sA += Ta[m]*La_.getElem(k, m)*La_.getElem(k, m);
+			sA += Ta[m] * La_.getElem(k, m) * La_.getElem(k, m);
 		}
 		sA += Ta[k];
-		pTrace += log(nu0_*sA + invAsq_) + log(nu0_*Tp[k] + invAsq_);
+		pTrace += log(nu0_ * sA + invAsq_) + log(nu0_ * Tp[k] + invAsq_);
 	}
-	pTrace *= nu0_ + 2.0*static_cast<double>( Y_.getNcols() );
-	return -0.5*(aTrace + mTrace - ldetSumA - ldetSumP + pTrace);
+	pTrace *= nu0_ + 2.0 * static_cast<double>( Y_.getNcols() );
+	return -0.5 * (aTrace + mTrace - ldetSumA - ldetSumP + pTrace);
 }
 
 void MumiISigNR::gradient(const vector<double> &viSig, vector<double> &grad) const {
@@ -1544,25 +1544,25 @@ void MumiISigNR::gradient(const vector<double> &viSig, vector<double> &grad) con
 	grad.resize(viSig.size(), 0.0);
 
 	// backtransform phi_jp and scale
-	vector<double> vP(Phi_.getNrows()*(Phi_.getNcols()+1), 0.0);
+	vector<double> vP(Phi_.getNrows() * (Phi_.getNcols()+1), 0.0);
 	MatrixView P(&vP, 0, Phi_.getNrows(), Phi_.getNcols()+1);
 	nuc_.phi2p(Phi_, P);
 
 	// Clear the Y residuals and re-use for A residuals
-	vector<double> vResid(Y_.getNrows()*Y_.getNcols(), 0.0);
+	vector<double> vResid(Y_.getNrows() * Y_.getNcols(), 0.0);
 	MatrixView mResid( &vResid, 0, Y_.getNrows(), Y_.getNcols() );
-	vector<double> vRtR(Y_.getNcols()*Y_.getNcols(), 0.0);
+	vector<double> vRtR(Y_.getNcols() * Y_.getNcols(), 0.0);
 	MatrixView mRtR( &vRtR, 0, Y_.getNcols(), Y_.getNcols() );
 	for (size_t m = 0; m < P.getNcols(); m++) {
 		for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 			for (size_t iRow = 0; iRow < Y_.getNrows(); ++iRow) {
-				double diff =  P.getElem(iRow, m)*( Y_.getElem(iRow, jCol) - Mp_.getElem(m, jCol) );
+				double diff =  P.getElem(iRow, m) * ( Y_.getElem(iRow, jCol) - Mp_.getElem(m, jCol) );
 				mResid.setElem(iRow, jCol, diff); // sqrt(P[.p])(A - M[p.])
 			}
 		}
 		mResid.syrk('l', 1.0, 1.0, mRtR); // adding to the mRtR that's from other populations
 	}
-	vector<double> vRtRLT(Y_.getNcols()*Y_.getNcols(), 0.0);
+	vector<double> vRtRLT(Y_.getNcols() * Y_.getNcols(), 0.0);
 	MatrixView mRtRLT( &vRtRLT, 0, Y_.getNcols(), Y_.getNcols() );
 	La_.symm('l', 'l', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_A; R = sum(P_p(A - M_p))
 	// make a vector of T_A (provided values are on the log scale)
@@ -1574,7 +1574,7 @@ void MumiISigNR::gradient(const vector<double> &viSig, vector<double> &grad) con
 	// mutiply by T_A (the whole matrix because I will need it for left-multiplication later)
 	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
 		for (size_t iRow = 0; iRow < Y_.getNcols(); iRow++) {
-			double prod = mRtRLT.getElem(iRow, jCol)*Tx[jCol];
+			double prod = mRtRLT.getElem(iRow, jCol) * Tx[jCol];
 			mRtRLT.setElem(iRow, jCol, prod);
 		}
 	}
@@ -1583,19 +1583,19 @@ void MumiISigNR::gradient(const vector<double> &viSig, vector<double> &grad) con
 	size_t vechInd = 0;
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {   // nothing to be done for the last column (it only has a diagonal element)
 		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			double prod1 = Tx[jCol]*La_.getElem(iRow, jCol);
+			double prod1 = Tx[jCol] * La_.getElem(iRow, jCol);
 			vechLwA.push_back(prod1);
-			weights[iRow] += prod1*La_.getElem(iRow, jCol); // unweighted for now
+			weights[iRow] += prod1 * La_.getElem(iRow, jCol); // unweighted for now
 			vechInd++;
 		}
 	}
 	for (size_t k = 0; k < Y_.getNcols(); k++) {
-		weights[k] = nu0_*(weights[k] + Tx[k]) + invAsq_;
+		weights[k] = nu0_ * (weights[k] + Tx[k]) + invAsq_;
 	}
 	vechInd = 0;
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
 		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			vechLwA[vechInd] = vechLwA[vechInd]/weights[iRow];
+			vechLwA[vechInd] = vechLwA[vechInd] / weights[iRow];
 			vechInd++;
 		}
 	}
@@ -1603,7 +1603,7 @@ void MumiISigNR::gradient(const vector<double> &viSig, vector<double> &grad) con
 	vechInd = 0;
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
 		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			grad[vechInd] = -mRtRLT.getElem(iRow, jCol) - nxnd_*vechLwA[vechInd];
+			grad[vechInd] = -mRtRLT.getElem(iRow, jCol) - nxnd_ * vechLwA[vechInd];
 			vechInd++;
 		}
 	}
@@ -1612,7 +1612,7 @@ void MumiISigNR::gradient(const vector<double> &viSig, vector<double> &grad) con
 	mRtRLT.trm('l', 'l', true, true, 1.0, La_);
 	// now sum everything and store the result in the gradient vector
 	for (size_t k = 0; k < Y_.getNcols(); k++) {
-		grad[fTaInd_ + k] = 0.5*(NAnd_ - mRtRLT.getElem(k, k) - nxnd_*Tx[k]/weights[k]);
+		grad[fTaInd_ + k] = 0.5 * (NAnd_ - mRtRLT.getElem(k, k) - nxnd_ * Tx[k] / weights[k]);
 	}
 	// The T_P gradient
 	// Start with calculating the residual, replacing the old one
@@ -1628,11 +1628,11 @@ void MumiISigNR::gradient(const vector<double> &viSig, vector<double> &grad) con
 		Tx[k] = exp(viSig[fTpInd_ + k]);
 	}
 	for (size_t k = 0; k < Mp_.getNcols(); k++) {
-		weights[k] = nu0_*Tx[k] + invAsq_;
+		weights[k] = nu0_ * Tx[k] + invAsq_;
 	}
 	// now sum everything and store the result in the gradient vector
 	for (size_t k = 0; k < Mp_.getNcols(); k++) {
-		grad[fTpInd_ + k] = 0.5*(NPnd_ - mRtR.getElem(k, k)*Tx[k] - nxnd_*Tx[k]/weights[k]);
+		grad[fTpInd_ + k] = 0.5 * (NPnd_ - mRtR.getElem(k, k) * Tx[k] - nxnd_ * Tx[k] / weights[k]);
 	}
 
 }
@@ -1645,7 +1645,7 @@ MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, con
 		throw string("MumiISig constructor ERROR: vectorized data length not divisible by number of data points");
 	}
 #endif
-	const size_t d = yVec->size()/N;
+	const size_t d = yVec->size() / N;
 #ifndef PKG_DEBUG_OFF
 	if (vTheta->size()%d) {
 		throw string("MumiISig constructor ERROR: vectorized parameter set length not divisible by number of traits");
@@ -1654,25 +1654,25 @@ MumiISig::MumiISig(const vector<double> *yVec, const vector<double> *vTheta, con
 	Y_ = MatrixViewConst(yVec, 0, N, d);
 	const size_t Nln = (*hierInd_)[0].groupNumber();
 	A_   = MatrixViewConst(vTheta, 0, Nln, d);
-	Mp_  = MatrixViewConst(vTheta, Nln*d, nPops, d);
-	mu_  = MatrixViewConst(vTheta, (Nln+nPops)*d, 1, d);
-	Phi_ = MatrixViewConst(vTheta, (Nln+nPops+1)*d, Nln, nPops);
-	vLx_.resize(2*d*d, 0.0);
+	Mp_  = MatrixViewConst(vTheta, Nln * d, nPops, d);
+	mu_  = MatrixViewConst(vTheta, (Nln+nPops) * d, 1, d);
+	Phi_ = MatrixViewConst(vTheta, (Nln+nPops+1) * d, Nln, nPops);
+	vLx_.resize(2 * d * d, 0.0);
 	Le_ = MatrixView(&vLx_, 0, d, d);
-	La_ = MatrixView(&vLx_, d*d, d, d);
+	La_ = MatrixView(&vLx_, d * d, d, d);
 	for (size_t k = 0; k < d; k++) {
 		Le_.setElem(k, k, 1.0);
 		La_.setElem(k, k, 1.0);
 	}
-	size_t trLen = d*(d-1)/2;
+	size_t trLen = d * (d-1) / 2;
 	fTeInd_      = trLen;
 	fLaInd_      = trLen + d;
 	fTaInd_      = fLaInd_ + trLen;
 	fTpInd_      = fTaInd_ + d;
-	nxnd_        = nu0_*( nu0_ + 2.0*static_cast<double>(d) );
-	Nnd_         = static_cast<double>( Y_.getNrows() ) + nu0_ + 2.0*static_cast<double>(d);
-	NAnd_        = static_cast<double>( A_.getNrows() ) + nu0_ + 2.0*static_cast<double>(d);
-	NPnd_        = static_cast<double>(nPops) + nu0_ + 2.0*static_cast<double>(d);
+	nxnd_        = nu0_ * ( nu0_ + 2.0 * static_cast<double>(d) );
+	Nnd_         = static_cast<double>( Y_.getNrows() ) + nu0_ + 2.0 * static_cast<double>(d);
+	NAnd_        = static_cast<double>( A_.getNrows() ) + nu0_ + 2.0 * static_cast<double>(d);
+	NPnd_        = static_cast<double>(nPops) + nu0_ + 2.0 * static_cast<double>(d);
 }
 
 MumiISig::MumiISig(MumiISig &&in) {
@@ -1688,7 +1688,7 @@ MumiISig::MumiISig(MumiISig &&in) {
 		Phi_     = move(in.Phi_);
 		vLx_     = move(in.vLx_);
 		Le_      = MatrixView( &vLx_, 0, Y_.getNcols(), Y_.getNcols() );
-		La_      = MatrixView( &vLx_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
+		La_      = MatrixView( &vLx_, Y_.getNcols() * Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
 		fTeInd_  = in.fTeInd_;
 		fLaInd_  = in.fLaInd_;
 		fTaInd_  = in.fTaInd_;
@@ -1714,7 +1714,7 @@ MumiISig& MumiISig::operator=(MumiISig &&in){
 		Phi_     = move(in.Phi_);
 		vLx_     = move(in.vLx_);
 		Le_      = MatrixView( &vLx_, 0, Y_.getNcols(), Y_.getNcols() );
-		La_      = MatrixView( &vLx_, Y_.getNcols()*Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
+		La_      = MatrixView( &vLx_, Y_.getNcols() * Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
 		fTeInd_  = in.fTeInd_;
 		fLaInd_  = in.fLaInd_;
 		fTaInd_  = in.fTaInd_;
@@ -1746,7 +1746,7 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	// expand the element vector to make the L matrices
 	expandISvec_(viSig);
 	// Calculate the Y residuals
-	vector<double> vResid(Y_.getNcols()*Y_.getNrows(), 0.0);
+	vector<double> vResid(Y_.getNcols() * Y_.getNrows(), 0.0);
 	MatrixView mResid( &vResid, 0, Y_.getNrows(), Y_.getNcols() );
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
@@ -1761,13 +1761,13 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
 		double dp = 0.0;
 		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
-			dp += mResid.getElem(iRow, jCol)*mResid.getElem(iRow, jCol);
+			dp += mResid.getElem(iRow, jCol) * mResid.getElem(iRow, jCol);
 		}
-		eTrace += exp(viSig[fTeInd_ + jCol])*dp;
+		eTrace += exp(viSig[fTeInd_ + jCol]) * dp;
 	}
 
 	// backtransform the logit-p_jp and sum
-	vector<double> vP(Phi_.getNrows()*Phi_.getNcols(), 0.0);
+	vector<double> vP(Phi_.getNrows() * Phi_.getNcols(), 0.0);
 	MatrixView P( &vP, 0, Phi_.getNrows(), Phi_.getNcols() );
 	vector<double> pPopSum(Phi_.getNrows(), 0.0);
 	for (size_t m = 0; m < Phi_.getNcols(); m++) {
@@ -1785,7 +1785,7 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 
 	// Clear the Y residuals and re-use for A residuals
 	vResid.clear();
-	vResid.resize(A_.getNrows()*A_.getNcols(), 0.0);
+	vResid.resize(A_.getNrows() * A_.getNcols(), 0.0);
 	mResid = MatrixView( &vResid, 0, A_.getNrows(), A_.getNcols() );
 	vector<double> AtraceVec(A_.getNrows(), 0.0); // accumulate A trace values here
 	// calculate T_A
@@ -1805,11 +1805,11 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 		for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A_.getNrows(); iRow++) {
 				double rsd    = mResid.getElem(iRow, jCol);
-				locAtr[iRow] += Ta[jCol]*rsd*rsd;                                  // (A-mu_m)L_A T_A L_A^T(A - mu_p)^T
+				locAtr[iRow] += Ta[jCol] * rsd * rsd;                                  // (A-mu_m)L_A T_A L_A^T(A - mu_p)^T
 			}
 		}
 		for (size_t j = 0; j < A_.getNrows(); j++) {
-			AtraceVec[j] += P.getElem(j, m)*locAtr[j];                             // P_m(A-mu_m)L_A T_A L_A^T(A-mu_m)^T
+			AtraceVec[j] += P.getElem(j, m) * locAtr[j];                             // P_m(A-mu_m)L_A T_A L_A^T(A-mu_m)^T
 		}
 	}
 	double aTrace = 0.0;
@@ -1822,9 +1822,9 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 		double dp = 0.0;
 		for (size_t iRow = 0; iRow < Mp_.getNrows(); ++iRow) {
 			double diff = Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol);
-			dp += diff*diff;
+			dp += diff * diff;
 		}
-		trM += exp(viSig[fTpInd_ + jCol])*dp;
+		trM += exp(viSig[fTpInd_ + jCol]) * dp;
 	}
 	// Sum of log-determinants
 	double ldetSumE = 0.0;
@@ -1840,20 +1840,20 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	ldetSumP *= NPnd_;
 	// Calculate the prior components; k and m are as in the derivation document; doing the L_E and L_A in one pass
 	// first element has just the diagonal
-	double pTrace = log(nu0_*exp(viSig[fTeInd_]) + invAsq_) + log(nu0_*exp(viSig[fTaInd_]) + invAsq_);
+	double pTrace = log(nu0_ * exp(viSig[fTeInd_]) + invAsq_) + log(nu0_ * exp(viSig[fTaInd_]) + invAsq_);
 	for (size_t k = 1; k < Le_.getNcols(); k++) { // k starts from the second element (k=1)
 		double sE = 0.0;
 		double sA = 0.0;
 		for (size_t m = 0; m <= k - 1; m++) { // the <= is intentional; excluding only m = k
-			sE += exp(viSig[fTeInd_ + m])*Le_.getElem(k, m)*Le_.getElem(k, m);
-			sA += exp(viSig[fTaInd_ + m])*La_.getElem(k, m)*La_.getElem(k, m);
+			sE += exp(viSig[fTeInd_ + m]) * Le_.getElem(k, m) * Le_.getElem(k, m);
+			sA += exp(viSig[fTaInd_ + m]) * La_.getElem(k, m) * La_.getElem(k, m);
 		}
 		sE += exp(viSig[fTeInd_ + k]);
 		sA += exp(viSig[fTaInd_ + k]);
-		pTrace += log(nu0_*sE + invAsq_) + log(nu0_*sA + invAsq_) + log(nu0_*exp(viSig[fTpInd_ + k]) + invAsq_);
+		pTrace += log(nu0_ * sE + invAsq_) + log(nu0_ * sA + invAsq_) + log(nu0_ * exp(viSig[fTpInd_ + k]) + invAsq_);
 	}
-	pTrace *= nu0_ + 2.0*static_cast<double>( Y_.getNcols() );
-	return -0.5*(eTrace + aTrace + trM - ldetSumE - ldetSumA - ldetSumP + pTrace);
+	pTrace *= nu0_ + 2.0 * static_cast<double>( Y_.getNcols() );
+	return -0.5 * (eTrace + aTrace + trM - ldetSumE - ldetSumA - ldetSumP + pTrace);
 }
 
 void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const{
@@ -1864,7 +1864,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	}
 	grad.resize(viSig.size(), 0.0);
 	// Calculate the Y residuals
-	vector<double> vResid(Y_.getNcols()*Y_.getNrows(), 0.0);
+	vector<double> vResid(Y_.getNcols() * Y_.getNrows(), 0.0);
 	MatrixView mResid( &vResid, 0, Y_.getNrows(), Y_.getNcols() );
 	for (size_t jCol = 0; jCol  < Y_.getNcols(); ++jCol) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); ++ iRow) {
@@ -1872,10 +1872,10 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 			mResid.setElem(iRow, jCol, diff); // Y - ZA
 		}
 	}
-	vector<double> vRtR(Y_.getNcols()*Y_.getNcols(), 0.0);
+	vector<double> vRtR(Y_.getNcols() * Y_.getNcols(), 0.0);
 	MatrixView mRtR( &vRtR, 0, Y_.getNcols(), Y_.getNcols() );
 	mResid.syrk('l', 1.0, 0.0, mRtR);
-	vector<double> vRtRLT(Y_.getNcols()*Y_.getNcols(), 0.0);
+	vector<double> vRtRLT(Y_.getNcols() * Y_.getNcols(), 0.0);
 	MatrixView mRtRLT( &vRtRLT, 0, Y_.getNcols(), Y_.getNcols() );
 	Le_.symm('l', 'l', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_E; R = Y - ZA
 	// make a vector of T_X (provided values are on the log scale; will use for T_E and T_A)
@@ -1886,7 +1886,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	// mutiply by T_E (the whole matrix because I will need it for left-multiplication later)
 	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
 		for (size_t iRow = 0; iRow < Y_.getNcols(); iRow++) {
-			double prod = mRtRLT.getElem(iRow, jCol)*Tx[jCol];
+			double prod = mRtRLT.getElem(iRow, jCol) * Tx[jCol];
 			mRtRLT.setElem(iRow, jCol, prod);
 		}
 	}
@@ -1896,18 +1896,18 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	vector<double> weights(Y_.getNcols(), 0.0);                 // will become a d-vector of weights (each element corresponding to a row of L_X; the first element is weighted T_E[1,1])
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {   // nothing to be done for the last column (it only has a diagonal element)
 		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			double prod1 = Tx[jCol]*Le_.getElem(iRow, jCol);
+			double prod1 = Tx[jCol] * Le_.getElem(iRow, jCol);
 			vechLwX.push_back(prod1);
-			weights[iRow] += prod1*Le_.getElem(iRow, jCol); // unweighted for now
+			weights[iRow] += prod1 * Le_.getElem(iRow, jCol); // unweighted for now
 		}
 	}
 	for (size_t k = 0; k < Y_.getNcols(); k++) {
-		weights[k] = nu0_*(weights[k] + Tx[k]) + invAsq_;
+		weights[k] = nu0_ * (weights[k] + Tx[k]) + invAsq_;
 	}
 	size_t vechInd = 0;
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
 		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			vechLwX[vechInd] = vechLwX[vechInd]/weights[iRow];
+			vechLwX[vechInd] = vechLwX[vechInd] / weights[iRow];
 			vechInd++;
 		}
 	}
@@ -1915,7 +1915,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	vechInd = 0;
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
 		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			grad[vechInd] = -mRtRLT.getElem(iRow, jCol) - nxnd_*vechLwX[vechInd];
+			grad[vechInd] = -mRtRLT.getElem(iRow, jCol) - nxnd_ * vechLwX[vechInd];
 			vechInd++;
 		}
 	}
@@ -1924,13 +1924,12 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	mRtRLT.trm('l', 'l', true, true, 1.0, Le_);
 	// now sum everything and store the result in the gradient vector
 	for (size_t k = 0; k < Y_.getNcols(); k++) {
-		grad[fTeInd_ + k] = 0.5*(Nnd_ - mRtRLT.getElem(k, k) - nxnd_*Tx[k]/weights[k]);
+		grad[fTeInd_ + k] = 0.5 * (Nnd_ - mRtRLT.getElem(k, k) - nxnd_ * Tx[k] / weights[k]);
 	}
-	//
 	// L_A and T_A next
 	//
 	// backtransform the logit-p_jp and scale
-	vector<double> vP(Phi_.getNrows()*Phi_.getNcols(), 0.0);
+	vector<double> vP(Phi_.getNrows() * Phi_.getNcols(), 0.0);
 	MatrixView P( &vP, 0, Phi_.getNrows(), Phi_.getNcols() );
 	vector<double> pPopSum(Phi_.getNrows(), 0.0);
 	for (size_t m = 0; m < Phi_.getNcols(); m++) {
@@ -1942,20 +1941,20 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	}
 	for (size_t m = 0; m < Phi_.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-			double p = P.getElem(iRow, m)/pPopSum[iRow];
+			double p = P.getElem(iRow, m) / pPopSum[iRow];
 			P.setElem( iRow, m, sqrt(p) ); // square root so that I can use syrk() below
 		}
 	}
 
 	// Clear the Y residuals and re-use for A residuals
 	vResid.clear();
-	vResid.resize(A_.getNrows()*A_.getNcols(), 0.0);
+	vResid.resize(A_.getNrows() * A_.getNcols(), 0.0);
 	mResid = MatrixView( &vResid, 0, A_.getNrows(), A_.getNcols() );
 	fill(vRtR.begin(), vRtR.end(), 0.0); // zero out vRtR, we will be adding the pop matrices to it
 	for (size_t m = 0; m < Phi_.getNcols(); m++) {
 		for (size_t jCol = 0; jCol  < A_.getNcols(); ++jCol) {
 			for (size_t iRow = 0; iRow < A_.getNrows(); ++iRow) {
-				double diff =  P.getElem(iRow, m)*( A_.getElem(iRow, jCol) - Mp_.getElem(m, jCol) );
+				double diff =  P.getElem(iRow, m) * ( A_.getElem(iRow, jCol) - Mp_.getElem(m, jCol) );
 				mResid.setElem(iRow, jCol, diff); // sqrt(P[.p])(A - M[p.])
 			}
 		}
@@ -1968,7 +1967,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	// mutiply by T_A (the whole matrix because I will need it for left-multiplication later)
 	for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
 		for (size_t iRow = 0; iRow < A_.getNcols(); iRow++) {
-			double prod = mRtRLT.getElem(iRow, jCol)*Tx[jCol];
+			double prod = mRtRLT.getElem(iRow, jCol) * Tx[jCol];
 			mRtRLT.setElem(iRow, jCol, prod);
 		}
 	}
@@ -1976,19 +1975,19 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	vechInd = 0;
 	for (size_t jCol = 0; jCol < A_.getNcols() - 1; jCol++) {   // nothing to be done for the last column (it only has a diagonal element)
 		for (size_t iRow = jCol + 1; iRow < A_.getNcols(); iRow++) {
-			double prod1 = Tx[jCol]*La_.getElem(iRow, jCol);
+			double prod1 = Tx[jCol] * La_.getElem(iRow, jCol);
 			vechLwX[vechInd] = prod1;
-			weights[iRow] += prod1*La_.getElem(iRow, jCol); // unweighted for now
+			weights[iRow] += prod1 * La_.getElem(iRow, jCol); // unweighted for now
 			vechInd++;
 		}
 	}
 	for (size_t k = 0; k < A_.getNcols(); k++) {
-		weights[k] = nu0_*(weights[k] + Tx[k]) + invAsq_;
+		weights[k] = nu0_ * (weights[k] + Tx[k]) + invAsq_;
 	}
 	vechInd = 0;
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
 		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			vechLwX[vechInd] = vechLwX[vechInd]/weights[iRow];
+			vechLwX[vechInd] = vechLwX[vechInd] / weights[iRow];
 			vechInd++;
 		}
 	}
@@ -1996,7 +1995,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	vechInd = 0;
 	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {
 		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			grad[fLaInd_+vechInd] = -mRtRLT.getElem(iRow, jCol) - nxnd_*vechLwX[vechInd];
+			grad[fLaInd_+vechInd] = -mRtRLT.getElem(iRow, jCol) - nxnd_ * vechLwX[vechInd];
 			vechInd++;
 		}
 	}
@@ -2005,7 +2004,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	mRtRLT.trm('l', 'l', true, true, 1.0, La_);
 	// now sum everything and store the result in the gradient vector
 	for (size_t k = 0; k < A_.getNcols(); k++) {
-		grad[fTaInd_ + k] = 0.5*(NAnd_ - mRtRLT.getElem(k, k) - nxnd_*Tx[k]/weights[k]);
+		grad[fTaInd_ + k] = 0.5 * (NAnd_ - mRtRLT.getElem(k, k) - nxnd_ * Tx[k] / weights[k]);
 	}
 	// The T_P gradient
 	// Start with calculating the residual, replacing the old one
@@ -2021,11 +2020,11 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 		Tx[k] = exp(viSig[fTpInd_ + k]);
 	}
 	for (size_t k = 0; k < Mp_.getNcols(); k++) {
-		weights[k] = nu0_*Tx[k] + invAsq_;
+		weights[k] = nu0_ * Tx[k] + invAsq_;
 	}
 	// now sum everything and store the result in the gradient vector
 	for (size_t k = 0; k < Mp_.getNcols(); k++) {
-		grad[fTpInd_ + k] = 0.5*(NPnd_ - mRtR.getElem(k, k)*Tx[k] - nxnd_*Tx[k]/weights[k]);
+		grad[fTpInd_ + k] = 0.5 * (NPnd_ - mRtR.getElem(k, k) * Tx[k] - nxnd_ * Tx[k] / weights[k]);
 	}
 }
 
@@ -2039,30 +2038,30 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 		throw string("WrapMMM no-replication constructor ERROR: length of response vector (") + to_string( vY_.size() ) + string(") not divisible by number of traits (") + to_string(d) + string(")");
 	}
 #endif
-	const size_t N = vY_.size()/d;
+	const size_t N = vY_.size() / d;
 	// Calculate starting values for theta
 	Y_ = MatrixView(&vY_, 0, N, d);
 
-	vTheta_.resize( (Npop + 1)*d, 0.0 );    // add the inverse-covariance elements later
+	vTheta_.resize( (Npop + 1) * d, 0.0 );    // add the inverse-covariance elements later
 	fLaInd_ = vTheta_.size();
 	Mp_     = MatrixView(&vTheta_, 0, Npop, d);
-	MatrixView mu(&vTheta_, Npop*d, 1, d);
+	MatrixView mu(&vTheta_, Npop * d, 1, d);
 
 	vector<size_t> ind;
 	for (size_t m = 0; m < Npop; m++) {
-		for (size_t iLn = 0; iLn < N/Npop; iLn++) {
+		for (size_t iLn = 0; iLn < N / Npop; iLn++) {
 			ind.push_back(m);
 		}
 	}
 	Index popInd(ind);
-	vlnP_ = vector<double>(N*Npop, 0.0);
+	vlnP_ = vector<double>(N * Npop, 0.0);
 	lnP_  = MatrixView(&vlnP_, 0, N, Npop);
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			if (popInd.groupID(iRow) == m){
 				lnP_.setElem( iRow, m, log(0.95) );
 			} else {
-				lnP_.setElem( iRow, m, log( 0.05/static_cast<double>(Npop - 1) ) );
+				lnP_.setElem( iRow, m, log( 0.05 / static_cast<double>(Npop - 1) ) );
 			}
 		}
 	}
@@ -2075,7 +2074,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 		tstP << "\n";
 	}
 	tstP << "---------------\n";
-	vPhi_ = vector<double>(N*(Npop-1), 0.0);
+	vPhi_ = vector<double>(N * (Npop-1), 0.0);
 	Phi_  = MatrixView(&vPhi_, 0, N, Npop-1);
 	lnp2phi_();
 	Y_.colMeans(popInd, Mp_);
@@ -2098,12 +2097,12 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 
 	// Calculate starting precision matrix values; do that before adding noise to theta
 	//
-	const double Ninv = 1.0/static_cast<double>(N-1);
-	vector<double> vSig(d*d, 0.0);
+	const double Ninv = 1.0 / static_cast<double>(N - 1);
+	vector<double> vSig(d * d, 0.0);
 	MatrixView Sig(&vSig, 0, d, d);
 
 	// Y residual
-	vector<double> vZM(N*d, 0.0);
+	vector<double> vZM(N * d, 0.0);
 	MatrixView ZM(&vZM, 0, N, d);
 	Mp_.colExpand(popInd, ZM);
 	for (size_t jCol = 0; jCol < d; jCol++) {
@@ -2121,7 +2120,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 	}
 	for (size_t jCol = 0; jCol < d-1; jCol++) {
 		for (size_t iRow = jCol+1; iRow < d; iRow++) {
-			vTheta_.push_back( Sig.getElem(iRow, jCol)/(sqrT[iRow]*sqrT[jCol]) );
+			vTheta_.push_back( Sig.getElem(iRow, jCol) / (sqrT[iRow] * sqrT[jCol]) );
 		}
 	}
 	for (size_t k = 0; k < d; k++) {
@@ -2133,9 +2132,9 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop
 		double sSq = 0.0;
 		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) {
 			double diff = Mp_.getElem(iRow, jCol) - mu.getElem(0, jCol);
-			sSq += diff*diff;
+			sSq += diff * diff;
 		}
-		vTheta_.push_back( log(dNp/sSq) );
+		vTheta_.push_back( log(dNp / sSq) );
 	}
 	models_.push_back( new MumiNR(&vY_, &vlnP_, d, Npop, tau0, nu0, invAsq) );
 	models_.push_back( new MumiPNR(&vY_, &vTheta_, d, Npop, alphaPr) );
@@ -2157,15 +2156,15 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		throw string("WrapMMM constructor ERROR: length of response vector not divisible by data point number");
 	}
 #endif
-	const size_t d     = vY.size()/N;
+	const size_t d     = vY.size() / N;
 	const size_t Nln   = hierInd_[0].groupNumber();
-	const size_t Adim  = Nln*d;
-	const size_t Mpdim = Npop*d;
+	const size_t Adim  = Nln * d;
+	const size_t Mpdim = Npop * d;
 
 	// Calculate starting values for theta
 	Y_ = MatrixView(&vY_, 0, N, d);
 
-	vTheta_.resize(Adim + Mpdim + d + Nln*Npop, 0.0);
+	vTheta_.resize(Adim + Mpdim + d + Nln * Npop, 0.0);
 	A_  = MatrixView(&vTheta_, 0, Nln, d);
 	Mp_ = MatrixView(&vTheta_, Adim, Npop, d);
 	MatrixView mu(&vTheta_, Adim+Mpdim, 1, d);
@@ -2173,12 +2172,12 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	Phi_       = MatrixView(&vTheta_, PhiBegInd_, Nln, Npop);
 
 	Y_.colMeans(hierInd_[0], A_);  //  means to get A starting values
-	vector<double> vSig(d*d, 0.0);
+	vector<double> vSig(d * d, 0.0);
 	MatrixView Sig(&vSig, 0, d, d);
 
 	vector<size_t> ind;
 	for (size_t m = 0; m < Npop; m++) {
-		for (size_t iLn = 0; iLn < Nln/Npop; iLn++) {
+		for (size_t iLn = 0; iLn < Nln / Npop; iLn++) {
 			ind.push_back(m);
 		}
 	}
@@ -2218,9 +2217,9 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	for (size_t m = 0; m < Npop; m++) {
 		for (size_t iRow = 0; iRow < Nln; iRow++) {
 			if (popInd.groupID(iRow) == m){
-				Phi_.setElem( iRow, m, logit( 0.8 + 0.15*rng_.runif() ) );
+				Phi_.setElem( iRow, m, logit( 0.8 + 0.15 * rng_.runif() ) );
 			} else {
-				Phi_.setElem( iRow, m, logit( 0.1 + 0.15*rng_.runif() ) );
+				Phi_.setElem( iRow, m, logit( 0.1 + 0.15 * rng_.runif() ) );
 			}
 		}
 	}
@@ -2233,18 +2232,18 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 
 	// Calculate starting precision matrix values; do that before adding noise to theta
 	//
-	size_t trLen     = d*(d-1)/2;
+	size_t trLen     = d * (d-1) / 2;
 	fTeInd_          = trLen;
 	fLaInd_          = trLen + d;
 	fTaInd_          = fLaInd_ + trLen;
-	const double n   = 1.0/static_cast<double>(N-1);
-	const double nLN = 1.0/static_cast<double>(Nln-1);
+	const double n   = 1.0 / static_cast<double>(N-1);
+	const double nLN = 1.0 / static_cast<double>(Nln-1);
 	const double nP  = static_cast<double>(Npop-1); // not reciprocal on purpose
-	vLa_.resize(d*d, 0.0);
+	vLa_.resize(d * d, 0.0);
 	La_ = MatrixView(&vLa_, 0, d, d);
 
 	// Y residual
-	vector<double> vZA(N*d, 0.0);
+	vector<double> vZA(N * d, 0.0);
 	MatrixView ZA(&vZA, 0, N, d);
 	A_.colExpand(hierInd_[0], ZA);
 	for (size_t jCol = 0; jCol < d; jCol++) {
@@ -2263,14 +2262,14 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	}
 	for (size_t jCol = 0; jCol < d-1; jCol++) {
 		for (size_t iRow = jCol+1; iRow < d; iRow++) {
-			vISig_.push_back( Sig.getElem(iRow, jCol)/(sqrT[iRow]*sqrT[jCol]) );
+			vISig_.push_back( Sig.getElem(iRow, jCol) / (sqrT[iRow] * sqrT[jCol]) );
 		}
 	}
 	for (size_t k = 0; k < d; k++) {
 		vISig_.push_back( log( Sig.getElem(k, k) ) );
 	}
 	// A precision matrix
-	vZA.resize(Nln*d);
+	vZA.resize(Nln * d);
 	MatrixView ZpMp(&vZA, 0, Nln, d);
 	Mp_.colExpand(popInd, ZpMp);
 	for (size_t jCol = 0; jCol < d ; jCol++) {
@@ -2287,7 +2286,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	}
 	for (size_t jCol = 0; jCol < d-1; jCol++) {
 		for (size_t iRow = jCol+1; iRow < d; iRow++) {
-			vISig_.push_back( Sig.getElem(iRow, jCol)/(sqrT[iRow]*sqrT[jCol]) );
+			vISig_.push_back( Sig.getElem(iRow, jCol) / (sqrT[iRow] * sqrT[jCol]) );
 		}
 	}
 	for (size_t k = 0; k < d; k++) {
@@ -2298,9 +2297,9 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		double sSq = 0.0;
 		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) {
 			double diff = Mp_.getElem(iRow, jCol) - mu.getElem(0, jCol);
-			sSq += diff*diff;
+			sSq += diff * diff;
 		}
-		vISig_.push_back( log(nP/sSq) );
+		vISig_.push_back( log(nP / sSq) );
 	}
 	expandLa_();
 	vAresid_.resize(Adim, 0.0);
@@ -2309,10 +2308,10 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	// add noise
 	/*
 	for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) { // the Phi values already have added noise
-		vTheta_[iTht] += 0.5*rng_.rnorm();
+		vTheta_[iTht] += 0.5 * rng_.rnorm();
 	}
 	for (auto &s : vISig_) {
-		s += 0.5*rng_.rnorm();
+		s += 0.5 * rng_.rnorm();
 	}
 	*/
 	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Npop, alphaPr, tauPrPhi) );
@@ -2326,7 +2325,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : WrapMMM(vY, y2line, Npop, tauPrPhi, alphaPr, tau0, nu0, invAsq) {
 	for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
 		for (size_t iRow = 0; iRow < hierInd_[0].size(); iRow++) {
-			if (missIDs[jCol*hierInd_[0].size() + iRow]) {
+			if (missIDs[jCol * hierInd_[0].size() + iRow]) {
 				missInd_[iRow].push_back(jCol); // if the iRow element does not yet exist, it will be created
 			}
 		}
@@ -2351,14 +2350,14 @@ void WrapMMM::imputeMissing_(){
 		for (size_t p = fTeInd_; p < fLaInd_; p++) {
 			Te.push_back( exp(vISig_[p]) );
 		}
-		vector<double> vSigI(A_.getNcols()*A_.getNcols(), 0.0);
+		vector<double> vSigI(A_.getNcols() * A_.getNcols(), 0.0);
 		MatrixView SigI( &vSigI, 0, A_.getNcols(), A_.getNcols() );
 		// fill out the matrix; the Le lower triangle is the first [0,fTeInd_) elements on vISig_
 		// there may be room for optimization here: we are working by row, while the matrix is stored by column, precluding vectorization
 		// first row and column are trivial because l_11 == 1.0 and all other row elements are 0.0
 		vSigI[0] = Te[0];
 		for (size_t i = 1; i < SigI.getNcols(); i++) {
-			double prd = Te[0]*vISig_[i-1];
+			double prd = Te[0] * vISig_[i-1];
 			SigI.setElem(i, 0, prd); // only need the lower triangle for chol()
 		}
 		size_t dPr = SigI.getNcols() - 1;
@@ -2366,7 +2365,7 @@ void WrapMMM::imputeMissing_(){
 			double diagVal = Te[jCol];
 			size_t ind     = jCol - 1;
 			for (size_t k = 0; k < jCol; k++) {
-				diagVal += Te[k]*vISig_[ind]*vISig_[ind];
+				diagVal += Te[k] * vISig_[ind] * vISig_[ind];
 				ind     += dPr - k - 1;
 			}
 			SigI.setElem(jCol, jCol, diagVal);
@@ -2375,11 +2374,11 @@ void WrapMMM::imputeMissing_(){
 				size_t cInd = jCol - 1; // the column (L^T) index
 				size_t rInd = iRow - 1; // the row (L) index
 				for (size_t k = 0; k < jCol; k++) { // stopping at jCol because that is the shorter non-0 run
-					val  += Te[k]*vISig_[rInd]*vISig_[cInd];
+					val  += Te[k] * vISig_[rInd] * vISig_[cInd];
 					cInd += dPr - k - 1;
 					rInd += dPr - k - 1;
 				}
-				val += Te[jCol]*vISig_[rInd];
+				val += Te[jCol] * vISig_[rInd];
 				SigI.setElem(iRow, jCol, val); // only need the lower triangle for chol()
 			}
 		}
@@ -2391,8 +2390,8 @@ void WrapMMM::imputeMissing_(){
 		SigI.pseudoInv(Sig);
 		// go through all rows of Y_ with missing data
 		for (auto &missRow : missInd_) {
-			//make Sig_aa^-1 (corresponding to the absent traits)
-			vector<double> vSigAA( missRow.second.size()*missRow.second.size() );
+			// make Sig_aa^-1 (corresponding to the absent traits)
+			vector<double> vSigAA( missRow.second.size() * missRow.second.size() );
 			MatrixView SigAA( &vSigAA, 0, missRow.second.size(), missRow.second.size() );
 			for (size_t jNew = 0; jNew < missRow.second.size(); jNew++) {
 				for (size_t iNew = jNew; iNew < missRow.second.size(); iNew++) { // only need the lower triangle for chol()
@@ -2438,7 +2437,7 @@ void WrapMMM::imputeMissing_(){
 			}
 			MatrixView muAmat(&muA, 0, muA.size(), 1);
 			MatrixView AMdiff(&diffMuP, 0, diffMuP.size(), 1);
-			vector<double> vSigProd(SigAP.getNrows()*SigPP.getNcols(), 0.0);
+			vector<double> vSigProd(SigAP.getNrows() * SigPP.getNcols(), 0.0);
 			MatrixView SigProd( &vSigProd, 0, SigAP.getNrows(), SigPP.getNcols() );
 			SigAP.symm('l', 'r', 1.0, SigPP, 0.0, SigProd); // Sig_apSig_pp^-1
 			AMdiff.gemm(false, 1.0, SigProd, false, 1.0, muAmat);
@@ -2470,9 +2469,9 @@ void WrapMMM::lnp2phi_(){
 	}
 	for (size_t m = 0; m < Phi_.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-			double y = exp( 0.5*lnP_.getElem(iRow, m) );
-			y        = sin( acos(y/sSq[iRow]) );
-			Phi_.setElem( iRow, m, nuc_.logit(y*y) );
+			double y = exp( 0.5 * lnP_.getElem(iRow, m) );
+			y        = sin( acos(y / sSq[iRow]) );
+			Phi_.setElem( iRow, m, nuc_.logit(y * y) );
 		}
 	}
 }
@@ -2480,13 +2479,13 @@ void WrapMMM::lnp2phi_(){
 void WrapMMM::expandLa_(){
 	vector <double> Ta;
 	for (size_t k = fTaInd_; k < fTaInd_ + La_.getNcols(); k++) {
-		Ta.push_back( exp(0.5*vISig_[k]) );
+		Ta.push_back( exp(0.5 * vISig_[k]) );
 	}
 	size_t aInd = fLaInd_;                                             // index of the La lower triangle in the input vector
 	for (size_t jCol = 0; jCol < La_.getNcols(); jCol++) {             // the last column is all 0, except the last element = Ta[d]
 		La_.setElem(jCol, jCol, Ta[jCol]);
 		for (size_t iRow = jCol + 1; iRow < La_.getNcols(); iRow++) {
-			La_.setElem(iRow, jCol, vISig_[aInd]*Ta[jCol]);
+			La_.setElem(iRow, jCol, vISig_[aInd] * Ta[jCol]);
 			aInd++;
 		}
 	}
@@ -2556,7 +2555,7 @@ double WrapMMM::rowDistance_(const MatrixView &m1, const size_t &row1, const Mat
 	double dist = 0.0;
 	for (size_t jCol = 0; jCol < m1.getNcols(); jCol++) {
 		double diff = m1.getElem(row1, jCol) - m2.getElem(row2, jCol);
-		dist += diff*diff;
+		dist += diff * diff;
 	}
 	return sqrt(dist);
 }
@@ -2615,7 +2614,7 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 				nDiff++;
 			}
 		}
-		if ( ( nDiff/static_cast<double>( X.getNrows() ) ) <= 0.1 ) { // fewer than 10% of assignments changed
+		if ( ( nDiff / static_cast<double>( X.getNrows() ) ) <= 0.1 ) { // fewer than 10% of assignments changed
 			break;
 		}
 	}
