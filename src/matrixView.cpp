@@ -1509,13 +1509,16 @@ void MatrixView::rowSumsMiss(vector<double> &sums) const{
 void MatrixView::rowSums(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixView::rowSums(const Index &, MatrixView &)");
+		throw string("ERROR: factor length not the same as number of columns in calling matrix in MatrixView::rowSums(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixView::rowSums(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Ncol_) {
 		throw string("ERROR: Index group number does not equal output column number in MatrixView::rowSums(const Index &, MatrixView &)");
+	}
+	if (Nrow_ != out.Nrow_) {
+		throw string("ERROR: unequal matrix row numbers in MatrixView::rowSums(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
@@ -1525,7 +1528,7 @@ void MatrixView::rowSums(const Index &ind, MatrixView &out) const{
 		for (auto &f : ind[newCol]) {
 			// summing the row elements of the current matrix with the group of columns
 			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-				out.data_->data()[out.idx_ + ind.groupNumber() * newCol + iRow] += data_->data()[idx_ + Nrow_ * f + iRow];
+				out.data_->data()[out.idx_ + Nrow_ * newCol + iRow] += data_->data()[idx_ + Nrow_ * f + iRow];
 			}
 		}
 	}
@@ -1533,13 +1536,16 @@ void MatrixView::rowSums(const Index &ind, MatrixView &out) const{
 void MatrixView::rowSumsMiss(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixView::rowSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: factor length not the same as number of columns in calling matrix in MatrixView::rowSumsMiss(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixView::rowSumsMiss(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Ncol_) {
 		throw string("ERROR: Index group number does not equal output column number in MatrixView::rowSumsMiss(const Index &, MatrixView &)");
+	}
+	if (Nrow_ != out.Nrow_) {
+		throw string("ERROR: unequal matrix row numbers in MatrixView::rowSumsMiss(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
@@ -1551,7 +1557,7 @@ void MatrixView::rowSumsMiss(const Index &ind, MatrixView &out) const{
 			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
 				const size_t addInd = idx_ + Nrow_ * f + iRow;
 				if ( !isnan(data_->data()[addInd]) ) {
-					out.data_->data()[out.idx_ + ind.groupNumber() * newCol + iRow] += data_->data()[addInd];
+					out.data_->data()[out.idx_ + Nrow_ * newCol + iRow] += data_->data()[addInd];
 				}
 			}
 		}
@@ -1590,13 +1596,16 @@ void MatrixView::rowMeansMiss(vector<double> &means) const{
 void MatrixView::rowMeans(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixView::rowMeans(const Index &, MatrixView &)");
+		throw string("ERROR: factor length not the same as number of columns in calling matrix in MatrixView::rowMeans(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixView::rowMeans(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Ncol_) {
 		throw string("ERROR: Index group number does not equal output column number in MatrixView::rowMeans(const Index &, MatrixView &)");
+	}
+	if (Nrow_ != out.Nrow_) {
+		throw string("ERROR: unequal matrix row numbers in MatrixView::rowMeans(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
@@ -1607,7 +1616,7 @@ void MatrixView::rowMeans(const Index &ind, MatrixView &out) const{
 		for (auto &f : ind[newCol]) {
 			// summing the row elements of the current matrix with the group of columns
 			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-				const size_t curInd = out.idx_ + ind.groupNumber() * newCol + iRow;
+				const size_t curInd = out.idx_ + Nrow_ * newCol + iRow;
 				out.data_->data()[curInd] += (data_->data()[idx_ + Nrow_ * f + iRow] - out.data_->data()[curInd]) / denom;
 			}
 			denom += 1.0;
@@ -1617,13 +1626,16 @@ void MatrixView::rowMeans(const Index &ind, MatrixView &out) const{
 void MatrixView::rowMeansMiss(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixView::rowMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: factor length not the same as number of columns in calling matrix in MatrixView::rowMeansMiss(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixView::rowMeansMiss(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Ncol_) {
 		throw string("ERROR: Index group number does not equal output column number in MatrixView::rowMeansMiss(const Index &, MatrixView &)");
+	}
+	if (Nrow_ != out.Nrow_) {
+		throw string("ERROR: unequal matrix row numbers in MatrixView::rowMeansMiss(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
@@ -1634,7 +1646,7 @@ void MatrixView::rowMeansMiss(const Index &ind, MatrixView &out) const{
 		for (auto &f : ind[newCol]) {
 			// summing the row elements of the current matrix with the group of columns
 			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-				const size_t curInd = out.idx_ + ind.groupNumber() * newCol + iRow;
+				const size_t curInd = out.idx_ + Nrow_ * newCol + iRow;
 				const size_t datInd = idx_ + Nrow_ * f + iRow;
 				if ( !isnan(data_->data()[datInd]) ) {
 					out.data_->data()[curInd] += (data_->data()[datInd] - out.data_->data()[curInd]) / denom[iRow];
@@ -1699,13 +1711,16 @@ void MatrixView::colSumsMiss(vector<double> &sums) const{
 void MatrixView::colSums(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in MatrixView::colSums(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixView::colSums(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixView::colSums(const Index &, MatrixView &)");
 	}
 	if ( (ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
 		throw string("ERROR: incorrect Index group number in MatrixView::colSums(const Index &, MatrixView &)");
+	}
+	if (Ncol_ != out.Ncol_){
+		throw string("ERROR: unequal numbers of columns in MatrixView::colSums(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -1724,13 +1739,16 @@ void MatrixView::colSums(const Index &ind, MatrixView &out) const{
 void MatrixView::colSumsMiss(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in MatrixView::colSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixView::colSumsMiss(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixView::colSumsMiss(const Index &, MatrixView &)");
 	}
 	if ( (ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
 		throw string("ERROR: incorrect Index group number in MatrixView::colSumsMiss(const Index &, MatrixView &)");
+	}
+	if (Ncol_ != out.Ncol_){
+		throw string("ERROR: unequal numbers of columns in MatrixView::colSumsMiss(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -1781,13 +1799,16 @@ void MatrixView::colMeansMiss(vector<double> &means) const{
 void MatrixView::colMeans(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in MatrixView::colMeans(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixView::colMeans(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixView::colMeans(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Nrow_) {
 		throw string("ERROR: incorrect Index group number in MatrixView::colMeans(const Index &, MatrixView &)");
+	}
+	if (Ncol_ != out.Ncol_) {
+		throw string("ERROR: unequal number of columns in MatrixView::colMeans(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -1807,13 +1828,16 @@ void MatrixView::colMeans(const Index &ind, MatrixView &out) const{
 void MatrixView::colMeansMiss(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in MatrixView::colMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixView::colMeansMiss(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixView::colMeansMiss(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Nrow_) {
 		throw string("ERROR: incorrect Index group number in MatrixView::colMeansMiss(const Index &, MatrixView &)");
+	}
+	if (Ncol_ != out.Ncol_) {
+		throw string("ERROR: unequal number of columns in MatrixView::colMeansMiss(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -2880,16 +2904,20 @@ void MatrixViewConst::rowSumsMiss(vector<double> &sums) const{
 		}
 	}
 }
+
 void MatrixViewConst::rowSums(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixViewConst::rowSums(const Index &, MatrixView &)");
+		throw string("ERROR: factor length not the same as number of columns in calling matrix in MatrixViewConst::rowSums(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixViewConst::rowSums(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Ncol_) {
 		throw string("ERROR: Index group number does not equal output column number in MatrixViewConst::rowSums(const Index &, MatrixView &)");
+	}
+	if (Nrow_ != out.Nrow_) {
+		throw string("ERROR: unequal matrix row numbers in MatrixViewConst::rowSums(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
@@ -2899,22 +2927,24 @@ void MatrixViewConst::rowSums(const Index &ind, MatrixView &out) const{
 		for (auto &f : ind[newCol]) {
 			// summing the row elements of the current matrix with the group of columns
 			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-				out.data_->data()[out.idx_ + ind.groupNumber() * newCol + iRow] += data_->data()[idx_ + Nrow_ * f + iRow];
+				out.data_->data()[out.idx_ + Nrow_ * newCol + iRow] += data_->data()[idx_ + Nrow_ * f + iRow];
 			}
 		}
 	}
-
 }
 void MatrixViewConst::rowSumsMiss(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixViewConst::rowSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: factor length not the same as number of columns in calling matrix in MatrixViewConst::rowSumsMiss(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixViewConst::rowSumsMiss(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Ncol_) {
 		throw string("ERROR: Index group number does not equal output column number in MatrixViewConst::rowSumsMiss(const Index &, MatrixView &)");
+	}
+	if (Nrow_ != out.Nrow_) {
+		throw string("ERROR: unequal matrix row numbers in MatrixViewConst::rowSumsMiss(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
@@ -2926,7 +2956,7 @@ void MatrixViewConst::rowSumsMiss(const Index &ind, MatrixView &out) const{
 			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
 				const size_t addInd = idx_ + Nrow_ * f + iRow;
 				if ( !isnan(data_->data()[addInd]) ) {
-					out.data_->data()[out.idx_ + ind.groupNumber() * newCol + iRow] += data_->data()[addInd];
+					out.data_->data()[out.idx_ + Nrow_ * newCol + iRow] += data_->data()[addInd];
 				}
 			}
 		}
@@ -2962,16 +2992,20 @@ void MatrixViewConst::rowMeansMiss(vector<double> &means) const{
 		}
 	}
 }
+
 void MatrixViewConst::rowMeans(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixViewConst::rowMeans(const Index &, MatrixView &)");
+		throw string("ERROR: factor length not the same as number of columns in calling matrix in MatrixViewConst::rowMeans(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::rowMeans(const Index &, MatrixView &)");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::rowMeans(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Ncol_) {
 		throw string("ERROR: Index group number does not equal output column number in MatrixViewConst::rowMeans(const Index &, MatrixView &)");
+	}
+	if (Nrow_ != out.Nrow_) {
+		throw string("ERROR: unequal matrix row numbers in MatrixViewConst::rowMeans(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
@@ -2982,24 +3016,26 @@ void MatrixViewConst::rowMeans(const Index &ind, MatrixView &out) const{
 		for (auto &f : ind[newCol]) {
 			// summing the row elements of the current matrix with the group of columns
 			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-				out.data_->data()[out.idx_ + ind.groupNumber() * newCol + iRow] +=
-						(data_->data()[idx_ + Nrow_ * f + iRow] - out.data_->data()[out.idx_ + ind.groupNumber() * newCol + iRow]) / denom;
+				const size_t curInd = out.idx_ + Nrow_ * newCol + iRow;
+				out.data_->data()[curInd] += (data_->data()[idx_ + Nrow_ * f + iRow] - out.data_->data()[curInd]) / denom;
 			}
 			denom += 1.0;
 		}
 	}
-
 }
 void MatrixViewConst::rowMeansMiss(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: Factor length not the same as number of columns in calling matrix in MatrixViewConst::rowMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: factor length not the same as number of columns in calling matrix in MatrixViewConst::rowMeansMiss(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixViewConst::rowMeansMiss(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Ncol_) || (Nrow_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Ncol_) {
 		throw string("ERROR: Index group number does not equal output column number in MatrixViewConst::rowMeansMiss(const Index &, MatrixView &)");
+	}
+	if (Nrow_ != out.Nrow_) {
+		throw string("ERROR: unequal matrix row numbers in MatrixViewConst::rowMeansMiss(const Index &, MatrixView &)");
 	}
 #endif
 	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
@@ -3010,7 +3046,7 @@ void MatrixViewConst::rowMeansMiss(const Index &ind, MatrixView &out) const{
 		for (auto &f : ind[newCol]) {
 			// summing the row elements of the current matrix with the group of columns
 			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-				const size_t curInd = out.idx_ + ind.groupNumber() * newCol + iRow;
+				const size_t curInd = out.idx_ + Nrow_ * newCol + iRow;
 				const size_t datInd = idx_ + Nrow_ * f + iRow;
 				if ( !isnan(data_->data()[datInd]) ) {
 					out.data_->data()[curInd] += (data_->data()[datInd] - out.data_->data()[curInd]) / denom[iRow];
@@ -3075,13 +3111,16 @@ void MatrixViewConst::colSumsMiss(vector<double> &sums) const{
 void MatrixViewConst::colSums(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in MatrixViewConst::colSums(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixViewConst::colSums(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixViewConst::colSums(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Nrow_) {
 		throw string("ERROR: incorrect Index group number in MatrixViewConst::colSums(const Index &, MatrixView &)");
+	}
+	if (Ncol_ != out.Ncol_) {
+		throw string("ERROR: unequal column numbers in MatrixViewConst::colSums(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -3101,13 +3140,16 @@ void MatrixViewConst::colSums(const Index &ind, MatrixView &out) const{
 void MatrixViewConst::colSumsMiss(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in MatrixViewConst::colSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixViewConst::colSumsMiss(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixViewConst::colSumsMiss(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Nrow_) {
 		throw string("ERROR: incorrect Index group number in MatrixViewConst::colSumsMiss(const Index &, MatrixView &)");
+	}
+	if (Ncol_ != out.Ncol_) {
+		throw string("ERROR: unequal column numbers in MatrixViewConst::colSumsMiss(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -3158,13 +3200,16 @@ void MatrixViewConst::colMeansMiss(vector<double> &means) const{
 void MatrixViewConst::colMeans(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in MatrixViewConst::colMeans(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixViewConst::colMeans(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero in MatrixViewConst::colMeans(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Nrow_) {
 		throw string("ERROR: incorrect Index group number in MatrixViewConst::colMeans(const Index &, MatrixView &)");
+	}
+	if (Ncol_ != out.Ncol_) {
+		throw string("ERROR: unequal number of columns in MatrixViewConst::colMeans(const Index &, MatrixView &)");
 	}
 #endif
 
@@ -3185,13 +3230,16 @@ void MatrixViewConst::colMeans(const Index &ind, MatrixView &out) const{
 void MatrixViewConst::colMeansMiss(const Index &ind, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: Wrong total length of Index in MatrixViewConst::colMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixViewConst::colMeansMiss(const Index &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
 		throw string("ERROR: one of the dimensions is zero MatrixViewConst::colMeansMiss(const Index &, MatrixView &)");
 	}
-	if ( (ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
+	if (ind.groupNumber() != out.Nrow_) {
 		throw string("ERROR: incorrect Index group number in MatrixViewConst::colMeansMiss(const Index &, MatrixView &)");
+	}
+	if (Ncol_ != out.Ncol_) {
+		throw string("ERROR: unequal number of columns in MatrixViewConst::colMeansMiss(const Index &, MatrixView &)");
 	}
 #endif
 

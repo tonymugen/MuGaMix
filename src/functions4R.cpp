@@ -35,17 +35,30 @@
 
 #include <Rcpp.h>
 
-#include "Rcpp/Named.h"
 #include "matrixView.hpp"
 #include "mumimo.hpp"
 #include "gmmvb.hpp"
+#include "index.hpp"
 
 //[[Rcpp::export(name="tstMiss")]]
-Rcpp::List tstMiss(std::vector<double> &inVec, const int32_t &nRow, const int32_t &nCol){
-	BayesicSpace::MatrixView test(&inVec, 0, nRow, nCol);
-	std::vector<double> out;
-	test.rowSumsMiss(out);
-	return Rcpp::List::create(Rcpp::Named("out", out));
+Rcpp::List tstMiss(std::vector<double> &inVec, const int32_t &nRow, const int32_t &nCol, const std::vector<int32_t> &fac, const std::vector<int32_t> &missInd){
+	std::vector<size_t> stFac;
+	for (auto &f : fac){
+		stFac.push_back( static_cast<size_t>(f) );
+	}
+	for (auto &m : missInd){
+		inVec[static_cast<size_t>(m)] = std::nan("");
+	}
+	BayesicSpace::Index tstInd(stFac);
+	BayesicSpace::MatrixViewConst test(&inVec, 0, nRow, nCol);
+	std::vector<double> vOut(nCol * tstInd.groupNumber(), 0.0);
+	BayesicSpace::MatrixView Out( &vOut, 0, tstInd.groupNumber(), nCol );
+	try {
+		test.colMeansMiss(stFac, Out);
+	} catch (std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("out", vOut));
 }
 
 //[[Rcpp::export(name="testLpostNR")]]

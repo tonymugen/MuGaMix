@@ -6,15 +6,17 @@
 using namespace Rcpp;
 
 // tstMiss
-Rcpp::List tstMiss(std::vector<double>& inVec, const int32_t& nRow, const int32_t& nCol);
-RcppExport SEXP _MuGaMix_tstMiss(SEXP inVecSEXP, SEXP nRowSEXP, SEXP nColSEXP) {
+Rcpp::List tstMiss(std::vector<double>& inVec, const int32_t& nRow, const int32_t& nCol, const std::vector<int32_t>& fac, const std::vector<int32_t>& missInd);
+RcppExport SEXP _MuGaMix_tstMiss(SEXP inVecSEXP, SEXP nRowSEXP, SEXP nColSEXP, SEXP facSEXP, SEXP missIndSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< std::vector<double>& >::type inVec(inVecSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type nRow(nRowSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type nCol(nColSEXP);
-    rcpp_result_gen = Rcpp::wrap(tstMiss(inVec, nRow, nCol));
+    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type fac(facSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type missInd(missIndSEXP);
+    rcpp_result_gen = Rcpp::wrap(tstMiss(inVec, nRow, nCol, fac, missInd));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -320,7 +322,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_MuGaMix_tstMiss", (DL_FUNC) &_MuGaMix_tstMiss, 3},
+    {"_MuGaMix_tstMiss", (DL_FUNC) &_MuGaMix_tstMiss, 5},
     {"_MuGaMix_testLpostNR", (DL_FUNC) &_MuGaMix_testLpostNR, 8},
     {"_MuGaMix_testLpostP", (DL_FUNC) &_MuGaMix_testLpostP, 8},
     {"_MuGaMix_testLpostLocNR", (DL_FUNC) &_MuGaMix_testLpostLocNR, 8},
