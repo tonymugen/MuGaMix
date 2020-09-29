@@ -35,31 +35,9 @@
 
 #include <Rcpp.h>
 
-#include "matrixView.hpp"
 #include "mumimo.hpp"
 #include "gmmvb.hpp"
 #include "index.hpp"
-
-//[[Rcpp::export(name="tstMiss")]]
-Rcpp::List tstMiss(std::vector<double> &inVec, const int32_t &nRow, const int32_t &nCol, const std::vector<int32_t> &fac, const std::vector<int32_t> &missInd){
-	std::vector<size_t> stFac;
-	for (auto &f : fac){
-		stFac.push_back( static_cast<size_t>(f) );
-	}
-	for (auto &m : missInd){
-		inVec[static_cast<size_t>(m)] = std::nan("");
-	}
-	BayesicSpace::Index tstInd(stFac);
-	BayesicSpace::MatrixViewConst test(&inVec, 0, nRow, nCol);
-	std::vector<double> vOut(nCol * tstInd.groupNumber(), 0.0);
-	BayesicSpace::MatrixView Out( &vOut, 0, tstInd.groupNumber(), nCol );
-	try {
-		test.colMeansMiss(stFac, Out);
-	} catch (std::string problem) {
-		Rcpp::stop(problem);
-	}
-	return Rcpp::List::create(Rcpp::Named("out", vOut));
-}
 
 //[[Rcpp::export(name="testLpostNR")]]
 Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &P, const int32_t &ind, const double &limit, const double &incr){
@@ -374,6 +352,81 @@ Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_
 	}
 	if (ppRatio <= 0.0) {
 		Rcpp::stop("Variance ratio must be positive");
+	}
+	std::vector<double> vPopMn;
+	std::vector<double> vSm;
+	std::vector<double> Nm;
+	std::vector<double> r;
+	std::vector<double> lPost;
+	double dic = 0.0;
+	try {
+		BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
+		vbModel.fitModel(lPost, dic);
+		for (int iRep = 1; iRep < nReps; iRep++) {
+			std::vector<double> vPopMnLoc;
+			std::vector<double> vSmLoc;
+			std::vector<double> NmLoc;
+			std::vector<double> rLoc;
+			std::vector<double> lPostLoc;
+			double dicLoc = 0.0;
+
+			BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMnLoc, &vSmLoc, &rLoc, &NmLoc);
+			vbModel.fitModel(lPostLoc, dicLoc);
+			if (dicLoc < dic) { // if we found a better DIC
+				vPopMn = vPopMnLoc;
+				vSm    = vSmLoc;
+				Nm     = NmLoc;
+				r      = rLoc;
+				dic    = dicLoc;
+			}
+		}
+	} catch (std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("popMeans", vPopMn), Rcpp::Named("covariances", vSm), Rcpp::Named("effNm", Nm), Rcpp::Named("p", r), Rcpp::Named("DIC", dic));
+}
+
+//' Variational Bayes model fit with missing data
+//'
+//' Fits a Gaussian mixture model using variational Bayes. Allows missing data. Missing values are marked with an integer vector that stores base-0 indexes of the messing values in the vectorized data matrix.
+//'
+//' @param yVec    vectorized data matrix
+//' @param missInd missing values indexes (base-0)
+//' @param d       number of traits
+//' @param nPop    number of populations
+//' @param alphaPr prior population size
+//' @param sigSqPr prior variance
+//' @param ppRatio population to error covariance ratio
+//' @param nReps   number of model fit attempts before picking the best fit
+//' @return list containing population means (\code{popMeans}), covariances (\code{covariances}), effective population sizes (\code{effNm}), population assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
+//'
+//' @keywords internal
+//'
+//[[Rcpp::export(name="vbFit")]]
+Rcpp::List vbFitMiss(std::vector<double> &yVec, const std::vector<int32_t> &missInd, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &sigSqPr, const double &ppRatio, const int32_t nReps){
+	if (nPop <= 1) {
+		Rcpp::stop("Number of populations must be greater than 1");
+	}
+	if (d <= 0) {
+		Rcpp::stop("Number of traits must be non-negative");
+	}
+	if (nReps <= 0) {
+		Rcpp::stop("Number of replicate runs must be positive");
+	}
+	if (alphaPr <= 0.0) {
+		Rcpp::stop("Prior population size must be positive");
+	}
+	if (sigSqPr <= 0.0) {
+		Rcpp::stop("Prior variance must be positive");
+	}
+	if (ppRatio <= 0.0) {
+		Rcpp::stop("Variance ratio must be positive");
+	}
+	for (auto &i : missInd){
+		if (i < 0) {
+			Rcpp::stop("Negative value in the missing data index");
+		}
+		yVec[i] = std::nan("");
 	}
 	std::vector<double> vPopMn;
 	std::vector<double> vSm;

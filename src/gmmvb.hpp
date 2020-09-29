@@ -93,7 +93,7 @@ namespace BayesicSpace {
 		 * \param[out] logPost vector of lower bounds
 		 * \param[out] dic the DIC value
 		 */
-		void fitModel(vector<double> &logPost, double &dic);
+		virtual void fitModel(vector<double> &logPost, double &dic);
 	protected:
 		/** \brief Pointer to vectorized data matrix */
 		const vector<double> *yVec_;
@@ -218,6 +218,14 @@ namespace BayesicSpace {
 		 * \return target object
 		 */
 		GmmVBmiss& operator=(GmmVBmiss &&in) = delete;
+		/** \brief Fit model
+		 *
+		 * Fits the model, returning the log-posterior for each step and the end-result deviance information criterion (DIC).
+		 *
+		 * \param[out] logPost vector of lower bounds
+		 * \param[out] dic the DIC value
+		 */
+		void fitModel(vector<double> &logPost, double &dic) override;
 	protected:
 		// Private functions
 		/** \brief The E-step */

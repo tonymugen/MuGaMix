@@ -107,12 +107,6 @@ GmmVB::GmmVB(GmmVB &&in) : yVec_{in.yVec_}, N_{in.N_}, lambda0_{in.lambda0_}, nu
 
 void GmmVB::fitModel(vector<double> &logPost, double &dic) {
 	// Initialize values with k-means
-	vector<size_t> ind;
-	for (size_t m = 0; m < M_.getNrows(); m++) {
-		for (size_t iLn = 0; iLn < Y_.getNrows() / M_.getNrows(); iLn++) {
-			ind.push_back(m);
-		}
-	}
 	Index popInd( M_.getNrows() );
 	const double smallVal = 0.01 / static_cast<double>(M_.getNrows() - 1);
 	kMeans_(Y_, M_.getNrows(), 50, popInd, M_);
@@ -429,6 +423,22 @@ void GmmVB::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32
 }
 
 // GmmVBmiss methods
+void GmmVBmiss::fitModel(vector<double> &logPost, double &dic){
+	// Initialize values with k-means
+	Index popInd( M_.getNrows() );
+	const double smallVal = 0.01 / static_cast<double>(M_.getNrows() - 1);
+	kMeans_(Y_, M_.getNrows(), 50, popInd, M_);
+	for (size_t m = 0; m < M_.getNrows(); m++) {
+		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+			if (popInd.groupID(iRow) == m){
+				R_.setElem(iRow, m, 0.99);
+			} else {
+				R_.setElem(iRow, m, smallVal);
+			}
+		}
+	}
+}
+
 double GmmVBmiss::rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){
 #ifndef PKG_DEBUG_OFF
 	if ( m1.getNcols() != m2.getNcols() ) {
@@ -499,7 +509,7 @@ void GmmVBmiss::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const ui
 		}
 		x2m.update(sNew);
 		// recalculate cluster means
-		X.colMeans(x2m, M);
+		X.colMeansMiss(x2m, M);
 		// calculate the magnitude of cluster assignment change
 		double nDiff = 0.0;
 		for (size_t i = 0; i < sNew.size(); i++) {
