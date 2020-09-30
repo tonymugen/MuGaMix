@@ -199,7 +199,7 @@ namespace BayesicSpace {
 		 * \param[in, out] resp pointer to vectorized matrix responsibilities
 		 * \param[in, out] Nm pointer to vector of effective population sizes
 		 */
-		GmmVBmiss(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : GmmVB(yVec, lambda0, sigmaSq0, alpha0, nPop, d, vPopMn, vSm, resp, Nm) {};
+		GmmVBmiss(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
 		/** \brief Destructor */
 		~GmmVBmiss(){ yVec_ = nullptr; N_ = nullptr; };
 
@@ -227,6 +227,10 @@ namespace BayesicSpace {
 		 */
 		void fitModel(vector<double> &logPost, double &dic) override;
 	protected:
+		/** \brief Data vector with 0.0 in place of `NaN` */
+		vector<double> vYmiss0_;
+		/** \brief Matrix view of `vYmiss0_` */
+		MatrixView Ymiss0_;
 		// Private functions
 		/** \brief The E-step */
 		void eStep_() override;

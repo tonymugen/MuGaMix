@@ -5,21 +5,6 @@
 
 using namespace Rcpp;
 
-// tstMiss
-Rcpp::List tstMiss(std::vector<double>& inVec, const int32_t& nRow, const int32_t& nCol, const std::vector<int32_t>& fac, const std::vector<int32_t>& missInd);
-RcppExport SEXP _MuGaMix_tstMiss(SEXP inVecSEXP, SEXP nRowSEXP, SEXP nColSEXP, SEXP facSEXP, SEXP missIndSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::vector<double>& >::type inVec(inVecSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type nRow(nRowSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type nCol(nColSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type fac(facSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type missInd(missIndSEXP);
-    rcpp_result_gen = Rcpp::wrap(tstMiss(inVec, nRow, nCol, fac, missInd));
-    return rcpp_result_gen;
-END_RCPP
-}
 // testLpostNR
 Rcpp::List testLpostNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Npop, std::vector<double>& theta, const std::vector<double>& P, const int32_t& ind, const double& limit, const double& incr);
 RcppExport SEXP _MuGaMix_testLpostNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NpopSEXP, SEXP thetaSEXP, SEXP PSEXP, SEXP indSEXP, SEXP limitSEXP, SEXP incrSEXP) {
@@ -268,6 +253,24 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// vbFitMiss
+Rcpp::List vbFitMiss(std::vector<double>& yVec, const std::vector<int32_t>& missInd, const int32_t& d, const int32_t& nPop, const double& alphaPr, const double& sigSqPr, const double& ppRatio, const int32_t nReps);
+RcppExport SEXP _MuGaMix_vbFitMiss(SEXP yVecSEXP, SEXP missIndSEXP, SEXP dSEXP, SEXP nPopSEXP, SEXP alphaPrSEXP, SEXP sigSqPrSEXP, SEXP ppRatioSEXP, SEXP nRepsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::vector<double>& >::type yVec(yVecSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type missInd(missIndSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type nPop(nPopSEXP);
+    Rcpp::traits::input_parameter< const double& >::type alphaPr(alphaPrSEXP);
+    Rcpp::traits::input_parameter< const double& >::type sigSqPr(sigSqPrSEXP);
+    Rcpp::traits::input_parameter< const double& >::type ppRatio(ppRatioSEXP);
+    Rcpp::traits::input_parameter< const int32_t >::type nReps(nRepsSEXP);
+    rcpp_result_gen = Rcpp::wrap(vbFitMiss(yVec, missInd, d, nPop, alphaPr, sigSqPr, ppRatio, nReps));
+    return rcpp_result_gen;
+END_RCPP
+}
 // runSamplerNR
 Rcpp::List runSamplerNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Npop, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin, const int32_t& Nchains);
 RcppExport SEXP _MuGaMix_runSamplerNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NpopSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP, SEXP NchainsSEXP) {
@@ -322,7 +325,6 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_MuGaMix_tstMiss", (DL_FUNC) &_MuGaMix_tstMiss, 5},
     {"_MuGaMix_testLpostNR", (DL_FUNC) &_MuGaMix_testLpostNR, 8},
     {"_MuGaMix_testLpostP", (DL_FUNC) &_MuGaMix_testLpostP, 8},
     {"_MuGaMix_testLpostLocNR", (DL_FUNC) &_MuGaMix_testLpostLocNR, 8},
@@ -337,6 +339,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_MuGaMix_gradTestSInr", (DL_FUNC) &_MuGaMix_gradTestSInr, 8},
     {"_MuGaMix_gradTestSI", (DL_FUNC) &_MuGaMix_gradTestSI, 8},
     {"_MuGaMix_vbFit", (DL_FUNC) &_MuGaMix_vbFit, 7},
+    {"_MuGaMix_vbFitMiss", (DL_FUNC) &_MuGaMix_vbFitMiss, 8},
     {"_MuGaMix_runSamplerNR", (DL_FUNC) &_MuGaMix_runSamplerNR, 7},
     {"_MuGaMix_runSampler", (DL_FUNC) &_MuGaMix_runSampler, 7},
     {"_MuGaMix_runSamplerMiss", (DL_FUNC) &_MuGaMix_runSamplerMiss, 8},

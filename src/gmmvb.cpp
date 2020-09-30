@@ -123,7 +123,7 @@ void GmmVB::fitModel(vector<double> &logPost, double &dic) {
 	// Fit model
 	logPost.clear();
 	dic = 0.0;
-	for (size_t it = 0; it < 500; it++) {
+	for (size_t it = 0; it < maxIt_; it++) {
 		eStep_();
 		mStep_();
 		const double curLP = logPost_();
@@ -423,6 +423,18 @@ void GmmVB::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32
 }
 
 // GmmVBmiss methods
+GmmVBmiss::GmmVBmiss(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : GmmVB(yVec, lambda0, sigmaSq0, alpha0, nPop, d, vPopMn, vSm, resp, Nm) {
+	vYmiss0_ = *yVec_;
+	Ymiss0_ = MatrixView( &vYmiss0_, 0, Y_.getNrows(), Y_.getNcols() );
+	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
+		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
+			if ( isnan( Y_.getElem(iRow, jCol) ) ) {
+				Ymiss0_.setElem(iRow, jCol, 0.0);
+			}
+		}
+	}
+}
+
 void GmmVBmiss::fitModel(vector<double> &logPost, double &dic){
 	// Initialize values with k-means
 	Index popInd( M_.getNrows() );
@@ -437,6 +449,87 @@ void GmmVBmiss::fitModel(vector<double> &logPost, double &dic){
 			}
 		}
 	}
+	mStep_();
+}
+
+void GmmVBmiss::eStep_(){
+
+}
+
+void GmmVBmiss::mStep_(){
+	const size_t Npop = M_.getNrows();
+	const size_t d    = M_.getNcols();
+	const size_t N    = Y_.getNrows();
+	R_.colSums(*N_);
+	for (size_t m = 0; m < Npop; m++) {
+		// Calculate weighted data
+		vector<double> vYsc(*yVec_);
+		MatrixView Ysc(&vYsc, 0, N, d);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				if ( isnan( Ysc.getElem(iRow, jCol) ) ) {
+					Ysc.setElem(iRow, jCol, 0.0);
+				} else {
+					Ysc.multiplyElem( iRow, jCol, R_.getElem(iRow, m) );
+				}
+			}
+		}
+		vector<double> lamNm(d, lambda0_);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				if ( !isnan( Y_.getElem(iRow, jCol) ) ) {
+					lamNm[jCol] += R_.getElem(iRow, m);
+				}
+			}
+		}
+		vector<double> mRow;
+		Ysc.colSumsMiss(mRow);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			M_.setElem(m, jCol, mRow[jCol] / lamNm[jCol]);
+		}
+		Ymiss0_.gemm(true, 1.0, Ysc, false, 0.0, W_[m]);
+		// lower triangle of W_m
+		for (size_t jD = 0; jD < d; jD++) {
+			for (size_t iD = jD; iD < d; iD++) {
+				W_[m].subtractFromElem( iD, jD, sqrt(lamNm[iD]) * sqrt(lamNm[jD]) * M_.getElem(m, iD) * M_.getElem(m, jD) );
+			}
+		}
+		// complete symmetric matrix
+		for (size_t jD = 0; jD < d; jD++) {
+			for (size_t iD = 0; iD < jD; iD++) {
+				W_[m].setElem( iD, jD, W_[m].getElem(jD, iD) );
+			}
+		}
+		// add S_0 (it is diagonal)
+		for (size_t kk = 0; kk < d; kk++) {
+			W_[m].addToElem(kk, kk, sigmaSq0_);
+		}
+		// invert and the log-determinant in one shot
+		try {
+			W_[m].chol();
+			lnDet_[m] = 0.0;
+			for (size_t kk = 0; kk < d; kk++) {
+				lnDet_[m] += log( W_[m].getElem(kk, kk) );
+			}
+			lnDet_[m] *= -2.0; // because we did not invert yet
+			W_[m].cholInv();
+		} catch (string problem) {
+			W_[m].pseudoInv(lnDet_[m]);
+		}
+		// calculate the digamma sum
+		const double nu0p2Nm = nu0p2_ + (*N_)[m];
+		sumDiGam_[m]         = 0.0;
+		double k             = 1.0;
+		for (size_t kk = 0; kk < d; kk++) {
+			sumDiGam_[m] += nuc_.digamma( 0.5 * (nu0p2Nm - k) );
+			k            += 1.0;
+		}
+	}
+}
+
+double GmmVBmiss::logPost_(){
+	double lp = 0.0;
+	return lp;
 }
 
 double GmmVBmiss::rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){

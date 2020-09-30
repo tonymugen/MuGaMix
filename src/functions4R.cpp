@@ -402,7 +402,7 @@ Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_
 //'
 //' @keywords internal
 //'
-//[[Rcpp::export(name="vbFit")]]
+//[[Rcpp::export(name="vbFitMiss")]]
 Rcpp::List vbFitMiss(std::vector<double> &yVec, const std::vector<int32_t> &missInd, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &sigSqPr, const double &ppRatio, const int32_t nReps){
 	if (nPop <= 1) {
 		Rcpp::stop("Number of populations must be greater than 1");
@@ -435,7 +435,7 @@ Rcpp::List vbFitMiss(std::vector<double> &yVec, const std::vector<int32_t> &miss
 	std::vector<double> lPost;
 	double dic = 0.0;
 	try {
-		BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
+		BayesicSpace::GmmVBmiss vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
 		vbModel.fitModel(lPost, dic);
 		for (int iRep = 1; iRep < nReps; iRep++) {
 			std::vector<double> vPopMnLoc;
@@ -445,7 +445,7 @@ Rcpp::List vbFitMiss(std::vector<double> &yVec, const std::vector<int32_t> &miss
 			std::vector<double> lPostLoc;
 			double dicLoc = 0.0;
 
-			BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMnLoc, &vSmLoc, &rLoc, &NmLoc);
+			BayesicSpace::GmmVBmiss vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMnLoc, &vSmLoc, &rLoc, &NmLoc);
 			vbModel.fitModel(lPostLoc, dicLoc);
 			if (dicLoc < dic) { // if we found a better DIC
 				vPopMn = vPopMnLoc;
