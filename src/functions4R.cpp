@@ -27,6 +27,8 @@
  *
  */
 
+#include <bits/stdint-intn.h>
+#include <cstddef>
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -35,10 +37,32 @@
 
 #include <Rcpp.h>
 
+#include "Rcpp/Named.h"
+#include "Rcpp/exceptions/cpp11/exceptions.h"
+#include "matrixView.hpp"
 #include "mumimo.hpp"
 #include "gmmvb.hpp"
 #include "index.hpp"
 
+//[[Rcpp::export(name="tstMissMat")]]
+Rcpp::List tstMissMat(std::vector<double> &vec, const int32_t &Nrow, const int32_t &Ncol){
+	BayesicSpace::MatrixView Mat(&vec, 0, Nrow, Ncol);
+	std::vector< std::vector<size_t> > missInd(Ncol);
+	for (size_t jCol = 0; jCol < Ncol; jCol++) {
+		for (size_t iRow = 0; iRow < Nrow; iRow++) {
+			if (std::isnan(Mat.getElem(iRow, jCol))) {
+				missInd[jCol].push_back(iRow);
+			}
+		}
+	}
+	std::vector<double> sum;
+	try {
+		Mat.rowSums(missInd, sum);
+	} catch (std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("sum", sum));
+}
 //[[Rcpp::export(name="testLpostNR")]]
 Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &P, const int32_t &ind, const double &limit, const double &incr){
 	BayesicSpace::MumiNR test(&yVec, &P, d, Npop, 1e-8, 2.5, 1e-8);

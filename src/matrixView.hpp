@@ -30,6 +30,7 @@
 #ifndef matrixView_hpp
 #define matrixView_hpp
 
+#include <cstddef>
 #include <vector>
 #include <string>
 
@@ -544,11 +545,14 @@ namespace BayesicSpace {
 		/** \brief Row sums with missing data
 		 *
 		 * Sums row elements and stores them in the provided vector. Missing values are ignored. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] sums vector of sums
 		 *
 		 */
-		void rowSumsMiss(vector<double> &sums) const;
+		void rowSums(const vector< vector<size_t> > &missInd, vector<double> &sums) const;
 		/** \brief Sum rows in groups
 		 *
 		 * The row elements are summed within each group of the `Index`. The output matrix must have the correct dimensions (\f$N_{col}\f$ the new matrix equal to the number of groups).
@@ -561,12 +565,15 @@ namespace BayesicSpace {
 		/** \brief Sum rows in groups with missing values
 		 *
 		 * The row elements are summed within each group of the `Index`. Missing values are ignored. The output matrix must have the correct dimensions (\f$N_{col}\f$ the new matrix equal to the number of groups).
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
 		 * \param[in] ind `Index` with elements corresponding to rows
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void rowSumsMiss(const Index &ind, MatrixView &out) const;
+		void rowSums(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const;
 		/** \brief Row means
 		 *
 		 * Calculates means among row elements and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
@@ -578,11 +585,14 @@ namespace BayesicSpace {
 		/** \brief Row means with missing data
 		 *
 		 * Calculates means among row elements and stores them in the provided vector. Missing data a ignored. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] means vector of means
 		 *
 		 */
-		void rowMeansMiss(vector<double> &means) const;
+		void rowMeans(const vector< vector<size_t> > &missInd, vector<double> &means) const;
 		/** \brief Row means in groups
 		 *
 		 * Means among row elements are calculated within each group of the `Index`. The output matrix must have the correct dimensions (\f$N_{col}\f$ the new matrix equal to the number of groups).
@@ -595,12 +605,15 @@ namespace BayesicSpace {
 		/** \brief Row means in groups with missing data
 		 *
 		 * Means among row elements are calculated within each group of the `Index`. Missing data are ignored. The output matrix must have the correct dimensions (\f$N_{col}\f$ the new matrix equal to the number of groups).
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
 		 * \param[in] ind `Index` with elements corresponding to rows
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void rowMeansMiss(const Index &ind, MatrixView &out) const;
+		void rowMeans(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const;
 
 		/** \brief Column sums
 		 *
@@ -613,11 +626,14 @@ namespace BayesicSpace {
 		/** \brief Column sums with missing data
 		 *
 		 * Calculates sums of column elements and stores them in the provided vector. Missing data are ignored. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{col}\f$ elements are used.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] sums vector of sums
 		 *
 		 */
-		void colSumsMiss(vector<double> &sums) const;
+		void colSums(const vector< vector<size_t> > &missInd, vector<double> &sums) const;
 		/** \brief Sum columns in groups
 		 *
 		 * The column elements are summed within each group of the `Index`. The output matrix must have the correct dimensions.
@@ -630,12 +646,15 @@ namespace BayesicSpace {
 		/** \brief Sum columns in groups with missing data
 		 *
 		 * The column elements are summed within each group of the `Index`. Missing data are ignored. The output matrix must have the correct dimensions.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
 		 * \param[in] ind `Index` with elements corresponding to columns
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void colSumsMiss(const Index &ind, MatrixView &out) const;
+		void colSums(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const;
 		/** \brief Expand columns accoring to the provided index
 		 *
 		 * Columns are expanded to make more rows. The output matrix must be of correct size.
@@ -655,12 +674,16 @@ namespace BayesicSpace {
 		void colMeans(vector<double> &means) const;
 		/** \brief Column means with missing data
 		 *
-		 * Calculates means among rows in each column and stores them in the provided vector. Missing data are ignored. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 * Calculates means among rows in each column and stores them in the provided vector. Missing data are ignored.
+		 * If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] means vector of means
 		 *
 		 */
-		void colMeansMiss(vector<double> &means) const;
+		void colMeans(const vector< vector<size_t> > &missInd, vector<double> &means) const;
 		/** \brief Column means in groups
 		 *
 		 * Means among column elements are calculated within each group of the `Index`. The output matrix must have the correct dimensions.
@@ -673,12 +696,15 @@ namespace BayesicSpace {
 		/** \brief Column means in groups with missing data
 		 *
 		 * Means among column elements are calculated within each group of the `Index`. Missing data are ignored. The output matrix must have the correct dimensions.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
 		 * \param[in] ind `Index` with elements corresponding to columns
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void colMeansMiss(const Index &ind, MatrixView &out) const;
+		void colMeans(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const;
 
 		/** \brief Multiply rows by a vector
 		 *
@@ -1133,12 +1159,15 @@ namespace BayesicSpace {
 		/** \brief Sum rows in groups with missing data
 		 *
 		 * The row elements are summed within each group of the `Index`. Missing data are ignored. The output matrix must have the correct dimensions (\f$N_{col}\f$ the new matrix equal to the number of groups).
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
 		 * \param[in] ind `Index` with elements corresponding to rows
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void rowSumsMiss(const Index &ind, MatrixView &out) const;
+		void rowSums(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const;
 		/** \brief Row sums
 		 *
 		 * Sums row elements and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
@@ -1150,11 +1179,14 @@ namespace BayesicSpace {
 		/** \brief Row sums with missing data
 		 *
 		 * Sums row elements and stores them in the provided vector. Missing data are ignored. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] sums vector of sums
 		 *
 		 */
-		void rowSumsMiss(vector<double> &sums) const;
+		void rowSums(const vector< vector<size_t> > &missInd, vector<double> &sums) const;
 		/** \brief Row means
 		 *
 		 * Calculates means among row elements and stores them in the provided vector. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
@@ -1165,12 +1197,16 @@ namespace BayesicSpace {
 		void rowMeans(vector<double> &means) const;
 		/** \brief Row means with missing data
 		 *
-		 * Calculates means among row elements and stores them in the provided vector. Missing data are ignored. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 * Calculates means among row elements and stores them in the provided vector. Missing data are ignored.
+		 * If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{row}\f$ elements are used.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] means vector of means
 		 *
 		 */
-		void rowMeansMiss(vector<double> &means) const;
+		void rowMeans(const vector< vector<size_t> > &missInd, vector<double> &means) const;
 		/** \brief Row means in groups
 		 *
 		 * Means among row elements are calculated within each group of the `Index`. The output matrix must have the correct dimensions.
@@ -1183,12 +1219,15 @@ namespace BayesicSpace {
 		/** \brief Row means in groups with missing data
 		 *
 		 * Means among row elements are calculated within each group of the `Index`. Missing data are ignored. The output matrix must have the correct dimensions.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
 		 * \param[in] ind `Index` with elements corresponding to rows
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void rowMeansMiss(const Index &ind, MatrixView &out) const;
+		void rowMeans(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const;
 
 		/** \brief Column sums
 		 *
@@ -1201,11 +1240,14 @@ namespace BayesicSpace {
 		/** \brief Column sums with missing data
 		 *
 		 * Calculates sums of column elements and stores them in the provided vector. Missing data are ignored. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{col}\f$ elements are used.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] sums vector of sums
 		 *
 		 */
-		void colSumsMiss(vector<double> &sums) const;
+		void colSums(const vector< vector<size_t> > &missInd, vector<double> &sums) const;
 		/** \brief Sum columns in groups
 		 *
 		 * The column elements are summed within each group of the `Index`. The output matrix must have the correct dimensions.
@@ -1218,12 +1260,15 @@ namespace BayesicSpace {
 		/** \brief Sum columns in groups with missing data
 		 *
 		 * The column elements are summed within each group of the `Index`. Missing data are ignored. The output matrix must have the correct dimensions.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
 		 * \param[in] ind `Index` with elements corresponding to columns
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void colSumsMiss(const Index &ind, MatrixView &out) const;
+		void colSums(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const;
 		/** \brief Expand columns accoring to the provided index
 		 *
 		 * Columns are expanded to make more rows. The output matrix must be of correct size.
@@ -1243,12 +1288,16 @@ namespace BayesicSpace {
 		void colMeans(vector<double> &means) const;
 		/** \brief Column means with missing data
 		 *
-		 * Calculates means among rows in each column and stores them in the provided vector. Missing data are ignored. If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{col}\f$ elements are used.
+		 * Calculates means among rows in each column and stores them in the provided vector. Missing data are ignored.
+		 * If vector length is smaller than necessary, the vector is expanded. Otherwise, the first \f$N_{col}\f$ elements are used.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] means vector of means
 		 *
 		 */
-		void colMeansMiss(vector<double> &means) const;
+		void colMeans(const vector< vector<size_t> > &missInd, vector<double> &means) const;
 		/** \brief Column means in groups
 		 *
 		 * Means among column elements are calculated within each group of the `Index`. The output matrix must have the correct dimensions.
@@ -1261,12 +1310,15 @@ namespace BayesicSpace {
 		/** \brief Column means in groups with missing data
 		 *
 		 * Means among column elements are calculated within each group of the `Index`. Missing data are ignored. The output matrix must have the correct dimensions.
+		 * The positions where the data are missing are identified by a vector of index vectors. The size of the outer vector equals the number of columns. The inner vector has row IDs of the missing data.
+		 * Some of these inner vectors may be empty.
 		 *
 		 * \param[in] ind `Index` with elements corresponding to columns
+		 * \param[in] missInd vector of vectors of missing data indexes
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void colMeansMiss(const Index &ind, MatrixView &out) const;
+		void colMeans(const Index &ind, vector< vector<size_t> > &missInd, MatrixView &out) const;
 	private:
 		/** \brief Pointer to a vector */
 		const vector<double> *data_;

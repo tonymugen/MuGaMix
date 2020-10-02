@@ -5,6 +5,19 @@
 
 using namespace Rcpp;
 
+// tstMissMat
+Rcpp::List tstMissMat(std::vector<double>& vec, const int32_t& Nrow, const int32_t& Ncol);
+RcppExport SEXP _MuGaMix_tstMissMat(SEXP vecSEXP, SEXP NrowSEXP, SEXP NcolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::vector<double>& >::type vec(vecSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Nrow(NrowSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Ncol(NcolSEXP);
+    rcpp_result_gen = Rcpp::wrap(tstMissMat(vec, Nrow, Ncol));
+    return rcpp_result_gen;
+END_RCPP
+}
 // testLpostNR
 Rcpp::List testLpostNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Npop, std::vector<double>& theta, const std::vector<double>& P, const int32_t& ind, const double& limit, const double& incr);
 RcppExport SEXP _MuGaMix_testLpostNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NpopSEXP, SEXP thetaSEXP, SEXP PSEXP, SEXP indSEXP, SEXP limitSEXP, SEXP incrSEXP) {
@@ -325,6 +338,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_MuGaMix_tstMissMat", (DL_FUNC) &_MuGaMix_tstMissMat, 3},
     {"_MuGaMix_testLpostNR", (DL_FUNC) &_MuGaMix_testLpostNR, 8},
     {"_MuGaMix_testLpostP", (DL_FUNC) &_MuGaMix_testLpostP, 8},
     {"_MuGaMix_testLpostLocNR", (DL_FUNC) &_MuGaMix_testLpostLocNR, 8},
