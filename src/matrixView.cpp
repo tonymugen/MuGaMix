@@ -1535,7 +1535,7 @@ void MatrixView::rowSums(const Index &ind, MatrixView &out) const{
 		throw string("ERROR: unequal matrix row numbers in MatrixView::rowSums(const Index &, MatrixView &)");
 	}
 #endif
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
 		// going through all the Index elements that correspond to the new column of out
@@ -1565,7 +1565,7 @@ void MatrixView::rowSums(const Index &ind, const vector< vector<size_t> > &missI
 		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixView::rowSums(const Index &, const vector< vector<size_t> > &, vector<double> &)");
 	}
 #endif
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
 		// going through all the Index elements that correspond to the new column of out
@@ -1577,7 +1577,7 @@ void MatrixView::rowSums(const Index &ind, const vector< vector<size_t> > &missI
 				}
 			} else {
 				// summing the row elements of the current matrix with the group of columns
-				size_t curInd = 0; 
+				size_t curInd = 0;
 				for (size_t iRow = 0; iRow < Nrow_; iRow++) {
 					if ( ( curInd < missInd[f].size() ) && (missInd[f][curInd] == iRow) ) {
 						curInd++;
@@ -1588,7 +1588,6 @@ void MatrixView::rowSums(const Index &ind, const vector< vector<size_t> > &missI
 			}
 		}
 	}
-
 }
 void MatrixView::rowMeans(vector<double> &means) const{
 	if (means.size() < Nrow_) {
@@ -1648,7 +1647,7 @@ void MatrixView::rowMeans(const Index &ind, MatrixView &out) const{
 		throw string("ERROR: unequal matrix row numbers in MatrixView::rowMeans(const Index &, MatrixView &)");
 	}
 #endif
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
 		// going through all the Index elements that correspond to the new column of out
@@ -1678,10 +1677,10 @@ void MatrixView::rowMeans(const Index &ind, const vector< vector<size_t> > &miss
 		throw string("ERROR: unequal matrix row numbers in MatrixView::rowMeansMiss(const Index &, MatrixView &)");
 	}
 	if (missInd.size() != Ncol_) {
-		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixView::rowMeans(const Index &, const vector< vector<size_t> > &, vector<double> &)");
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixView::rowMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 #endif
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
 		// going through all the Index elements that correspond to the new column of out
@@ -1791,45 +1790,55 @@ void MatrixView::colSums(const Index &ind, MatrixView &out) const{
 		throw string("ERROR: unequal numbers of columns in MatrixView::colSums(const Index &, MatrixView &)");
 	}
 #endif
-
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
 		// going through all the rows of Z that correspond to the new row of M
-		for (auto &f : ind[newRow]) {
-			// summing the rows of M within the group defined by rows of Z
-			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+			for (auto &f : ind[newRow]) {
+				// summing the rows of M within the group defined by rows of Z
 				out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow] += data_->data()[idx_ + Nrow_ * jCol + f];
 			}
 		}
 	}
 }
-void MatrixView::colSumsMiss(const Index &ind, MatrixView &out) const{
+void MatrixView::colSums(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: wrong total length of Index in MatrixView::colSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixView::colSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero MatrixView::colSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: one of the dimensions is zero MatrixView::colSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 	if ( (ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
-		throw string("ERROR: incorrect Index group number in MatrixView::colSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: incorrect Index group number in MatrixView::colSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 	if (Ncol_ != out.Ncol_){
-		throw string("ERROR: unequal numbers of columns in MatrixView::colSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: unequal numbers of columns in MatrixView::colSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
+	}
+	if (missInd.size() != Ncol_) {
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixView::colSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 #endif
-
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
 		// going through all the rows of Z that correspond to the new row of M
-		for (auto &f : ind[newRow]) {
-			// summing the rows of M within the group defined by rows of Z
-			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-				const size_t curInd = idx_ + Nrow_ * jCol + f;
-				if ( !isnan(data_->data()[curInd]) ){
-					out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow] += data_->data()[curInd];
+		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+			if ( missInd[jCol].empty() ) {
+				for (auto &f : ind[newRow]) {
+					// summing the rows of M within the group defined by rows of Z
+					out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow] += data_->data()[idx_ + Nrow_ * jCol + f];
+				}
+			} else {
+				size_t curMind = 0;
+				for (auto &f : ind[newRow]) {
+					// summing the rows of M within the group defined by rows of Z
+					if ( ( curMind < missInd[jCol].size() ) && (missInd[jCol][curMind] == f) ) {
+						curMind++;
+					} else {
+						out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow] += data_->data()[idx_ + Nrow_ * jCol + f];
+					}
 				}
 			}
 		}
@@ -1847,19 +1856,32 @@ void MatrixView::colMeans(vector<double> &means) const{
 		}
 	}
 }
-void MatrixView::colMeansMiss(vector<double> &means) const{
+void MatrixView::colMeans(const vector< vector<size_t> > &missInd, vector<double> &means) const{
+#ifndef PKG_DEBUG_OFF
+	if (missInd.size() != Ncol_) {
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixView::colMeans(const vector< vector<size_t> > &, vector<double> &)");
+	}
+#endif
 	if (means.size() < Ncol_) {
 		means.resize(Ncol_);
 	}
+	means.assign(means.size(), 0.0);
 	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-		means[jCol] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
-		size_t iPres = 0;
-		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-			// numerically stable recursive mean calculation. GSL does it this way.
-			const size_t curInd  = idx_ + Nrow_ * jCol + iRow;
-			if ( !isnan(data_->data()[curInd]) ) {
-				means[jCol] += (data_->data()[curInd] - means[jCol]) / static_cast<double>(iPres + 1);
-				iPres++;
+		if ( missInd[jCol].empty() ) {
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				// numerically stable recursive mean calculation. GSL does it this way.
+				means[jCol] += (data_->data()[idx_ + Nrow_ * jCol + iRow] - means[jCol]) / static_cast<double>(iRow + 1);
+			}
+		} else {
+			double iPres   = 1.0;
+			size_t curMind = 0;
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				if ( ( curMind < missInd[jCol].size() ) && (missInd[jCol][curMind] == iRow) ) {
+					curMind++;
+				} else {
+					means[jCol] += (data_->data()[idx_ + Nrow_ * jCol + iRow] - means[jCol]) / iPres;
+					iPres       += 1.0;
+				}
 			}
 		}
 	}
@@ -1879,47 +1901,57 @@ void MatrixView::colMeans(const Index &ind, MatrixView &out) const{
 		throw string("ERROR: unequal number of columns in MatrixView::colMeans(const Index &, MatrixView &)");
 	}
 #endif
-
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
-		double denom = 1.0;
-		for (auto &f : ind[newRow]) {
-			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-				out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow] +=
-					(data_->data()[idx_ + Nrow_ * jCol + f] - out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow]) / denom;
+		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+			double denom = 1.0;
+			for (auto &f : ind[newRow]) {
+				const size_t curInd        = out.idx_ + ind.groupNumber() * jCol + newRow;
+				out.data_->data()[curInd] += (data_->data()[idx_ + Nrow_ * jCol + f] - out.data_->data()[curInd]) / denom;
+				denom += 1.0;
 			}
-			denom += 1.0;
 		}
 	}
 }
-void MatrixView::colMeansMiss(const Index &ind, MatrixView &out) const{
+void MatrixView::colMeans(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: wrong total length of Index in MatrixView::colMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixView::colMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero MatrixView::colMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: one of the dimensions is zero MatrixView::colMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 	if (ind.groupNumber() != out.Nrow_) {
-		throw string("ERROR: incorrect Index group number in MatrixView::colMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: incorrect Index group number in MatrixView::colMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 	if (Ncol_ != out.Ncol_) {
-		throw string("ERROR: unequal number of columns in MatrixView::colMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: unequal number of columns in MatrixView::colMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
+	}
+	if (missInd.size() != Ncol_) {
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixView::colMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 #endif
-
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
-		vector<double> denom(Ncol_, 1.0);
-		for (auto &f : ind[newRow]) {
-			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-				const size_t mnInd = out.idx_ + ind.groupNumber() * jCol + newRow;
-				const size_t dtInd = idx_ + Nrow_ * jCol + f;
-				if ( !isnan(data_->data()[dtInd]) ) {
-					out.data_->data()[mnInd] += (data_->data()[dtInd] - out.data_->data()[mnInd]) / denom[jCol];
-					denom[jCol] += 1.0;
+		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+			double denom = 1.0;
+			if ( missInd[jCol].empty() ) {
+				for (auto &f : ind[newRow]) {
+					const size_t curInd        = out.idx_ + ind.groupNumber() * jCol + newRow;
+					out.data_->data()[curInd] += (data_->data()[idx_ + Nrow_ * jCol + f] - out.data_->data()[curInd]) / denom;
+					denom += 1.0;
+				}
+			} else {
+				size_t curMind = 0;
+				for (auto &f : ind[newRow]) {
+					if ( ( curMind < missInd[jCol].size() ) && (missInd[jCol][curMind] == f) ) {
+						curMind++;
+					} else {
+						const size_t mnInd = out.idx_ + ind.groupNumber() * jCol + newRow;
+						out.data_->data()[mnInd] += (data_->data()[idx_ + Nrow_ * jCol + f] - out.data_->data()[mnInd]) / denom;
+					}
 				}
 			}
 		}
@@ -2213,7 +2245,7 @@ void MatrixViewConst::cholInv(MatrixView &out) const{
 	}
 #endif
 
-	memcpy( out.data_->data()+out.idx_, data_->data()+idx_, (Nrow_ * Ncol_) * sizeof(double) );
+	memcpy( out.data_->data() + out.idx_, data_->data()+idx_, (Nrow_ * Ncol_) * sizeof(double) );
 
 	int info = 0;
 	char tri = 'L';
@@ -2957,17 +2989,30 @@ void MatrixViewConst::rowSums(vector<double> &sums) const{
 		}
 	}
 }
-void MatrixViewConst::rowSumsMiss(vector<double> &sums) const{
+void MatrixViewConst::rowSums(const vector< vector<size_t> > &missInd, vector<double> &sums) const{
+#ifndef PKG_DEBUG_OFF
+	if (missInd.size() != Ncol_) {
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixViewConst::rowSums(const vector< vector<size_t> > &, vector<double> &)");
+	}
+#endif
 	if (sums.size() < Nrow_) {
 		sums.resize(Nrow_);
 	}
-	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-		sums[iRow] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
-		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-			// not necessarily numerically stable. Revisit later
-			const size_t ind = idx_ + Nrow_ * jCol + iRow;
-			if ( !isnan(data_->data()[ind]) ) {
-				sums[iRow] += data_->data()[ind];
+	sums.assign(sums.size(), 0.0);
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		if ( missInd[jCol].empty() ) {                                   // if no missing data in this column
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				// not necessarily numerically stable. Revisit later
+				sums[iRow] += data_->data()[idx_ + Nrow_ * jCol + iRow];
+			}
+		} else {                                                         // if there are missing data
+			size_t curInd = 0;
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				if ( ( curInd < missInd[jCol].size() ) && (missInd[jCol][curInd] == iRow) ) {
+					curInd++;
+				} else {
+					sums[iRow] += data_->data()[idx_ + Nrow_ * jCol + iRow];
+				}
 			}
 		}
 	}
@@ -2988,7 +3033,7 @@ void MatrixViewConst::rowSums(const Index &ind, MatrixView &out) const{
 		throw string("ERROR: unequal matrix row numbers in MatrixViewConst::rowSums(const Index &, MatrixView &)");
 	}
 #endif
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
 		// going through all the Index elements that correspond to the new column of out
@@ -3000,36 +3045,47 @@ void MatrixViewConst::rowSums(const Index &ind, MatrixView &out) const{
 		}
 	}
 }
-void MatrixViewConst::rowSumsMiss(const Index &ind, MatrixView &out) const{
+void MatrixViewConst::rowSums(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
-		throw string("ERROR: factor length not the same as number of columns in calling matrix in MatrixViewConst::rowSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: factor length not the same as number of columns in calling matrix in MatrixViewConst::rowSums(const Index &, const vector< vector<size_t> > &, vector<double> &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero MatrixViewConst::rowSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::rowSums(const Index &, const vector< vector<size_t> > &, vector<double> &)");
 	}
 	if (ind.groupNumber() != out.Ncol_) {
-		throw string("ERROR: Index group number does not equal output column number in MatrixViewConst::rowSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: Index group number does not equal output column number in MatrixViewConst::rowSums(const Index &, const vector< vector<size_t> > &, vector<double> &)");
 	}
 	if (Nrow_ != out.Nrow_) {
-		throw string("ERROR: unequal matrix row numbers in MatrixViewConst::rowSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: unequal matrix row numbers in MatrixViewConst::rowSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
+	}
+	if (missInd.size() != Ncol_) {
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixViewConst::rowSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 #endif
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
 		// going through all the Index elements that correspond to the new column of out
 		for (auto &f : ind[newCol]) {
-			// summing the row elements of the current matrix with the group of columns
-			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-				const size_t addInd = idx_ + Nrow_ * f + iRow;
-				if ( !isnan(data_->data()[addInd]) ) {
-					out.data_->data()[out.idx_ + Nrow_ * newCol + iRow] += data_->data()[addInd];
+			if ( missInd[f].empty() ) {
+				// summing the row elements of the current matrix with the group of columns
+				for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+					out.data_->data()[out.idx_ + Nrow_ * newCol + iRow] += data_->data()[idx_ + Nrow_ * f + iRow];
+				}
+			} else {
+				// summing the row elements of the current matrix with the group of columns
+				size_t curInd = 0;
+				for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+					if ( ( curInd < missInd[f].size() ) && (missInd[f][curInd] == iRow) ) {
+						curInd++;
+					} else {
+						out.data_->data()[out.idx_ + Nrow_ * newCol + iRow] += data_->data()[idx_ + Nrow_ * f + iRow];
+					}
 				}
 			}
 		}
 	}
-
 }
 void MatrixViewConst::rowMeans(vector<double> &means) const{
 	if (means.size() < Nrow_) {
@@ -3043,19 +3099,33 @@ void MatrixViewConst::rowMeans(vector<double> &means) const{
 		}
 	}
 }
-void MatrixViewConst::rowMeansMiss(vector<double> &means) const{
+void MatrixViewConst::rowMeans(const vector< vector<size_t> > &missInd, vector<double> &means) const{
+#ifndef PKG_DEBUG_OFF
+	if (missInd.size() != Ncol_) {
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixViewConst::rowMeans(const vector< vector<size_t> > &, vector<double> &)");
+	}
+#endif
 	if (means.size() < Nrow_) {
 		means.resize(Nrow_);
 	}
-	for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-		means[iRow] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
-		size_t jPres = 0;
-		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-			// numerically stable recursive mean calculation. GSL does it this way.
-			const size_t ind = idx_ + Nrow_ * jCol + iRow;
-			if ( !isnan(data_->data()[ind]) ){
-				means[iRow] += (data_->data()[ind] - means[iRow]) / static_cast<double>(jPres + 1);
-				jPres++;
+	means.assign(means.size(), 0.0);
+	vector<double> presCounts(Nrow_, 1.0);
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		if ( missInd[jCol].empty() ) {                                   // if no missing data in this column
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				// numerically stable recursive mean calculation. GSL does it this way.
+				means[iRow]      += (data_->data()[idx_ + Nrow_ * jCol + iRow] - means[iRow]) / presCounts[iRow];
+				presCounts[iRow] += 1.0;
+			}
+		} else {                                                         // if there are missing data
+			size_t curInd = 0;
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				if ( ( curInd < missInd[jCol].size() ) && (missInd[jCol][curInd] == iRow) ) {
+					curInd++;
+				} else {
+					means[iRow]      += (data_->data()[idx_ + Nrow_ * jCol + iRow] - means[iRow]) / presCounts[iRow];
+					presCounts[iRow] += 1.0;
+				}
 			}
 		}
 	}
@@ -3076,7 +3146,7 @@ void MatrixViewConst::rowMeans(const Index &ind, MatrixView &out) const{
 		throw string("ERROR: unequal matrix row numbers in MatrixViewConst::rowMeans(const Index &, MatrixView &)");
 	}
 #endif
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
 		// going through all the Index elements that correspond to the new column of out
@@ -3091,7 +3161,7 @@ void MatrixViewConst::rowMeans(const Index &ind, MatrixView &out) const{
 		}
 	}
 }
-void MatrixViewConst::rowMeansMiss(const Index &ind, MatrixView &out) const{
+void MatrixViewConst::rowMeans(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Ncol_) {
 		throw string("ERROR: factor length not the same as number of columns in calling matrix in MatrixViewConst::rowMeansMiss(const Index &, MatrixView &)");
@@ -3105,20 +3175,35 @@ void MatrixViewConst::rowMeansMiss(const Index &ind, MatrixView &out) const{
 	if (Nrow_ != out.Nrow_) {
 		throw string("ERROR: unequal matrix row numbers in MatrixViewConst::rowMeansMiss(const Index &, MatrixView &)");
 	}
+	if (missInd.size() != Ncol_) {
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixViewConst::rowMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
+	}
 #endif
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newCol = 0; newCol < ind.groupNumber(); newCol++) {
 		// going through all the Index elements that correspond to the new column of out
 		vector<double> denom(Nrow_, 1.0);
 		for (auto &f : ind[newCol]) {
-			// summing the row elements of the current matrix with the group of columns
-			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-				const size_t curInd = out.idx_ + Nrow_ * newCol + iRow;
-				const size_t datInd = idx_ + Nrow_ * f + iRow;
-				if ( !isnan(data_->data()[datInd]) ) {
-					out.data_->data()[curInd] += (data_->data()[datInd] - out.data_->data()[curInd]) / denom[iRow];
+			if ( missInd[f].empty() ) {
+				// summing the row elements of the current matrix with the group of columns
+				for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+					const size_t curInd = out.idx_ + Nrow_ * newCol + iRow;
+					out.data_->data()[curInd] += (data_->data()[idx_ + Nrow_ * f + iRow] - out.data_->data()[curInd]) / denom[iRow];
 					denom[iRow] += 1.0;
+				}
+			} else {
+				// summing the row elements of the current matrix with the group of columns
+				size_t curMind = 0;
+				for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+					const size_t curInd = out.idx_ + Nrow_ * newCol + iRow;
+					const size_t datInd = idx_ + Nrow_ * f + iRow;
+					if ( ( curMind < missInd[f].size() ) && (missInd[f][curMind] == iRow) ) {
+						curMind++;
+					} else {
+						out.data_->data()[curInd] += (data_->data()[datInd] - out.data_->data()[curInd]) / denom[iRow];
+						denom[iRow] += 1.0;
+					}
 				}
 			}
 		}
@@ -3161,17 +3246,30 @@ void MatrixViewConst::colSums(vector<double> &sums) const{
 		}
 	}
 }
-void MatrixViewConst::colSumsMiss(vector<double> &sums) const{
+void MatrixViewConst::colSums(const vector< vector<size_t> > &missInd, vector<double> &sums) const{
+#ifndef PKG_DEBUG_OFF
+	if (missInd.size() != Ncol_) {
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixViewConst::colSums(const vector< vector<size_t> > &, vector<double> &)");
+	}
+#endif
 	if (sums.size() < Ncol_) {
 		sums.resize(Ncol_);
 	}
+	sums.assign(sums.size(), 0.0);
 	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-		sums[jCol] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
-		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-			// not necessarily numerically stable. Revisit later
-			const size_t ind = idx_ + Nrow_ * jCol + iRow;
-			if ( !isnan(data_->data()[ind]) ) {
-				sums[jCol] += data_->data()[ind];
+		if ( missInd[jCol].empty() ) {                                   // if no missing data in this column
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				// not necessarily numerically stable. Revisit later
+				sums[jCol] += data_->data()[idx_ + Nrow_ * jCol + iRow];
+			}
+		} else {                                                         // if there are missing data
+			size_t curInd = 0;
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				if ( ( curInd < missInd[jCol].size() ) && (missInd[jCol][curInd] == iRow) ) {
+					curInd++;
+				} else {
+					sums[jCol] += data_->data()[idx_ + Nrow_ * jCol + iRow];
+				}
 			}
 		}
 	}
@@ -3192,7 +3290,7 @@ void MatrixViewConst::colSums(const Index &ind, MatrixView &out) const{
 	}
 #endif
 
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
 		// going through all the rows of Z that correspond to the new row of M
@@ -3205,32 +3303,43 @@ void MatrixViewConst::colSums(const Index &ind, MatrixView &out) const{
 	}
 
 }
-void MatrixViewConst::colSumsMiss(const Index &ind, MatrixView &out) const{
+void MatrixViewConst::colSums(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: wrong total length of Index in MatrixViewConst::colSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixViewConst::colSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero MatrixViewConst::colSumsMiss(const Index &, MatrixView &)");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::colSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
-	if (ind.groupNumber() != out.Nrow_) {
-		throw string("ERROR: incorrect Index group number in MatrixViewConst::colSumsMiss(const Index &, MatrixView &)");
+	if ( (ind.groupNumber() != out.Nrow_) || (Ncol_ != out.Ncol_) ) {
+		throw string("ERROR: incorrect Index group number in MatrixViewConst::colSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
-	if (Ncol_ != out.Ncol_) {
-		throw string("ERROR: unequal column numbers in MatrixViewConst::colSumsMiss(const Index &, MatrixView &)");
+	if (Ncol_ != out.Ncol_){
+		throw string("ERROR: unequal numbers of columns in MatrixViewConst::colSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
+	}
+	if (missInd.size() != Ncol_) {
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixViewConst::colSums(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 #endif
-
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
 		// going through all the rows of Z that correspond to the new row of M
-		for (auto &f : ind[newRow]) {
-			// summing the rows of M within the group defined by rows of Z
-			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-				const size_t curInd = idx_ + Nrow_ * jCol + f;
-				if ( !isnan(data_->data()[curInd]) ){
-					out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow] += data_->data()[curInd];
+		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+			if ( missInd[jCol].empty() ) {
+				for (auto &f : ind[newRow]) {
+					// summing the rows of M within the group defined by rows of Z
+					out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow] += data_->data()[idx_ + Nrow_ * jCol + f];
+				}
+			} else {
+				size_t curMind = 0;
+				for (auto &f : ind[newRow]) {
+					// summing the rows of M within the group defined by rows of Z
+					if ( ( curMind < missInd[jCol].size() ) && (missInd[jCol][curMind] == f) ) {
+						curMind++;
+					} else {
+						out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow] += data_->data()[idx_ + Nrow_ * jCol + f];
+					}
 				}
 			}
 		}
@@ -3248,19 +3357,32 @@ void MatrixViewConst::colMeans(vector<double> &means) const{
 		}
 	}
 }
-void MatrixViewConst::colMeansMiss(vector<double> &means) const{
+void MatrixViewConst::colMeans(const vector< vector<size_t> > &missInd, vector<double> &means) const{
+#ifndef PKG_DEBUG_OFF
+	if (missInd.size() != Ncol_) {
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixViewConst::colMeans(const vector< vector<size_t> > &, MatrixView &)");
+	}
+#endif
 	if (means.size() < Ncol_) {
 		means.resize(Ncol_);
 	}
+	means.assign(means.size(), 0.0);
 	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-		means[jCol] = 0.0; // in case something was in the vector passed to the function and resize did not erase it
-		size_t iPres = 0;
-		for (size_t iRow = 0; iRow < Nrow_; iRow++) {
-			// numerically stable recursive mean calculation. GSL does it this way.
-			const size_t curInd  = idx_ + Nrow_ * jCol + iRow;
-			if ( !isnan(data_->data()[curInd]) ) {
-				means[jCol] += (data_->data()[curInd] - means[jCol]) / static_cast<double>(iPres + 1);
-				iPres++;
+		if ( missInd[jCol].empty() ) {
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				// numerically stable recursive mean calculation. GSL does it this way.
+				means[jCol] += (data_->data()[idx_ + Nrow_ * jCol + iRow] - means[jCol]) / static_cast<double>(iRow + 1);
+			}
+		} else {
+			double iPres   = 1.0;
+			size_t curMind = 0;
+			for (size_t iRow = 0; iRow < Nrow_; iRow++) {
+				if ( ( curMind < missInd[jCol].size() ) && (missInd[jCol][curMind] == iRow) ) {
+					curMind++;
+				} else {
+					means[jCol] += (data_->data()[idx_ + Nrow_ * jCol + iRow] - means[jCol]) / iPres;
+					iPres       += 1.0;
+				}
 			}
 		}
 	}
@@ -3281,21 +3403,21 @@ void MatrixViewConst::colMeans(const Index &ind, MatrixView &out) const{
 	}
 #endif
 
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
-		double denom = 1.0;
-		for (auto &f : ind[newRow]) {
-			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-				out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow] +=
-					(data_->data()[idx_ + Nrow_ * jCol + f] - out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow]) / denom;
+		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+			double denom = 1.0;
+			for (auto &f : ind[newRow]) {
+				const size_t mnInd = out.idx_ + ind.groupNumber() * jCol + newRow;
+				out.data_->data()[mnInd] += (data_->data()[idx_ + Nrow_ * jCol + f] - out.data_->data()[mnInd]) / denom;
+				denom += 1.0;
 			}
-			denom += 1.0;
 		}
 	}
 
 }
-void MatrixViewConst::colMeansMiss(const Index &ind, MatrixView &out) const{
+void MatrixViewConst::colMeans(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
 		throw string("ERROR: wrong total length of Index in MatrixViewConst::colMeansMiss(const Index &, MatrixView &)");
@@ -3309,19 +3431,30 @@ void MatrixViewConst::colMeansMiss(const Index &ind, MatrixView &out) const{
 	if (Ncol_ != out.Ncol_) {
 		throw string("ERROR: unequal number of columns in MatrixViewConst::colMeansMiss(const Index &, MatrixView &)");
 	}
+	if (missInd.size() != Ncol_) {
+		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixViewConst::colMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
+	}
 #endif
-
-	fill(out.data_->data()+out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
+	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
 	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
-		vector<double> denom(Ncol_, 1.0);
-		for (auto &f : ind[newRow]) {
-			for (size_t jCol = 0; jCol < Ncol_; jCol++) {
-				const size_t mnInd = out.idx_ + ind.groupNumber() * jCol + newRow;
-				const size_t dtInd = idx_ + Nrow_ * jCol + f;
-				if ( !isnan(data_->data()[dtInd]) ) {
-					out.data_->data()[mnInd] += (data_->data()[dtInd] - out.data_->data()[mnInd]) / denom[jCol];
-					denom[jCol] += 1.0;
+		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+			double denom = 1.0;
+			if ( missInd[jCol].empty() ) {
+				for (auto &f : ind[newRow]) {
+					const size_t curInd        = out.idx_ + ind.groupNumber() * jCol + newRow;
+					out.data_->data()[curInd] += (data_->data()[idx_ + Nrow_ * jCol + f] - out.data_->data()[curInd]) / denom;
+					denom += 1.0;
+				}
+			} else {
+				size_t curMind = 0;
+				for (auto &f : ind[newRow]) {
+					if ( ( curMind < missInd[jCol].size() ) && (missInd[jCol][curMind] == f) ) {
+						curMind++;
+					} else {
+						const size_t mnInd = out.idx_ + ind.groupNumber() * jCol + newRow;
+						out.data_->data()[mnInd] += (data_->data()[idx_ + Nrow_ * jCol + f] - out.data_->data()[mnInd]) / denom;
+					}
 				}
 			}
 		}

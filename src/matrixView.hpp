@@ -1318,7 +1318,7 @@ namespace BayesicSpace {
 		 * \param[out] out output `MatrixView`
 		 *
 		 */
-		void colMeans(const Index &ind, vector< vector<size_t> > &missInd, MatrixView &out) const;
+		void colMeans(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const;
 	private:
 		/** \brief Pointer to a vector */
 		const vector<double> *data_;
