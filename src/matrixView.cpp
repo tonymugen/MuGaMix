@@ -1822,16 +1822,16 @@ void MatrixView::colSums(const Index &ind, const vector< vector<size_t> > &missI
 #endif
 	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
-	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
 		// going through all the rows of Z that correspond to the new row of M
-		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		size_t curMind = 0;
+		for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
 			if ( missInd[jCol].empty() ) {
 				for (auto &f : ind[newRow]) {
 					// summing the rows of M within the group defined by rows of Z
 					out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow] += data_->data()[idx_ + Nrow_ * jCol + f];
 				}
 			} else {
-				size_t curMind = 0;
 				for (auto &f : ind[newRow]) {
 					// summing the rows of M within the group defined by rows of Z
 					if ( ( curMind < missInd[jCol].size() ) && (missInd[jCol][curMind] == f) ) {
@@ -1934,8 +1934,9 @@ void MatrixView::colMeans(const Index &ind, const vector< vector<size_t> > &miss
 #endif
 	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
-	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
-		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		size_t curMind = 0;
+		for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
 			double denom = 1.0;
 			if ( missInd[jCol].empty() ) {
 				for (auto &f : ind[newRow]) {
@@ -1944,13 +1945,13 @@ void MatrixView::colMeans(const Index &ind, const vector< vector<size_t> > &miss
 					denom += 1.0;
 				}
 			} else {
-				size_t curMind = 0;
 				for (auto &f : ind[newRow]) {
 					if ( ( curMind < missInd[jCol].size() ) && (missInd[jCol][curMind] == f) ) {
 						curMind++;
 					} else {
 						const size_t mnInd = out.idx_ + ind.groupNumber() * jCol + newRow;
 						out.data_->data()[mnInd] += (data_->data()[idx_ + Nrow_ * jCol + f] - out.data_->data()[mnInd]) / denom;
+						denom += 1.0;
 					}
 				}
 			}
@@ -3323,16 +3324,16 @@ void MatrixViewConst::colSums(const Index &ind, const vector< vector<size_t> > &
 #endif
 	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
-	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
 		// going through all the rows of Z that correspond to the new row of M
-		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		size_t curMind = 0;
+		for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
 			if ( missInd[jCol].empty() ) {
 				for (auto &f : ind[newRow]) {
 					// summing the rows of M within the group defined by rows of Z
 					out.data_->data()[out.idx_ + ind.groupNumber() * jCol + newRow] += data_->data()[idx_ + Nrow_ * jCol + f];
 				}
 			} else {
-				size_t curMind = 0;
 				for (auto &f : ind[newRow]) {
 					// summing the rows of M within the group defined by rows of Z
 					if ( ( curMind < missInd[jCol].size() ) && (missInd[jCol][curMind] == f) ) {
@@ -3420,16 +3421,16 @@ void MatrixViewConst::colMeans(const Index &ind, MatrixView &out) const{
 void MatrixViewConst::colMeans(const Index &ind, const vector< vector<size_t> > &missInd, MatrixView &out) const{
 #ifndef PKG_DEBUG_OFF
 	if (ind.size() != Nrow_) {
-		throw string("ERROR: wrong total length of Index in MatrixViewConst::colMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: wrong total length of Index in MatrixViewConst::colMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 	if ( (Nrow_ == 0) || (Ncol_ == 0) ) {
-		throw string("ERROR: one of the dimensions is zero MatrixViewConst::colMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: one of the dimensions is zero MatrixViewConst::colMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 	if (ind.groupNumber() != out.Nrow_) {
-		throw string("ERROR: incorrect Index group number in MatrixViewConst::colMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: incorrect Index group number in MatrixViewConst::colMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 	if (Ncol_ != out.Ncol_) {
-		throw string("ERROR: unequal number of columns in MatrixViewConst::colMeansMiss(const Index &, MatrixView &)");
+		throw string("ERROR: unequal number of columns in MatrixViewConst::colMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
 	}
 	if (missInd.size() != Ncol_) {
 		throw string("ERROR: Missing data index vector not the same size as the number of columns in MatrixViewConst::colMeans(const Index &, const vector< vector<size_t> > &, MatrixView &)");
@@ -3437,9 +3438,10 @@ void MatrixViewConst::colMeans(const Index &ind, const vector< vector<size_t> > 
 #endif
 	fill(out.data_->data() + out.idx_, out.data_->data() + out.idx_ + (out.Ncol_ * out.Nrow_), 0.0);
 
-	for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
-		for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+	for (size_t jCol = 0; jCol < Ncol_; jCol++) {
+		for (size_t newRow = 0; newRow < ind.groupNumber(); newRow++) {
 			double denom = 1.0;
+			size_t curMind = 0;
 			if ( missInd[jCol].empty() ) {
 				for (auto &f : ind[newRow]) {
 					const size_t curInd        = out.idx_ + ind.groupNumber() * jCol + newRow;
@@ -3447,7 +3449,6 @@ void MatrixViewConst::colMeans(const Index &ind, const vector< vector<size_t> > 
 					denom += 1.0;
 				}
 			} else {
-				size_t curMind = 0;
 				for (auto &f : ind[newRow]) {
 					if ( ( curMind < missInd[jCol].size() ) && (missInd[jCol][curMind] == f) ) {
 						curMind++;

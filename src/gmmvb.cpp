@@ -27,6 +27,7 @@
  *
  */
 
+#include <cstddef>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -423,13 +424,14 @@ void GmmVB::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32
 }
 
 // GmmVBmiss methods
-GmmVBmiss::GmmVBmiss(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : GmmVB(yVec, lambda0, sigmaSq0, alpha0, nPop, d, vPopMn, vSm, resp, Nm) {
-	vYmiss0_ = *yVec_;
-	Ymiss0_ = MatrixView( &vYmiss0_, 0, Y_.getNrows(), Y_.getNcols() );
+GmmVBmiss::GmmVBmiss(vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : GmmVB(yVec, lambda0, sigmaSq0, alpha0, nPop, d, vPopMn, vSm, resp, Nm) {
+	missInd_.resize( Y_.getNcols() );
+	MatrixView Ytmp( yVec, 0, Y_.getNrows(), Y_.getNcols() );  // this is to modify yVec
 	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
 			if ( isnan( Y_.getElem(iRow, jCol) ) ) {
-				Ymiss0_.setElem(iRow, jCol, 0.0);
+				missInd_[jCol].push_back(iRow);
+				Ytmp.setElem(iRow, jCol, 0.0);
 			}
 		}
 	}
@@ -450,10 +452,123 @@ void GmmVBmiss::fitModel(vector<double> &logPost, double &dic){
 		}
 	}
 	mStep_();
+	// Fit model
+	logPost.clear();
+	dic = 0.0;
+	for (size_t it = 0; it < maxIt_; it++) {
+		eStep_();
+		mStep_();
+		const double curLP = logPost_();
+		if ( logPost.size() && (fabs( ( curLP - logPost.back() ) / logPost.back() ) <= stoppingDiff_) ) {
+			logPost.push_back(curLP);
+			break;
+		}
+		logPost.push_back(curLP);
+	}
+	// complete the DIC
+	const double nmAlphaN = static_cast<double>( M_.getNrows() ) * alpha0_ + static_cast<double>( Y_.getNrows() );
+	double pD = 0.0;
+	for (size_t m = 0; m < M_.getNrows(); m++) {
+		const double alpha_m = alpha0_ + (*N_)[m];
+		pD += (*N_)[m] * (2.0 * ( log(alpha_m) - nuc_.digamma(alpha_m) ) + d_ * log(nu0p1_ + (*N_)[m]) - sumDiGam_[m] + 1.0 / (lambda0_ + (*N_)[m]));
+	}
+	dic = 2.0 * ( pD - logPost.back() ) - static_cast<double>( Y_.getNrows() ) * ( 2.0 * log(nmAlphaN) - d_ * 0.4515827053 - 4.0 * nuc_.digamma(nmAlphaN) ); // 0.4515827053 is log(pi/2)
+
+	// scale the inverse covariance and invert
+	for (size_t m = 0; m < M_.getNrows(); m++) {  // scale the inverse-covariance
+		W_[m] *= nu0p1_ + (*N_)[m];
+		W_[m].chol();
+		W_[m].cholInv();
+	}
 }
 
 void GmmVBmiss::eStep_(){
-
+	const size_t d    = Y_.getNcols();
+	const size_t N    = Y_.getNrows();
+	const size_t Npop = M_.getNrows();
+	const size_t Ndim = N * d;
+	// start with parameters not varying across individuals
+	vector<double> startSum;
+	vector<double> nuNm;
+	for (size_t m = 0; m < Npop; m++) {
+		const double lNm = lambda0_ + (*N_)[m];
+		nuNm.push_back( 0.5 * (nu0p1_ + (*N_)[m]) );
+		startSum.push_back( nuc_.digamma(alpha0_ + (*N_)[m]) + 0.5 * (sumDiGam_[m] + lnDet_[m] - d_ / lNm) );
+	}
+	// calculate crossproducts
+	vector<double> vLnRho(N * Npop, 0.0);
+	MatrixView lnRho(&vLnRho, 0, N, Npop);
+	for (size_t m = 0; m < Npop; m++) {
+		vector<double> vArsd(*yVec_);
+		MatrixView Arsd(&vArsd, 0, N, d);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			if ( missInd_[jCol].empty() ) {
+				for (size_t iRow = 0; iRow < N; iRow ++) {
+					Arsd.subtractFromElem(iRow, jCol, M_.getElem(m, jCol));
+				}
+			} else {
+				size_t curMind = 0;
+				for (size_t iRow = 0; iRow < N; iRow ++) {
+					if ( ( curMind < missInd_[jCol].size() ) && (missInd_[jCol][curMind] == iRow) ) {
+						curMind++;
+					} else {
+						Arsd.subtractFromElem(iRow, jCol, M_.getElem(m, jCol));
+					}
+				}
+			}
+		}
+		vector<double> vArsdSig(Ndim, 0.0);
+		MatrixView ArsdSig(&vArsdSig, 0, N, d);
+		Arsd.symm('l', 'r', 1.0, W_[m], 0.0, ArsdSig);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			if ( missInd_[jCol].empty() ) {
+				for (size_t iRow = 0; iRow < N; iRow++) {
+					lnRho.addToElem(iRow, m, Arsd.getElem(iRow, jCol) * ArsdSig.getElem(iRow, jCol));
+				}
+			} else {
+				size_t curMind = 0;
+				for (size_t iRow = 0; iRow < N; iRow++) {
+					if ( ( curMind < missInd_[jCol].size() ) && (missInd_[jCol][curMind] == iRow) ) {
+						curMind++;
+					} else {
+						lnRho.addToElem(iRow, m, Arsd.getElem(iRow, jCol) * ArsdSig.getElem(iRow, jCol));
+					}
+				}
+			}
+		}
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			const double lnRhoLoc = startSum[m] - nuNm[m] * lnRho.getElem(iRow, m);
+			lnRho.setElem(iRow, m, lnRhoLoc);
+		}
+	}
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			double invRjm   = 1.0;
+			bool noOverflow = true;
+			for (size_t l = 0; l < Npop; l++) {
+				if (l == m) {
+					continue;
+				} else {
+					double diff = lnRho.getElem(iRow, l) - lnRho.getElem(iRow, m);
+					if (diff >= lnMaxDbl_) {                                        // will overflow right away
+						R_.setElem(iRow, m, 0.0);
+						noOverflow = false;
+						break;
+					}
+					diff = exp(diff);
+					if ( (numeric_limits<double>::max() - invRjm) <= diff) {        // will overflow when I add the new value
+						R_.setElem(iRow, m, 0.0);
+						noOverflow = false;
+						break;
+					}
+					invRjm += diff;
+				}
+			}
+			if (noOverflow) {
+				R_.setElem(iRow, m, 1.0 / invRjm);
+			}
+		}
+	}
 }
 
 void GmmVBmiss::mStep_(){
@@ -467,27 +582,30 @@ void GmmVBmiss::mStep_(){
 		MatrixView Ysc(&vYsc, 0, N, d);
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
-				if ( isnan( Ysc.getElem(iRow, jCol) ) ) {
-					Ysc.setElem(iRow, jCol, 0.0);
-				} else {
-					Ysc.multiplyElem( iRow, jCol, R_.getElem(iRow, m) );
-				}
+				Ysc.multiplyElem( iRow, jCol, R_.getElem(iRow, m) );
 			}
 		}
 		vector<double> lamNm(d, lambda0_);
 		for (size_t jCol = 0; jCol < d; jCol++) {
-			for (size_t iRow = 0; iRow < N; iRow++) {
-				if ( !isnan( Y_.getElem(iRow, jCol) ) ) {
-					lamNm[jCol] += R_.getElem(iRow, m);
+			if ( missInd_[jCol].empty() ) {
+				lamNm[jCol] += (*N_)[m];
+			} else {
+				size_t curMind = 0;
+				for (size_t iRow = 0; iRow < N; iRow++) {
+					if ( ( curMind < missInd_[jCol].size() ) && (missInd_[jCol][curMind] == iRow) ) {
+						curMind++;
+					} else {
+						lamNm[jCol] += R_.getElem(iRow, m);
+					}
 				}
 			}
 		}
 		vector<double> mRow;
-		Ysc.colSumsMiss(mRow);
+		Ysc.colSums(missInd_, mRow);
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			M_.setElem(m, jCol, mRow[jCol] / lamNm[jCol]);
 		}
-		Ymiss0_.gemm(true, 1.0, Ysc, false, 0.0, W_[m]);
+		Y_.gemm(true, 1.0, Ysc, false, 0.0, W_[m]);
 		// lower triangle of W_m
 		for (size_t jD = 0; jD < d; jD++) {
 			for (size_t iD = jD; iD < d; iD++) {
@@ -528,11 +646,93 @@ void GmmVBmiss::mStep_(){
 }
 
 double GmmVBmiss::logPost_(){
-	double lp = 0.0;
-	return lp;
+	const size_t d    = Y_.getNcols();
+	const size_t N    = Y_.getNrows();
+	const size_t Npop = M_.getNrows();
+	const size_t Ndim = N * d;
+	// start with parameters not varying across individuals
+	vector<double> nuNm;
+	for (size_t m = 0; m < Npop; m++) {
+		const double lNm = lambda0_ + (*N_)[m];
+		nuNm.push_back(nu0p1_ + (*N_)[m]);
+	}
+	// calculate the K matrix (kappa_jm)
+	vector<double> vK(N * Npop, 0.0);
+	MatrixView K(&vK, 0, N, Npop);
+	for (size_t m = 0; m < Npop; m++) {
+		vector<double> vArsd(*yVec_);
+		MatrixView Arsd(&vArsd, 0, N, d);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			if ( missInd_[jCol].empty() ) {
+				for (size_t iRow = 0; iRow < N; iRow ++) {
+					Arsd.subtractFromElem(iRow, jCol, M_.getElem(m, jCol));
+				}
+			} else {
+				size_t curMind = 0;
+				for (size_t iRow = 0; iRow < N; iRow ++) {
+					if ( ( curMind < missInd_[jCol].size() ) && (missInd_[jCol][curMind] == iRow) ) {
+						curMind++;
+					} else {
+						Arsd.subtractFromElem(iRow, jCol, M_.getElem(m, jCol));
+					}
+				}
+			}
+		}
+		vector<double> vArsdSig(Ndim, 0.0);
+		MatrixView ArsdSig(&vArsdSig, 0, N, d);
+		Arsd.symm('l', 'r', 1.0, W_[m], 0.0, ArsdSig);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			if ( missInd_[jCol].empty() ) {
+				for (size_t iRow = 0; iRow < N; iRow++) {
+					K.addToElem(iRow, m, Arsd.getElem(iRow, jCol) * ArsdSig.getElem(iRow, jCol));
+				}
+			} else {
+				size_t curMind = 0;
+				for (size_t iRow = 0; iRow < N; iRow++) {
+					if ( ( curMind < missInd_[jCol].size() ) && (missInd_[jCol][curMind] == iRow) ) {
+						curMind++;
+					} else {
+						K.addToElem(iRow, m, Arsd.getElem(iRow, jCol) * ArsdSig.getElem(iRow, jCol));
+					}
+				}
+			}
+		}
+	}
+	// add the scalar values
+	vector<double> scSum;
+	for (size_t m = 0; m < Npop; m++) {
+		scSum.push_back( log(alpha0_ + (*N_)[m]) + 0.5 * (d_ * log(nuNm[m]) + lnDet_[m]) );
+	}
+	vector<size_t> maxInd(N, 0);                                          // index of the largest kernel value
+	vector<double> curMaxVal( N, -numeric_limits<double>::infinity() );   // store the current largest kernel value here
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			const double newVal = scSum[m] - 0.5 * nuNm[m] * K.getElem(iRow, m);
+			if (newVal > curMaxVal[iRow]) {
+				maxInd[iRow]    = m;
+				curMaxVal[iRow] = newVal;
+			}
+			K.setElem(iRow, m, newVal);
+		}
+	}
+	// Subtract the largest column from the rest and sum the exponents row-wise
+	vector<double> expRowSums(N, 0.0);
+	for (size_t m = 0; m < Npop; m++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			if (m != maxInd[iRow]) {
+				expRowSums[iRow] += exp(K.getElem(iRow, m) - K.getElem(iRow, maxInd[iRow]));
+			}
+		}
+	}
+	// sum everything
+	double lnP = 0.0;
+	for (size_t i = 0; i < N; i++) {
+		lnP += curMaxVal[i] + log1p(expRowSums[i]);
+	}
+	return(lnP);
 }
 
-double GmmVBmiss::rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){
+double GmmVBmiss::rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2, const vector<size_t> &presInd){
 #ifndef PKG_DEBUG_OFF
 	if ( m1.getNcols() != m2.getNcols() ) {
 		throw string("ERROR: m1 and m2 matrices must have the same number of columns in GmmVBmiss::rowDist_()");
@@ -545,13 +745,9 @@ double GmmVBmiss::rowDistance_(const MatrixViewConst &m1, const size_t &row1, co
 	}
 #endif
 	double dist = 0.0;
-	for (size_t jCol = 0; jCol < m1.getNcols(); jCol++) {
-		const double m1e = m1.getElem(row1, jCol);
-		const double m2e = m2.getElem(row2, jCol);
-		if (!isnan(m1e) && !isnan(m2e)) {
-			double diff = m1e - m2e;
-			dist += diff * diff;
-		}
+	for (auto &pv : presInd){
+		double diff = m1.getElem(row1, pv) - m2.getElem(row2, pv);
+		dist       += diff * diff;
 	}
 	return sqrt(dist);
 }
@@ -589,11 +785,20 @@ void GmmVBmiss::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const ui
 		// save the previous S vector
 		sPrevious = sNew;
 		// assign cluster IDs according to minimal distance
+		vector<size_t> missRowInd(Y_.getNcols(), 0);
 		for (size_t iRow = 0; iRow < X.getNrows(); iRow++) {
 			sNew[iRow]  = 0;
-			double dist = rowDistance_(X, iRow, M, 0);
+			vector<size_t> presInd;
+			for (size_t j = 0; j < Y_.getNcols(); j++) {
+				if ( ( missInd_[j].size() ) && ( missRowInd[j] < missInd_[j].size() ) && (missInd_[j][ missRowInd[j] ] == iRow) ) {
+					missRowInd[j]++;
+				} else {
+					presInd.push_back(j);
+				}
+			}
+			double dist = rowDistance_(X, iRow, M, 0, presInd);
 			for (size_t iCl = 1; iCl < M.getNrows(); iCl++) {
-				double curDist = rowDistance_(X, iRow, M, iCl);
+				double curDist = rowDistance_(X, iRow, M, iCl, presInd);
 				if (dist > curDist) {
 					sNew[iRow] = iCl;
 					dist       = curDist;
@@ -602,7 +807,7 @@ void GmmVBmiss::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const ui
 		}
 		x2m.update(sNew);
 		// recalculate cluster means
-		X.colMeansMiss(x2m, M);
+		X.colMeans(x2m, missInd_, M);
 		// calculate the magnitude of cluster assignment change
 		double nDiff = 0.0;
 		for (size_t i = 0; i < sNew.size(); i++) {

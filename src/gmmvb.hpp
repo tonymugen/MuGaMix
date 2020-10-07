@@ -29,6 +29,7 @@
 #ifndef gmmvb_hpp
 #define gmmvb_hpp
 
+#include <cstddef>
 #include <vector>
 
 #include "matrixView.hpp"
@@ -162,7 +163,7 @@ namespace BayesicSpace {
 		 * \param[in] row2 index of the second matrix row
 		 * \return euclidean distance between the rows
 		 */
-		virtual double rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2);
+		double rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2);
 		/** \brief K-means clustering
 		 *
 		 * Performs k-means clustering on a matrix of values. Each row of the input matrix is an item with observed values in columns.
@@ -199,7 +200,7 @@ namespace BayesicSpace {
 		 * \param[in, out] resp pointer to vectorized matrix responsibilities
 		 * \param[in, out] Nm pointer to vector of effective population sizes
 		 */
-		GmmVBmiss(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
+		GmmVBmiss(vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
 		/** \brief Destructor */
 		~GmmVBmiss(){ yVec_ = nullptr; N_ = nullptr; };
 
@@ -227,10 +228,11 @@ namespace BayesicSpace {
 		 */
 		void fitModel(vector<double> &logPost, double &dic) override;
 	protected:
-		/** \brief Data vector with 0.0 in place of `NaN` */
-		vector<double> vYmiss0_;
-		/** \brief Matrix view of `vYmiss0_` */
-		MatrixView Ymiss0_;
+		/** \brief Missing data indixes
+		 *
+		 * The outer vector corresponds to data matrix columns. The inner vectors contain row indexes of missing data positions.
+		 */
+		vector< vector<size_t> > missInd_;
 		// Private functions
 		/** \brief The E-step */
 		void eStep_() override;
@@ -249,9 +251,10 @@ namespace BayesicSpace {
 		 * \param[in] row1 index of the first matrix row
 		 * \param[in] m2 second matrix
 		 * \param[in] row2 index of the second matrix row
+		 * \param[in] presInd index of present (not missing) values
 		 * \return euclidean distance between the rows
 		 */
-		double rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2) override;
+		double rowDistance_(const MatrixViewConst &m1, const size_t &row1, const MatrixView &m2, const size_t &row2, const vector<size_t> &presInd);
 		/** \brief K-means clustering
 		 *
 		 * Performs k-means clustering on a matrix of values. Each row of the input matrix is an item with observed values in columns.
