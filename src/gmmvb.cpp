@@ -146,8 +146,12 @@ void GmmVB::fitModel(vector<double> &logPost, double &dic) {
 	// scale the inverse covariance and invert
 	for (size_t m = 0; m < M_.getNrows(); m++) {  // scale the inverse-covariance
 		W_[m] *= nu0p1_ + (*N_)[m];
-		W_[m].chol();
-		W_[m].cholInv();
+		try {
+			W_[m].chol();
+			W_[m].cholInv();
+		} catch (string problem) {
+			W_[m].pseudoInv();
+		}
 	}
 }
 
@@ -477,8 +481,12 @@ void GmmVBmiss::fitModel(vector<double> &logPost, double &dic){
 	// scale the inverse covariance and invert
 	for (size_t m = 0; m < M_.getNrows(); m++) {  // scale the inverse-covariance
 		W_[m] *= nu0p1_ + (*N_)[m];
-		W_[m].chol();
-		W_[m].cholInv();
+		try {
+			W_[m].chol();
+			W_[m].cholInv();
+		} catch (string problem) {
+			W_[m].pseudoInv();
+		}
 	}
 }
 
