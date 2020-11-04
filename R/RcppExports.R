@@ -59,37 +59,36 @@ gradTestSI <- function(yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr) {
 #'
 #' @param yVec    vectorized data matrix
 #' @param d       number of traits
-#' @param nPop    number of populations
-#' @param alphaPr prior population size
+#' @param nGroups number of groups
+#' @param alphaPr prior group size
 #' @param sigSqPr prior variance
-#' @param ppRatio population to error covariance ratio
+#' @param covRatio population to error covariance ratio
 #' @param nReps   number of model fit attempts before picking the best fit
-#' @return list containing population means (\code{popMeans}), covariances (\code{covariances}), effective population sizes (\code{effNm}), population assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
+#' @return list containing group means (\code{groupMeans}), covariances (\code{covariances}), effective group sizes (\code{effNm}), group assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
 #'
 #' @keywords internal
 #'
-vbFit <- function(yVec, d, nPop, alphaPr, sigSqPr, ppRatio, nReps) {
-    .Call(`_MuGaMix_vbFit`, yVec, d, nPop, alphaPr, sigSqPr, ppRatio, nReps)
+vbFit <- function(yVec, d, nGroups, alphaPr, sigSqPr, covRatio, nReps) {
+    .Call(`_MuGaMix_vbFit`, yVec, d, nGroups, alphaPr, sigSqPr, covRatio, nReps)
 }
 
 #' Variational Bayes model fit with missing data
 #'
-#' Fits a Gaussian mixture model using variational Bayes. Allows missing data. Missing values are marked with an integer vector that stores base-0 indexes of the messing values in the vectorized data matrix.
+#' Fits a Gaussian mixture model using variational Bayes. Allows missing data. Missing values should be marked with \code{NaN}.
 #'
-#' @param yVec    vectorized data matrix
-#' @param missInd missing values indexes (base-0)
-#' @param d       number of traits
-#' @param nPop    number of populations
-#' @param alphaPr prior population size
-#' @param sigSqPr prior variance
-#' @param ppRatio population to error covariance ratio
-#' @param nReps   number of model fit attempts before picking the best fit
-#' @return list containing population means (\code{popMeans}), covariances (\code{covariances}), effective population sizes (\code{effNm}), population assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
+#' @param yVec     vectorized data matrix
+#' @param d        number of traits
+#' @param nGroups  number of groups
+#' @param alphaPr  prior group size
+#' @param sigSqPr  prior variance
+#' @param covRatio population to error covariance ratio
+#' @param nReps    number of model fit attempts before picking the best fit
+#' @return list containing group means (\code{groupMeans}), covariances (\code{covariances}), effective group sizes (\code{effNm}), group assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
 #'
 #' @keywords internal
 #'
-vbFitMiss <- function(yVec, d, nPop, alphaPr, sigSqPr, ppRatio, nReps) {
-    .Call(`_MuGaMix_vbFitMiss`, yVec, d, nPop, alphaPr, sigSqPr, ppRatio, nReps)
+vbFitMiss <- function(yVec, d, nGroups, alphaPr, sigSqPr, covRatio, nReps) {
+    .Call(`_MuGaMix_vbFitMiss`, yVec, d, nGroups, alphaPr, sigSqPr, covRatio, nReps)
 }
 
 #' Run the sampler with no replication

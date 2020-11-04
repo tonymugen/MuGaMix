@@ -41,17 +41,20 @@ quickFitModel <- function(data, traitColumns, nGroups, priorGroupSize = 1e-3, nR
 	if (nGroups < 2) {
 		stop("Must specify more than one group")
 	}
-	if (any(is.na(yVec))) {
-		yVec[is.na(yVec)] <- NaN
-	}
 	tau0    <- 1.0
 	lambda0 <- 1.0
-	res     <- MuGaMix::vbFit(yVec, d, nGroups, priorGroupSize, tau0, lambda0, nReps)
-
+	res     <- NULL
+	if (any(is.na(yVec))) {
+		yVec[is.na(yVec)] <- NaN
+		res <- MuGaMix::vbFitMiss(yVec, d, nGroups, priorGroupSize, tau0, lambda0, nReps)
+	} else {
+		res <- MuGaMix::vbFit(yVec, d, nGroups, priorGroupSize, tau0, lambda0, nReps)
+	}
 	res$p           <- matrix(res$p, ncol = nGroups)
 	res$groupMeans  <- matrix(res$groupMeans, nrow = nGroups)
 	covFac          <- rep(1:nGroups, each = d^2)
 	res$covariances <- tapply(res$covariances, covFac, matrix, nrow = d)
+	class(res)      <- "mugamixVB"
 	return(res)
 }
 
