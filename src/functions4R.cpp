@@ -328,19 +328,19 @@ Rcpp::List gradTestSI(const std::vector<double> &yVec, const std::vector<int32_t
 //'
 //' @param yVec    vectorized data matrix
 //' @param d       number of traits
-//' @param nPop    number of populations
-//' @param alphaPr prior population size
+//' @param nGroups number of groups
+//' @param alphaPr prior group size
 //' @param sigSqPr prior variance
-//' @param ppRatio population to error covariance ratio
+//' @param covRatio population to error covariance ratio
 //' @param nReps   number of model fit attempts before picking the best fit
-//' @return list containing population means (\code{popMeans}), covariances (\code{covariances}), effective population sizes (\code{effNm}), population assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
+//' @return list containing group means (\code{groupMeans}), covariances (\code{covariances}), effective group sizes (\code{effNm}), group assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
 //'
 //' @keywords internal
 //'
 //[[Rcpp::export(name="vbFit")]]
-Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &sigSqPr, const double &ppRatio, const int32_t nReps){
-	if (nPop <= 1) {
-		Rcpp::stop("Number of populations must be greater than 1");
+Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_t &nGroups, const double &alphaPr, const double &sigSqPr, const double &covRatio, const int32_t nReps){
+	if (nGroups <= 1) {
+		Rcpp::stop("Number of groups must be greater than 1");
 	}
 	if (d <= 0) {
 		Rcpp::stop("Number of traits must be non-negative");
@@ -349,35 +349,35 @@ Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_
 		Rcpp::stop("Number of replicate runs must be positive");
 	}
 	if (alphaPr <= 0.0) {
-		Rcpp::stop("Prior population size must be positive");
+		Rcpp::stop("Prior group size must be positive");
 	}
 	if (sigSqPr <= 0.0) {
 		Rcpp::stop("Prior variance must be positive");
 	}
-	if (ppRatio <= 0.0) {
+	if (covRatio <= 0.0) {
 		Rcpp::stop("Variance ratio must be positive");
 	}
-	std::vector<double> vPopMn;
+	std::vector<double> vGrpMn;
 	std::vector<double> vSm;
 	std::vector<double> Nm;
 	std::vector<double> r;
 	std::vector<double> lPost;
 	double dic = 0.0;
 	try {
-		BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
+		BayesicSpace::GmmVB vbModel(&yVec, covRatio, sigSqPr, alphaPr, static_cast<size_t>(nGroups), static_cast<size_t>(d), &vGrpMn, &vSm, &r, &Nm);
 		vbModel.fitModel(lPost, dic);
 		for (int iRep = 1; iRep < nReps; iRep++) {
-			std::vector<double> vPopMnLoc;
+			std::vector<double> vGrpMnLoc;
 			std::vector<double> vSmLoc;
 			std::vector<double> NmLoc;
 			std::vector<double> rLoc;
 			std::vector<double> lPostLoc;
 			double dicLoc = 0.0;
 
-			BayesicSpace::GmmVB vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMnLoc, &vSmLoc, &rLoc, &NmLoc);
+			BayesicSpace::GmmVB vbModel(&yVec, covRatio, sigSqPr, alphaPr, static_cast<size_t>(nGroups), static_cast<size_t>(d), &vGrpMnLoc, &vSmLoc, &rLoc, &NmLoc);
 			vbModel.fitModel(lPostLoc, dicLoc);
 			if (dicLoc < dic) { // if we found a better DIC
-				vPopMn = vPopMnLoc;
+				vGrpMn = vGrpMnLoc;
 				vSm    = vSmLoc;
 				Nm     = NmLoc;
 				r      = rLoc;
@@ -387,29 +387,28 @@ Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_
 	} catch (std::string problem) {
 		Rcpp::stop(problem);
 	}
-	return Rcpp::List::create(Rcpp::Named("popMeans", vPopMn), Rcpp::Named("covariances", vSm), Rcpp::Named("effNm", Nm), Rcpp::Named("p", r), Rcpp::Named("DIC", dic));
+	return Rcpp::List::create(Rcpp::Named("groupMeans", vGrpMn), Rcpp::Named("covariances", vSm), Rcpp::Named("effNm", Nm), Rcpp::Named("p", r), Rcpp::Named("DIC", dic));
 }
 
 //' Variational Bayes model fit with missing data
 //'
-//' Fits a Gaussian mixture model using variational Bayes. Allows missing data. Missing values are marked with an integer vector that stores base-0 indexes of the messing values in the vectorized data matrix.
+//' Fits a Gaussian mixture model using variational Bayes. Allows missing data. Missing values should be marked with \code{NaN}.
 //'
-//' @param yVec    vectorized data matrix
-//' @param missInd missing values indexes (base-0)
-//' @param d       number of traits
-//' @param nPop    number of populations
-//' @param alphaPr prior population size
-//' @param sigSqPr prior variance
-//' @param ppRatio population to error covariance ratio
-//' @param nReps   number of model fit attempts before picking the best fit
-//' @return list containing population means (\code{popMeans}), covariances (\code{covariances}), effective population sizes (\code{effNm}), population assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
+//' @param yVec     vectorized data matrix
+//' @param d        number of traits
+//' @param nGroups  number of groups
+//' @param alphaPr  prior group size
+//' @param sigSqPr  prior variance
+//' @param covRatio population to error covariance ratio
+//' @param nReps    number of model fit attempts before picking the best fit
+//' @return list containing group means (\code{groupMeans}), covariances (\code{covariances}), effective group sizes (\code{effNm}), group assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
 //'
 //' @keywords internal
 //'
 //[[Rcpp::export(name="vbFitMiss")]]
-Rcpp::List vbFitMiss(std::vector<double> &yVec, const int32_t &d, const int32_t &nPop, const double &alphaPr, const double &sigSqPr, const double &ppRatio, const int32_t nReps){
-	if (nPop <= 1) {
-		Rcpp::stop("Number of populations must be greater than 1");
+Rcpp::List vbFitMiss(std::vector<double> &yVec, const int32_t &d, const int32_t &nGroups, const double &alphaPr, const double &sigSqPr, const double &covRatio, const int32_t nReps){
+	if (nGroups <= 1) {
+		Rcpp::stop("Number of groups must be greater than 1");
 	}
 	if (d <= 0) {
 		Rcpp::stop("Number of traits must be non-negative");
@@ -418,35 +417,35 @@ Rcpp::List vbFitMiss(std::vector<double> &yVec, const int32_t &d, const int32_t 
 		Rcpp::stop("Number of replicate runs must be positive");
 	}
 	if (alphaPr <= 0.0) {
-		Rcpp::stop("Prior population size must be positive");
+		Rcpp::stop("Prior group size must be positive");
 	}
 	if (sigSqPr <= 0.0) {
 		Rcpp::stop("Prior variance must be positive");
 	}
-	if (ppRatio <= 0.0) {
+	if (covRatio <= 0.0) {
 		Rcpp::stop("Variance ratio must be positive");
 	}
-	std::vector<double> vPopMn;
+	std::vector<double> vGrpMn;
 	std::vector<double> vSm;
 	std::vector<double> Nm;
 	std::vector<double> r;
 	std::vector<double> lPost;
 	double dic = 0.0;
 	try {
-		BayesicSpace::GmmVBmiss vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMn, &vSm, &r, &Nm);
+		BayesicSpace::GmmVBmiss vbModel(&yVec, covRatio, sigSqPr, alphaPr, static_cast<size_t>(nGroups), static_cast<size_t>(d), &vGrpMn, &vSm, &r, &Nm);
 		vbModel.fitModel(lPost, dic);
 		for (int iRep = 1; iRep < nReps; iRep++) {
-			std::vector<double> vPopMnLoc;
+			std::vector<double> vGrpMnLoc;
 			std::vector<double> vSmLoc;
 			std::vector<double> NmLoc;
 			std::vector<double> rLoc;
 			std::vector<double> lPostLoc;
 			double dicLoc = 0.0;
 
-			BayesicSpace::GmmVBmiss vbModel(&yVec, ppRatio, sigSqPr, alphaPr, static_cast<size_t>(nPop), static_cast<size_t>(d), &vPopMnLoc, &vSmLoc, &rLoc, &NmLoc);
+			BayesicSpace::GmmVBmiss vbModel(&yVec, covRatio, sigSqPr, alphaPr, static_cast<size_t>(nGroups), static_cast<size_t>(d), &vGrpMnLoc, &vSmLoc, &rLoc, &NmLoc);
 			vbModel.fitModel(lPostLoc, dicLoc);
 			if (dicLoc < dic) { // if we found a better DIC
-				vPopMn = vPopMnLoc;
+				vGrpMn = vGrpMnLoc;
 				vSm    = vSmLoc;
 				Nm     = NmLoc;
 				r      = rLoc;
@@ -456,7 +455,7 @@ Rcpp::List vbFitMiss(std::vector<double> &yVec, const int32_t &d, const int32_t 
 	} catch (std::string problem) {
 		Rcpp::stop(problem);
 	}
-	return Rcpp::List::create(Rcpp::Named("popMeans", vPopMn), Rcpp::Named("covariances", vSm), Rcpp::Named("effNm", Nm), Rcpp::Named("p", r), Rcpp::Named("DIC", dic));
+	return Rcpp::List::create(Rcpp::Named("groupMeans", vGrpMn), Rcpp::Named("covariances", vSm), Rcpp::Named("effNm", Nm), Rcpp::Named("p", r), Rcpp::Named("DIC", dic));
 }
 
 //' Run the sampler with no replication

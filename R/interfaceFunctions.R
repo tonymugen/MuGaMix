@@ -17,7 +17,45 @@
 # THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-#' Fit a Gaussian mixture model
+#' Fit a Gaussian mixture model using variational Bayes
+#'
+#' Quick approximate fit to a Gaussian mixture model using variational Bayes. Missing data are allowed, but no replicate measurements on individuals.
+#' The model shrinks small groups to zero if the \code{priorGroupSize} parameter is small.
+#' The variational Bayes algorithm sometimes gets stuck in local maxima. It is therefore a good idea to run the model fit several times and pick the "best" result.
+#' The \code{nReps} parameter controls the number of replicate runs. The result with the highest value of the deviance information criterion (DIC) is reported as the best.
+#'
+#' @param data data frame with the data
+#' @param traitColumns list of columns in \code{data} that contain trait values
+#' @param nGroups number of groups to fit, must be two or greater
+#' @param priorGroupSize prior group size; default value 10^-3^
+#' @param nReps number of runs to do before picking the best; default value 5
+#' @return S3 object of class \code{mugamixVB} that contains a matrix of group means (\code{groupMeans}), a list of within-group covariance matrices (\code{covariances}), a vector of effective group sizes (\code{effNm}), a matrix of group assignment probabilities (\code{p}; individuals in rows groups in columns), and the DIC value (\code{DIC})
+#'
+#' @export
+quickFitModel <- function(data, traitColumns, nGroups, priorGroupSize = 1e-3, nReps = 5) {
+	d <- length(traitColumns)
+	if (d <= 1) {
+		stop("Must have at least two traits")
+	}
+	yVec <- as.double(unlist(data[, traitColumns]))
+	if (nGroups < 2) {
+		stop("Must specify more than one group")
+	}
+	if (any(is.na(yVec))) {
+		yVec[is.na(yVec)] <- NaN
+	}
+	tau0    <- 1.0
+	lambda0 <- 1.0
+	res     <- MuGaMix::vbFit(yVec, d, nGroups, priorGroupSize, tau0, lambda0, nReps)
+
+	res$p           <- matrix(res$p, ncol = nGroups)
+	res$groupMeans  <- matrix(res$groupMeans, nrow = nGroups)
+	covFac          <- rep(1:nGroups, each = d^2)
+	res$covariances <- tapply(res$covariances, covFac, matrix, nrow = d)
+	return(res)
+}
+
+#' Fit a Gaussian mixture model using MCMC
 #'
 #' Fits a mixture model to the provided data, taking into account replication structure. Takes data on multiple traits and generates samples from posterior distributions of parameters, as well as probabilities that a line belongs to a given population. The fit is performed using a No-U-Turn Sampler (NUTS). The recommended burn-in, sampling, number of chains, and thinning are set as defaults.
 #'
@@ -25,22 +63,22 @@
 #'
 #' @param data data frame with the data
 #' @param trait.columns list of columns in \code{data} that contain trait values
-#' @param n.pop number of populations to fit, must be two ro greater
+#' @param n.pop number of populations to fit, must be two or greater
 #' @param factor.column name of the column that contains the factor connecting replicates to lines (if omitted, no replication is assumed)
-#' @param n.burnin number of iterations of butnin (adaptation)
+#' @param n.burnin number of iterations of burnin (adaptation)
 #' @param n.sampling number of sampling steps
 #' @param n.thin thinning number (if, e.g., set to five then every fifth chain sample is saved)
 #' @param n.chains number of chains
 #' @return S3 object of class \code{mugamix} that contains matrix of parameter chains (named \code{thetaChain}, each chain a column), a matrix of population assignments (named \code{piChain}), a matrix of inverse-covariances (named \code{iSigChain}), a matrix of imputed missing data (if any; named \code{imputed}), the list of lines used in model fitting (ordered the same as in the output and possibly modified from the user's input if missing rows are eliminated; named \code{lineIDs}), the number of retained samples per chain (named \code{n.samples}), and the number of population specified in the model (named \code{n.pops})
 #'
 #' @export
-fitModel <- function(data, trait.colums, n.pop, factor.column = NULL,
+fitModel <- function(data, trait.columns, n.pop, factor.column = NULL,
 				n.burnin = 5000, n.sampling = 10000, n.thin = 5, n.chains = 5) {
-	d    <- length(trait.colums)
+	d    <- length(trait.columns)
 	if (d <= 1) {
 		stop("Must have at least two traits")
 	}
-	yVec <- as.double(unlist(data[, trait.colums]))
+	yVec <- as.double(unlist(data[, trait.columns]))
 	if (n.pop < 2) {
 		stop("Must specify more than one population")
 	}
@@ -68,8 +106,8 @@ fitModel <- function(data, trait.colums, n.pop, factor.column = NULL,
 			lnInd <- as.integer(lnFac)
 		}
 		if (any(is.na(yVec))) {
-			missRowCount <- apply(data[,trait.colums], 1, function(vec) {sum(is.na(vec))})
-			d            <- length(trait.colums)
+			missRowCount <- apply(data[,trait.columns], 1, function(vec) {sum(is.na(vec))})
+			d            <- length(trait.columns)
 			if (any(missRowCount == d)) {
 				warning("WARNING: sime rows have only missing data; deleting them. This may result in loss of some lines")
 				data <- data[-which(missRowCount == d), ]
