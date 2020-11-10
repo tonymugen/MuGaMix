@@ -14,5 +14,5 @@ ByteCompile: yes
 NeedsCompilation: yes
 OS_type: unix
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.0.0
+RoxygenNote: 7.1.1
 RdMacros: Rdpack
