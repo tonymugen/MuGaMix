@@ -33,9 +33,9 @@
 #include <vector>
 
 #include "matrixView.hpp"
-#include "utilities.hpp"
-#include "random.hpp"
-#include "index.hpp"
+#include "bayesicUtilities/utilities.hpp"
+#include "bayesicUtilities/random.hpp"
+#include "bayesicUtilities/index.hpp"
 
 using std::vector;
 

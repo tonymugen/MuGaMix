@@ -27,12 +27,7 @@
  *
  */
 
-#include <bits/stdint-intn.h>
-#include <cstddef>
 #include <cstring>
-#include <ios>
-#include <math.h>
-#include <type_traits>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -40,8 +35,8 @@
 
 #include <fstream>
 
-#include "index.hpp"
-#include "random.hpp"
+#include "bayesicUtilities/index.hpp"
+#include "bayesicUtilities/random.hpp"
 #include "model.hpp"
 #include "mumimo.hpp"
 #include "sampler.hpp"
@@ -53,6 +48,7 @@ using std::string;
 using std::to_string;
 using std::numeric_limits;
 using std::isnan;
+using std::move;
 using namespace BayesicSpace;
 
 // MumiNR methods

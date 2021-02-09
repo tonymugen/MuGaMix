@@ -41,15 +41,12 @@
 #include <R_ext/BLAS.h>
 
 #include "matrixView.hpp"
-#include "index.hpp"
+#include "bayesicUtilities/index.hpp"
 
 using std::vector;
 using std::string;
-using std::stod;
 using std::fill;
 using std::memcpy;
-using std::nan;
-using std::isnan;
 using std::numeric_limits;
 using std::move;
 

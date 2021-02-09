@@ -30,7 +30,7 @@
 #ifndef sampler_hpp
 #define sampler_hpp
 
-#include "random.hpp"
+#include "bayesicUtilities/random.hpp"
 
 namespace BayesicSpace {
 	/** \brief Sampler abstract base class

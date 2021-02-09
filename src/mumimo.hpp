@@ -33,13 +33,13 @@
 #include <cmath>
 #include <map>
 
-#include "index.hpp"
-#include "random.hpp"
+#include "bayesicUtilities/index.hpp"
+#include "bayesicUtilities/random.hpp"
+#include "bayesicUtilities/utilities.hpp"
 #include "model.hpp"
 #include "sampler.hpp"
 #include "danuts.hpp"
 #include "matrixView.hpp"
-#include "utilities.hpp"
 
 using std::vector;
 using std::map;

@@ -34,11 +34,10 @@
 #include <vector>
 #include <string>
 
-#include "index.hpp"
+#include "bayesicUtilities/index.hpp"
 
 using std::vector;
 using std::string;
-using std::move;
 
 namespace BayesicSpace {
 	// Forward declarations

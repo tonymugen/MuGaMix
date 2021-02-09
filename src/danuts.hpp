@@ -32,10 +32,10 @@
 
 #include <vector>
 
-#include "random.hpp"
+#include "bayesicUtilities/random.hpp"
+#include "bayesicUtilities/utilities.hpp"
 #include "model.hpp"
 #include "sampler.hpp"
-#include "utilities.hpp"
 
 using std::vector;
 

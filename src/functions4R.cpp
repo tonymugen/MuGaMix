@@ -39,9 +39,9 @@
 #include <Rcpp/Named.h>
 #include <Rcpp/exceptions/cpp11/exceptions.h>
 
+#include "bayesicUtilities/index.hpp"
 #include "mumimo.hpp"
 #include "gmmvb.hpp"
-#include "index.hpp"
 
 //[[Rcpp::export(name="testLpostNR")]]
 Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &P, const int32_t &ind, const double &limit, const double &incr){

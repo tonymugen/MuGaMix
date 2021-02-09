@@ -35,8 +35,8 @@
 
 #include "gmmvb.hpp"
 #include "matrixView.hpp"
-#include "utilities.hpp"
-#include "index.hpp"
+#include "bayesicUtilities/utilities.hpp"
+#include "bayesicUtilities/index.hpp"
 
 using namespace BayesicSpace;
 using std::vector;
