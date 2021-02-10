@@ -43,6 +43,7 @@ using std::vector;
 using std::string;
 using std::numeric_limits;
 using std::isnan;
+using std::move;
 
 const double GmmVB::lnMaxDbl_ = log( numeric_limits<double>::max() );
 

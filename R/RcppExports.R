@@ -5,28 +5,8 @@ testLpostNR <- function(yVec, d, Npop, theta, P, ind, limit, incr) {
     .Call(`_MuGaMix_testLpostNR`, yVec, d, Npop, theta, P, ind, limit, incr)
 }
 
-testLpostP <- function(yVec, d, Npop, theta, Phi, ind, limit, incr) {
-    .Call(`_MuGaMix_testLpostP`, yVec, d, Npop, theta, Phi, ind, limit, incr)
-}
-
-testLpostLocNR <- function(yVec, d, Npop, theta, iSigTheta, ind, limit, incr) {
-    .Call(`_MuGaMix_testLpostLocNR`, yVec, d, Npop, theta, iSigTheta, ind, limit, incr)
-}
-
 testGradNR <- function(yVec, d, Npop, theta, P, ind, limit, incr) {
     .Call(`_MuGaMix_testGradNR`, yVec, d, Npop, theta, P, ind, limit, incr)
-}
-
-testGradP <- function(yVec, d, Npop, theta, Phi, ind, limit, incr) {
-    .Call(`_MuGaMix_testGradP`, yVec, d, Npop, theta, Phi, ind, limit, incr)
-}
-
-testGradLocNR <- function(yVec, d, Npop, theta, iSigTheta, ind, limit, incr) {
-    .Call(`_MuGaMix_testGradLocNR`, yVec, d, Npop, theta, iSigTheta, ind, limit, incr)
-}
-
-testLpostSigNR <- function(yVec, d, Npop, theta, iSigTheta, ind, limit, incr) {
-    .Call(`_MuGaMix_testLpostSigNR`, yVec, d, Npop, theta, iSigTheta, ind, limit, incr)
 }
 
 testLpostLoc <- function(yVec, lnFac, Npop, theta, iSigTheta) {
@@ -43,10 +23,6 @@ gradTestLI <- function(yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr) {
 
 lpTestSI <- function(yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr) {
     .Call(`_MuGaMix_lpTestSI`, yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr)
-}
-
-gradTestSInr <- function(yVec, d, Npop, theta, iSigTheta, ind, limit, incr) {
-    .Call(`_MuGaMix_gradTestSInr`, yVec, d, Npop, theta, iSigTheta, ind, limit, incr)
 }
 
 gradTestSI <- function(yVec, lnFac, Npop, theta, iSigTheta, ind, limit, incr) {
