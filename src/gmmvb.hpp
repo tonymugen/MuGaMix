@@ -32,7 +32,7 @@
 #include <cstddef>
 #include <vector>
 
-#include "matrixView.hpp"
+#include "bayesicMatrix/matrixView.hpp"
 #include "bayesicUtilities/utilities.hpp"
 #include "bayesicUtilities/random.hpp"
 #include "bayesicUtilities/index.hpp"

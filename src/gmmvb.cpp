@@ -34,7 +34,7 @@
 #include <limits>
 
 #include "gmmvb.hpp"
-#include "matrixView.hpp"
+#include "bayesicMatrix/matrixView.hpp"
 #include "bayesicUtilities/utilities.hpp"
 #include "bayesicUtilities/index.hpp"
 
