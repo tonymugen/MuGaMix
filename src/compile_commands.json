@@ -1,5 +1,5 @@
 [
 	{"directory": "/home/tonyg/projects/MuGaMix/src",
-	 "command": "g++ -std=gnu++11 -I\"/usr/local/lib64/R/include\" -DNDEBUG  -I'/home/tonyg/R/x86_64-pc-linux-gnu-library/4.0/Rcpp/include' -I/usr/local/include   -fpic  -g -O2  -c functions4R.cpp -o functions4R.o",
+	 "command": "g++ -std=gnu++11 -I\"/usr/local/lib64/R/include\" -DNDEBUG  -I'/home/tonyg/R/x86_64-pc-linux-gnu-library/4.0/Rcpp/include' -I/usr/local/include -fpic -g -O2 -c functions4R.cpp -o functions4R.o",
 	"file": "functions4R.cpp"}
 ]

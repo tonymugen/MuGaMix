@@ -1,4 +1,4 @@
 CXX_STD = CXX11
 
-SOURCES = $(wildcard *.cpp bayesicUtilities/*.cpp bayesicMatrix/*.cpp)
+SOURCES = $(wildcard *.cpp bayesicUtilities/*.cpp bayesicMatrix/*.cpp bayesicSamplers/*.cpp)
 OBJECTS = $(SOURCES:.cpp=.o)

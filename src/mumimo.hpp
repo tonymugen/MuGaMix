@@ -37,9 +37,9 @@
 #include "bayesicUtilities/random.hpp"
 #include "bayesicUtilities/utilities.hpp"
 #include "bayesicMatrix/matrixView.hpp"
-#include "model.hpp"
-#include "sampler.hpp"
-#include "danuts.hpp"
+#include "bayesicSamplers/model.hpp"
+#include "bayesicSamplers/sampler.hpp"
+#include "bayesicSamplers/danuts.hpp"
 
 using std::vector;
 using std::map;

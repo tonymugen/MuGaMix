@@ -4,3 +4,6 @@
 [submodule "src/bayesicMatrix"]
 	path = src/bayesicMatrix
 	url = https://github.com/tonymugen/bayesicMatrix
+[submodule "src/bayesicSamplers"]
+	path = src/bayesicSamplers
+	url = https://github.com/tonymugen/bayesicSamplers
