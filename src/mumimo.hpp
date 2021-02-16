@@ -17,7 +17,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// Gaussia mixture models
+/// Gaussian mixture models
 /** \file
  * \author Anthony J. Greenberg
  * \copyright Copyright (c) 2019 Anthony J. Greenberg
@@ -55,24 +55,24 @@ namespace BayesicSpace {
 
 	/** \brief No-replication multiplicative mixture model parameter component
 	 *
-	 * Models all mixture model components given population assignment probabilities. Implements the log-posterior and gradient methods.
+	 * Models all mixture model components given group assignment probabilities. Implements the log-posterior and gradient methods.
 	 *
 	 */
 	class MumiNR final : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiNR() : Model(), yVec_{nullptr}, tau0_{0.0}, nu0_{0.0}, invAsq_{0.0}, LaInd_{0}, TaInd_{0}, TpInd_{0}, NAnd_{0}, NPnd_{0}, nxnd_{0} {};
+		MumiNR() : Model(), yVec_{nullptr}, tau0_{0.0}, nu0_{0.0}, invAsq_{0.0}, LaInd_{0}, TaInd_{0}, TgInd_{0}, NAnd_{0}, NGnd_{0}, nxnd_{0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer to the data vectorized matrix
-		 * \param[in] lnpVec pointer to the population assignment log-probability vectorized matrix
+		 * \param[in] lnpVec pointer to the group assignment log-probability vectorized matrix
 		 * \param[in] d number of traits
-		 * \param[in] Npop number of populations
+		 * \param[in] Ngrp number of groups
 		 * \param[in] tau0 grand mean prior precision
 		 * \param[in] nu0 inverse covariance prior degrees of freedom
 		 * \param[in] invAsq inverse covariance prior precision
 		 */
-		MumiNR(const vector<double> *yVec, const vector<double> *lnpVec, const size_t &d, const size_t &Npop, const double &tau0, const double &nu0, const double &invAsq);
+		MumiNR(const vector<double> *yVec, const vector<double> *lnpVec, const size_t &d, const size_t &Ngrp, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Destructor */
 		~MumiNR(){yVec_ = nullptr; };
 
@@ -94,7 +94,7 @@ namespace BayesicSpace {
 		/** \brief Log-posterior function
 		 *
 		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector.
-		 * The parameter vector has population means, among-individual inverse covariances, among-individual precisions, and among-population precisions in that order.
+		 * The parameter vector has group means grand means, among-individual inverse covariances, among-individual precisions, and among-group precisions in that order.
 		 *
 		 * \param[in] theta parameter vector
 		 * \return Value of the log-posterior
@@ -114,16 +114,16 @@ namespace BayesicSpace {
 		const vector<double> *yVec_;
 		/** \brief Matrix view of data */
 		MatrixViewConst Y_;
-		/** \brief Population assignment log-probability matrix */
+		/** \brief Group assignment log-probability matrix */
 		MatrixViewConst lnP_;
-		/** \brief Line factorized precision matrix view
+		/** \brief Line factorized precision matrix views
 		 *
-		 * Points to `vLa_`.
+		 * One per group, each points to a region of `vLa_`.
 		 */
-		mutable MatrixView La_;
-		/** \brief Expanded \f$ \boldsymbol{L}_A \f$ matrix
+		mutable vector<MatrixView> La_;
+		/** \brief Expanded \f$ \boldsymbol{L}_{A,m} \f$ matrices
 		 *
-		 * Vectorized line unity triangular matrix (\f$\boldsymbol{L}_A\f$ in the model description).
+		 * Vectorized line unity triangular matrices (\f$\boldsymbol{L}_{A, m}\f$ in the model description).
 		 */
 		mutable vector<double> vLa_;
 		/** \brief Grand mean prior precision */
@@ -138,17 +138,17 @@ namespace BayesicSpace {
 		 * Inverse variance of the prior. Should be set to a large value for a vague prior.
 		 */
 		double invAsq_;
-		// the following indices refer to the theta passed to the log-post and gradient functions
-		/** \brief First element of the among-individual inverse-covariances */
-		size_t LaInd_;
-		/** \brief First element of the among-individual precisions */
-		size_t TaInd_;
-		/** \brief First element of the among-population precisions */
-		size_t TpInd_;
+		// the following indexes refer to the theta passed to the log-post and gradient functions
+		/** \brief First elements of the among-individual inverse-covariances */
+		vector<size_t> LaInd_;
+		/** \brief First elements of the among-individual precisions */
+		vector<size_t> TaInd_;
+		/** \brief First element of the among-group precisions */
+		size_t TgInd_;
 		/** \brief N_A + nu0 + 2d */
 		double NAnd_;
-		/** \brief N_P + nu0 + 2d */
-		double NPnd_;
+		/** \brief N_G + nu0 + 2d */
+		double NGnd_;
 		/** \brief nu0*(nu0 + 2d) */
 		double nxnd_;
 		/** \brief Natural log of `DBL_MAX` */
@@ -157,7 +157,7 @@ namespace BayesicSpace {
 		NumerUtil nuc_;
 		/** \brief Expand the vector of factorized precision matrices
 		 *
-		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix contained in the precision matrix potion of the parameter vector into the internal `L_` vector.
+		 * Expands the triangular \f$\boldsymbol{L}_{A,m}\f$ matrix contained in the precision matrix potion of the parameter vector into the internal `L_` vector.
 		 * The parameter vector stores only the non-zero elements of these matrix.
 		 *
 		 * \param[in] theta the parameter vector
@@ -173,7 +173,7 @@ namespace BayesicSpace {
 	class MumiLoc final : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0}, Npop_{0}, tauPrPhi_{1.0}, alphaPr_{1.0} {};
+		MumiLoc() : Model(), hierInd_{nullptr}, tau0_{0.0}, iSigTheta_{nullptr}, fTeInd_{0}, fLaInd_{0}, fTaInd_{0}, Ngrp_{0}, tauPrPhi_{1.0}, alphaPr_{1.0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer vectorized data matrix
@@ -181,9 +181,9 @@ namespace BayesicSpace {
 		 * \param[in] xVec pointer to vectorized covariate predictor matrix
 		 * \param[in] hierInd pointer to vector of hierarchical indexes
 		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and overall mean (intercept)
-		 * \param[in] nPops number of populations
-		 * \param[in] tauPrPhi \f$ \tau_{\phi} \f$ population assignment probability prior precision
-		 * \param[in] alphaPr prior on \f$ \alpha \f$ on population assignment probabilities
+		 * \param[in] nPops number of groups
+		 * \param[in] tauPrPhi \f$ \tau_{\phi} \f$ group assignment probability prior precision
+		 * \param[in] alphaPr prior on \f$ \alpha \f$ on group assignment probabilities
 		 */
 		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &tauPrPhi, const double &alphaPr);
 		/** \brief Destructor */
@@ -206,7 +206,7 @@ namespace BayesicSpace {
 		MumiLoc& operator=(MumiLoc &&in);
 		/** \brief Log-posterior function
 		 *
-		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector. The parameter vector has the covariates, line means, and population means in that order.
+		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector. The parameter vector has the covariates, line means, and group means in that order.
 		 *
 		 * \param[in] theta parameter vector
 		 * \return Value of the log-posterior
@@ -256,14 +256,14 @@ namespace BayesicSpace {
 		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
 		size_t fTaInd_;
 		/** \brief Index of the first \f$\boldsymbol{T}_P\f$ element */
-		size_t fTpInd_;
+		size_t fTgInd_;
 		/** \brief Index of the first probability element */
 		size_t PhiBegInd_;
-		/** \brief Number of populations */
-		size_t Npop_;
+		/** \brief Number of groups */
+		size_t Ngrp_;
 		/** \brief The \f$ \tau_{\phi} \f$ prior precision*/
 		double tauPrPhi_;
-		/** \brief Prior population assignment probability */
+		/** \brief Prior group assignment probability */
 		double alphaPr_;
 		/** Numerical utility collection */
 		NumerUtil nuc_;
@@ -285,7 +285,7 @@ namespace BayesicSpace {
 	class MumiISig final : public Model {
 	public:
 		/** \brief Default constructor */
-		MumiISig(): Model(), hierInd_{nullptr}, nu0_{2.0}, invAsq_{1e-10}, fTeInd_{0}, fTaInd_{0}, fTpInd_{0} {};
+		MumiISig(): Model(), hierInd_{nullptr}, nu0_{2.0}, invAsq_{1e-10}, fTeInd_{0}, fTaInd_{0}, fTgInd_{0} {};
 		/** \brief Constructor
 		 *
 		 * \param[in] yVec pointer to data
@@ -294,7 +294,7 @@ namespace BayesicSpace {
 		 * \param[in] hierInd pointer to a vector with hierarchical indexes
 		 * \param[in] nu0 prior degrees of freedom \f$\nu_0\f$
 		 * \param[in] invAsq prior precision \f$a^{-2}\f$
-		 * \param[in] nPops number of populations
+		 * \param[in] nPops number of groups
 		 *
 		 */
 		MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<Index> *hierInd, const double &nu0, const double &invAsq, const size_t &nPops);
@@ -354,11 +354,11 @@ namespace BayesicSpace {
 		MatrixViewConst A_;
 		/** \brief Covariate effect view */
 		MatrixViewConst B_;
-		/** \brief Population mean view */
+		/** \brief Group mean view */
 		MatrixViewConst Mp_;
 		/** \brief Overall mean view */
 		MatrixViewConst mu_;
-		/** \brief Population assignment logit-probability view */
+		/** \brief Group assignment logit-probability view */
 		MatrixViewConst Phi_;
 
 		/** \brief Error factorized precision matrix view
@@ -384,7 +384,7 @@ namespace BayesicSpace {
 		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
 		size_t fTaInd_;
 		/** \brief Index of the first \f$\boldsymbol{T}_P\f$ element */
-		size_t fTpInd_;
+		size_t fTgInd_;
 		/** \brief nu0*(nu0 + 2d) */
 		double nxnd_;
 		/** \brief N + nu0 + 2d */
@@ -392,7 +392,7 @@ namespace BayesicSpace {
 		/** \brief N_A + nu0 + 2d */
 		double NAnd_;
 		/** \brief N_P + nu0 + 2d */
-		double NPnd_;
+		double NGnd_;
 		/** Numerical utility collection */
 		NumerUtil nuc_;
 		/** \brief Expand the vector of factorized precision matrices
@@ -418,27 +418,27 @@ namespace BayesicSpace {
 		 *
 		 * \param[in] vY vectorized data matrix
 		 * \param[in] d number of traits
-		 * \param[in] Npop number of populations
-		 * \param[in] alphaPr \f$\alpha \f$ prior parameter for population assignment probabilities
+		 * \param[in] Ngrp number of groups
+		 * \param[in] alphaPr \f$\alpha \f$ prior parameter for group assignment probabilities
 		 * \param[in] tau0 prior precision for the "fixed" effects
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Npop, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
+		WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Constructor for a one-level hierarchical model
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
 		 *
 		 * \param[in] vY vectorized data matrix
 		 * \param[in] y2line factor connecting data to lines (accessions)
-		 * \param[in] Npop number of populations
+		 * \param[in] Ngrp number of groups
 		 * \param[in] tauPrPhi prior precision for \f$\phi \f$
-		 * \param[in] alphaPr \f$\alpha \f$ prior parameter for population assignment probabilities
+		 * \param[in] alphaPr \f$\alpha \f$ prior parameter for group assignment probabilities
 		 * \param[in] tau0 prior precision for the "fixed" effects
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Npop, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
+		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Ngrp, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Constructor for a one-level hierarchical model with missing data
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
@@ -446,14 +446,14 @@ namespace BayesicSpace {
 		 * \param[in] vY vectorized data matrix
 		 * \param[in] y2line factor connecting data to lines (accessions)
 		 * \param[in] missIDs vectorized matrix (same dimensions as `vY`) with 1 corresponding to a missing data point and 0 otherwise
-		 * \param[in] Npop number of populations
+		 * \param[in] Ngrp number of groups
 		 * \param[in] tauPrPhi prior precision for \f$\phi \f$
-		 * \param[in] alphaPr \f$\alpha \f$ prior parameter for population assignment probabilities
+		 * \param[in] alphaPr \f$\alpha \f$ prior parameter for group assignment probabilities
 		 * \param[in] tau0 prior precision for the "fixed" effects
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Npop, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
+		WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const vector<int32_t> &missIDs, const uint32_t &Ngrp, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Copy constructor (deleted) */
 		WrapMMM(WrapMMM &in) = delete;
 		/** \brief Move constructor (deleted) */
@@ -499,7 +499,7 @@ namespace BayesicSpace {
 		MatrixView Y_;
 		/** \brief Vector of indexes connecting hierarchy levels
 		 *
-		 * First element connects replicates (data) to line means, second connects lines to populations. The second index is updated as part of the mixture model.
+		 * First element connects replicates (data) to line means, second connects lines to groups. The second index is updated as part of the mixture model.
 		 *
 		 */
 		vector<Index> hierInd_;
@@ -507,19 +507,19 @@ namespace BayesicSpace {
 		vector<double> vTheta_;
 		/** \brief Inverse-covariances */
 		vector<double> vISig_;
-		/** \brief Transformed population assignment probabilities */
+		/** \brief Transformed group assignment probabilities */
 		vector<double> vPhi_;
-		/** \brief Population assignment log-probabilities */
+		/** \brief Group assignment log-probabilities */
 		vector<double> vlnP_;
 		/** \brief Matrix view of line (accession) means */
 		MatrixView A_;
-		/** \brief Matrix view of population means */
+		/** \brief Matrix view of group means */
 		MatrixView Mp_;
 		/** \brief Index of the first probability element */
 		size_t PhiBegInd_;
-		/** \brief Matrix view of logit-population assignment probabilities */
+		/** \brief Matrix view of logit-group assignment probabilities */
 		MatrixView Phi_;
-		/** \brief Matrix view of population assignment log-probabilies */
+		/** \brief Matrix view of group assignment log-probabilies */
 		MatrixView lnP_;
 		/** \brief `Phi_` recalibration trigger value */
 		static const double phiMin_;
@@ -560,21 +560,21 @@ namespace BayesicSpace {
 		NumerUtil nuc_;
 		/** \brief Impute missing phenotype data */
 		void imputeMissing_();
-		/** \brief Sort the populations
+		/** \brief Sort the groups
 		 *
-		 * Populations are sorted according to the index of the first individual that belongs to a population with high probability.
+		 * Groups are sorted according to the index of the first individual that belongs to a group with high probability.
 		 * This scheme is also known as left-ordering.
 		 */
 		void sortPops_();
 		/** \brief Calibrate rows of `Phi_`
 		 *
 		 * Looks for rows of `Phi_` with all elements negative and below a threshold (currently - 5.0, determined empirically) and adds a constant to increase numerical stability.
-		 * This does not affect population assignment probabilities.
+		 * This does not affect group assignment probabilities.
 		 */
 		void calibratePhi_();
 		/** \brief Convert log-probabilities to logit scores
 		 *
-		 * Uses the Betancourt (2012) method of transforming population assignment log-probabilities to hyper-spherical coordinates. I then apply a logit transformation to further map scores to the \f$(-\infty, \infty ) \f$ interval.
+		 * Uses the Betancourt (2012) method of transforming group assignment log-probabilities to hyper-spherical coordinates. I then apply a logit transformation to further map scores to the \f$(-\infty, \infty ) \f$ interval.
 		 *
 		 */
 		void lnp2phi_();
