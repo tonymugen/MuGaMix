@@ -79,9 +79,13 @@ MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *lnpVec, const s
 		LaInd_.push_back(curLaInd);
 		curLaInd += dd;
 	}
-	TaInd_ = LaInd_ + d * (d-1) / 2;
-	TgInd_ = TaInd_ + d;
-	NAnd_  = static_cast<double>( Y_.getNrows() ) + nu0_ + 2.0 * static_cast<double>(d);
+	size_t curTaInd = LaInd_.back() + dd;
+	for (size_t m = 0; m < Ngrp; m++) {
+		TaInd_.push_back(curTaInd);
+		curTaInd += d;
+	}
+	TgInd_ = TaInd_.back() + d;
+	NAnd_  = nu0_ + 2.0 * static_cast<double>(d);
 	NGnd_  = static_cast<double>(Ngrp) + nu0_ + 2.0 * static_cast<double>(d);
 	nxnd_  = nu0_ * ( nu0_ + 2.0 * static_cast<double>(d) );
 }
@@ -95,8 +99,8 @@ MumiNR::MumiNR(MumiNR &&in) {
 		invAsq_ = in.invAsq_;
 		La_     = move(in.La_);
 		vLa_    = move(in.vLa_);
-		LaInd_  = in.LaInd_;
-		TaInd_  = in.TaInd_;
+		LaInd_  = move(in.LaInd_);
+		TaInd_  = move(in.TaInd_);
 		TgInd_  = in.TgInd_;
 		NAnd_   = in.NAnd_;
 		NGnd_   = in.NGnd_;
@@ -115,8 +119,8 @@ MumiNR& MumiNR::operator=(MumiNR &&in){
 		invAsq_ = in.invAsq_;
 		La_     = move(in.La_);
 		vLa_    = move(in.vLa_);
-		LaInd_  = in.LaInd_;
-		TaInd_  = in.TaInd_;
+		LaInd_  = move(in.LaInd_);
+		TaInd_  = move(in.TaInd_);
 		TgInd_  = in.TgInd_;
 		NAnd_   = in.NAnd_;
 		NGnd_   = in.NGnd_;
@@ -127,11 +131,13 @@ MumiNR& MumiNR::operator=(MumiNR &&in){
 }
 
 void MumiNR::expandISvec_(const vector<double> &theta) const{
-	size_t aInd = LaInd_;                                                 // index of the Le lower triangle in the input vector
-	for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {             // the last column is all 0, except the last element = 1.0
-		for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
-			La_.setElem(iRow, jCol, theta[aInd]);
-			aInd++;
+	size_t aInd = LaInd_[0];                                               // index of the Lx lower triangle in the input vector
+	for (auto &la : La_){
+		for (size_t jCol = 0; jCol < Y_.getNcols() - 1; jCol++) {          // the last column is all 0, except the last element = 1.0
+			for (size_t iRow = jCol + 1; iRow < Y_.getNcols(); iRow++) {
+				la.setElem(iRow, jCol, theta[aInd]);
+				aInd++;
+			}
 		}
 	}
 }
@@ -141,23 +147,27 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	const size_t N    = Y_.getNrows();
 	const size_t d    = Y_.getNcols();
 	const size_t Ngrp = lnP_.getNcols();
-	MatrixViewConst Mp(&theta, 0, lnP_.getNcols(), d);
-	MatrixViewConst mu(&theta, lnP_.getNcols() * d, 1, d);                       // overall mean
+	MatrixViewConst Mp(&theta, 0, Ngrp, d);
+	MatrixViewConst mu(&theta, Ngrp * d, 1, d);                     // overall mean
 
 	// calculate T_A
-	vector<double> Ta;
-	for (size_t k = TaInd_; k < TgInd_; k++) {
-		Ta.push_back( exp(theta[k]) );
+	vector< vector<double> > Ta(Ngrp);
+	vector<double> SAlDet(Ngrp, 0.0);                               // Sig_A,m log-determinant
+	for (size_t m = 0; m < Ngrp; m++) {
+		for (size_t k = TaInd_[m]; k < TaInd_[m] + d; k++) {
+			Ta[m].push_back( exp(theta[k]) );
+			SAlDet[m] += theta[k];
+		}
 	}
-	// calculate T_P
-	vector<double> Tp;
-	for (size_t k = TgInd_; k < theta.size(); k++) {                           // the T_P component is at the very end
-		Tp.push_back( exp(theta[k]) );
+	// calculate T_G
+	vector<double> Tg;
+	for (size_t k = TgInd_; k < theta.size(); k++) {                           // the T_G component is at the very end
+		Tg.push_back( exp(theta[k]) );
 	}
-	// set up the matrix of population kernels
+	// set up the matrix of group kernels
 	vector<double> vKm(N * Ngrp, 0.0);
 	MatrixView Km( &vKm, 0, N, lnP_.getNcols() );
-	for (size_t m = 0; m < Ngrp; m++) {                                        // m is the population index as in the model description document
+	for (size_t m = 0; m < Ngrp; m++) {                                        // m is the group index as in the model description document
 		vector<double> vResid(*yVec_);                                         // copy over Y_
 		MatrixView mResid = MatrixView(&vResid, 0, N, d);                      // mResid now has the Y values
 		for (size_t jCol = 0; jCol < d; jCol++) {
@@ -165,22 +175,22 @@ double MumiNR::logPost(const vector<double> &theta) const{
 				mResid.subtractFromElem( iRow, jCol, Mp.getElem(m, jCol) );    // mResid now Y - mu_m
 			}
 		}
-		mResid.trm('l', 'r', false, true, 1.0, La_);                           // mResid now (Y-mu_m)L_A
+		mResid.trm('l', 'r', false, true, 1.0, La_[m]);                        // mResid now (Y-mu_m)L_A
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
-				double rsd    = mResid.getElem(iRow, jCol);
-				Km.addToElem(iRow, m,  Ta[jCol] * rsd * rsd);                  // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+				double rsd = mResid.getElem(iRow, jCol);
+				Km.addToElem(iRow, m,  Ta[m][jCol] * rsd * rsd);               // (Y-mu_m)L_A T_A L_A^T(Y - mu_g)^T
 			}
 		}
 	}
 
-	for (size_t iRow = 0; iRow < N; iRow++) {                                  // ln(p) - 0.5*Km for the first population
-		double diff = lnP_.getElem(iRow, 0) - 0.5 * Km.getElem(iRow, 0);
+	for (size_t iRow = 0; iRow < N; iRow++) {                                  // ln(p) - 0.5*lambda_m 0.5*Km for the first group
+		double diff = lnP_.getElem(iRow, 0) - 0.5 * ( SAlDet[0] + Km.getElem(iRow, 0) );
 		Km.setElem(iRow, 0, diff);
 	}
-	for (size_t m = 1; m < Ngrp; m++) {                                        // Km[,2...] now the difference with the first population
+	for (size_t m = 1; m < Ngrp; m++) {                                        // Km[,2...] now the difference with the first group
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			const double diff = lnP_.getElem(iRow, m) - 0.5 * Km.getElem(iRow, m) - Km.getElem(iRow, 0);
+			const double diff = lnP_.getElem(iRow, m) - 0.5 * ( SAlDet[m] + Km.getElem(iRow, m) ) - Km.getElem(iRow, 0);
 			Km.setElem(iRow, m, diff);
 		}
 	}
@@ -228,7 +238,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 			double diff = Mp.getElem(iRow, jCol) - mu.getElem(0, jCol);
 			dp += diff * diff;
 		}
-		mTrace += Tp[jCol] * dp;
+		mTrace += Tg[jCol] * dp;
 	}
 	double pTrace = 0.0;
 	for (size_t jCol = 0; jCol < d; jCol++) {
@@ -237,25 +247,33 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	pTrace *= tau0_;
 	// Sum of log-determinants
 	double ldetSumA = 0.0;
-	double ldetSumP = 0.0;
-	for (size_t k = 0; k < d; k++) {
-		ldetSumA += theta[TaInd_ + k];
-		ldetSumP += theta[TgInd_ + k];
+	for (auto &det : SAlDet){
+		ldetSumA += det;
 	}
 	ldetSumA *= NAnd_;
+	double ldetSumP = 0.0;
+	for (size_t k = 0; k < d; k++) {
+		ldetSumP += theta[TgInd_ + k];
+	}
 	ldetSumP *= NGnd_;
 	// Calculate the prior inverse-covariance components; k and m are as in the derivation document; doing the L_E and L_A in one pass
 	// first element has just the diagonal
-	double isPrior = log(nu0_ * Ta[0] + invAsq_) + log(nu0_ * Tp[0] + invAsq_);
-	for (size_t k = 1; k < d; k++) {                                       // k starts from the second element (k=1)
-		double sA = 0.0;
-		for (size_t m = 0; m <= k - 1; m++) {                              // the <= is intentional; excluding only m = k
-			sA += Ta[m] * La_.getElem(k, m) * La_.getElem(k, m);
+	double isPrior = 0.0;
+	for (size_t m = 0; m < Ngrp; m++) {
+		isPrior += log(nu0_ * Ta[m][0] + invAsq_);
+		for (size_t k = 1; k < d; k++) {                                       // k starts from the second element (k=1)
+			double sA = 0.0;
+			for (size_t l = 0; l <= k - 1; l++) {                              // the <= is intentional; excluding only l == k
+				sA += Ta[m][l] * La_[m].getElem(k, l) * La_[m].getElem(k, l);
+			}
+			sA += Ta[m][k];
+			isPrior += log(nu0_ * sA + invAsq_);
 		}
-		sA += Ta[k];
-		isPrior += log(nu0_ * sA + invAsq_) + log(nu0_ * Tp[k] + invAsq_);
 	}
-	isPrior *= nu0_ + 2.0 * static_cast<double>(d);
+	for (size_t k = 0; k < d; k++) {
+		isPrior += log(nu0_ * Tg[k] + invAsq_);
+	}
+	isPrior *= NAnd_;
 	// now sum to get the log-posterior
 	return 0.5 * (addMMsum - mTrace - pTrace + ldetSumA + ldetSumP - isPrior);
 }
@@ -281,32 +299,43 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	MatrixView gmu(&grad, Mdim, 1, d); // overall mean
 
 	// L_AxT_A
-	vector<double> vLATA(dSq, 0.0);
-	MatrixView LATA(&vLATA, 0, d, d);
-	vector<double> Ta;
-	for (size_t k = 0; k < d; k++) {
-		Ta.push_back( exp(theta[TaInd_+k]) );
+	vector<double> vLATA(dSq * Ngrp, 0.0);
+	vector<MatrixView> LATA;
+	for (size_t m = 0; m < Ngrp; m++) {
+		LATA.push_back( MatrixView(&vLATA, dSq * m, d, d) );
 	}
-	vector<double> Tp;
-	for (size_t k = 0; k < d; k++) {
-		Tp.push_back( exp(theta[TgInd_+k]) );
-	}
-	for (size_t jCol = 0; jCol < d - 1; jCol++) {
-		LATA.setElem(jCol, jCol, Ta[jCol]);
-		for (size_t iRow = jCol + 1; iRow < d; iRow++) {
-			LATA.setElem(iRow, jCol, La_.getElem(iRow, jCol) * Ta[jCol]);
+	// calculate T_A
+	vector< vector<double> > Ta(Ngrp);
+	vector<double> SAlDet(Ngrp, 0.0);                               // Sig_A,m log-determinant
+	for (size_t m = 0; m < Ngrp; m++) {
+		for (size_t k = TaInd_[m]; k < TaInd_[m] + d; k++) {
+			Ta[m].push_back( exp(theta[k]) );
+			SAlDet[m] += theta[k];
 		}
 	}
-	vLATA.back() = Ta.back();
+	// calculate T_G
+	vector<double> Tg;
+	for (size_t k = TgInd_; k < theta.size(); k++) {                // the T_G component is at the very end
+		Tg.push_back( exp(theta[k]) );
+	}
+	for (size_t m = 0; m < Ngrp; m++) {
+		for (size_t jCol = 0; jCol < d - 1; jCol++) {
+			LATA[m].setElem(jCol, jCol, Ta[m][jCol]);
+			for (size_t iRow = jCol + 1; iRow < d; iRow++) {
+				LATA[m].setElem(iRow, jCol, La_[m].getElem(iRow, jCol) * Ta[m][jCol]);
+			}
+		}
+		LATA[m].setElem( d - 1, d - 1, Ta[m].back() );
+	}
 
-	// set up the matrix of population kernels
+	// set up the matrix of group kernels
 	vector<double> vKm(PopDim, 0.0);
 	MatrixView Km(&vKm, 0, N, Ngrp);
 	vector<double> vArsdCP(PopDim * trDim, 0.0);
 	vector<MatrixView> ArsdCP(Ngrp);                                                     // (a_j - mu_m)^T(a_j - mu_m) lower triangles with diagonal
-	vector<double> vResidEachPop(Ydim * Ngrp, 0.0);                                        // will have Y residuals, multiplied by L_A T_A L_A^T, with each population mean
+	vector<double> vResidEachPop(Ydim * Ngrp, 0.0);                                      // will have Y residuals, multiplied by L_A T_A L_A^T, with each group mean
 	vector<MatrixView> mResidEachPop(Ngrp);
-	for (size_t m = 0; m < Ngrp; m++) {                                                  // m is the population index as in the model description document
+	for (size_t m = 0; m < Ngrp; m++) {                                                  // m is the group index as in the model description document
 		memcpy( vResidEachPop.data() + Ydim * m, yVec_->data(), Ydim * sizeof(double) );
 		mResidEachPop[m] = MatrixView(&vResidEachPop, Ydim * m, N, d);
 		for (size_t jCol = 0; jCol < d; jCol++) {
@@ -314,7 +343,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 				mResidEachPop[m].subtractFromElem( iRow, jCol, M.getElem(m, jCol) );     // mResid now Y - mu_m
 			}
 		}
-		ArsdCP[m] = MatrixView(&vArsdCP, N * trDim * m, N, trDim);                           // addressing the portion that belongs to the current population
+		ArsdCP[m] = MatrixView(&vArsdCP, N * trDim * m, N, trDim);                       // addressing the portion that belongs to the current group
 		size_t trInd = 0;
 		for (size_t jD = 0; jD < d; jD++) {                                              // lower triangle including the diagonal
 			for (size_t iD = jD; iD < d; iD++) {
@@ -325,16 +354,16 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 				trInd++;
 			}
 		}
-		mResidEachPop[m].trm('l', 'r', false, true, 1.0, La_);                           // mResid now (Y-mu_m)L_A
+		mResidEachPop[m].trm('l', 'r', false, true, 1.0, La_[m]);                           // mResid now (Y-mu_m)L_A
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
 				const double rsd   = mResidEachPop[m].getElem(iRow, jCol);
-				const double tArsd = Ta[jCol] * rsd;
+				const double tArsd = Ta[m][jCol] * rsd;
 				mResidEachPop[m].setElem(iRow, jCol, tArsd);                             // mResid now (Y-mu_m)L_A T_A
-				Km.addToElem(iRow, m,  tArsd * rsd);                                     // (Y-mu_m)L_A T_A L_A^T(Y - mu_p)^T
+				Km.addToElem(iRow, m,  tArsd * rsd);                                     // (Y-mu_m)L_A T_A L_A^T(Y - mu_g)^T
 			}
 		}
-		mResidEachPop[m].trm('l', 'r', true, true, 1.0, La_);                            // mResid now (Y-mu_m)L_A T_A L_A^T
+		mResidEachPop[m].trm('l', 'r', true, true, 1.0, La_[m]);                            // mResid now (Y-mu_m)L_A T_A L_A^T
 	}
 	for (size_t m = 0; m < Ngrp; m++) {                                                  // Km now ln(p) - 0.5*Km
 		for (size_t iRow = 0; iRow < N; iRow++) {
@@ -389,7 +418,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	}
 	for (size_t jCol = 0; jCol < d; jCol++) {
 		for (size_t iRow = 0; iRow < Ngrp; iRow++) {
-			gM.subtractFromElem(iRow, jCol, POPresid.getElem(iRow, jCol) * Tp[jCol]);
+			gM.subtractFromElem(iRow, jCol, POPresid.getElem(iRow, jCol) * Tg[jCol]);
 		}
 	}
 	// mu partial derivatives
@@ -469,7 +498,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	for (size_t k = 0; k < d; k++) {
 		grad[TaInd_ + k] = 0.5 * (nu0_ + dDub - ATDP.getElem(k, k) - nxnd_ * Ta[k] / weights[k]);
 	}
-	// The T_P gradient
+	// The T_G gradient
 	vector<double> prDotPrd(d, 0.0);
 	for (size_t jCol = 0; jCol < d; jCol++) {
 		for (size_t iRow = 0; iRow < Ngrp; iRow++) {
@@ -479,7 +508,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	}
 	// now sum everything and store the result in the gradient vector
 	for (size_t k = 0; k < d; k++) {
-		grad[TgInd_ + k] = 0.5 * ( NGnd_ - Tp[k] * ( prDotPrd[k] + nxnd_ / (nu0_ * Tp[k] + invAsq_) ) );
+		grad[TgInd_ + k] = 0.5 * ( NGnd_ - Tg[k] * ( prDotPrd[k] + nxnd_ / (nu0_ * Tg[k] + invAsq_) ) );
 	}
 }
 
@@ -647,7 +676,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 	for (size_t k = fTaInd_; k < fTgInd_; k++) {
 		Ta.push_back( exp( (*iSigTheta_)[k] ) );
 	}
-	for (size_t m = 0; m < Ngrp_; m++) {                                             // m is the population index as in the model description document
+	for (size_t m = 0; m < Ngrp_; m++) {                                             // m is the group index as in the model description document
 		vector<double> locAtr(Nln, 0.0);
 		vResid.assign( theta.begin(), theta.begin() + A.getNrows() * A.getNcols() ); // copy over A
 		mResid = MatrixView( &vResid, 0, A.getNrows(), A.getNcols() );               // mResid now has the A values
@@ -660,7 +689,7 @@ double MumiLoc::logPost(const vector<double> &theta) const{
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
 				double rsd    = mResid.getElem(iRow, jCol);
-				locAtr[iRow] += Ta[jCol] * rsd * rsd;                                // (A-mu_m)L_A T_A L_A^T(A - mu_p)^T
+				locAtr[iRow] += Ta[jCol] * rsd * rsd;                                // (A-mu_m)L_A T_A L_A^T(A - mu_g)^T
 			}
 		}
 		for (size_t j = 0; j < Nln; j++) {
@@ -823,7 +852,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 		// finish A partial derivatives
 		for (size_t jCol = 0; jCol < A.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A.getNrows(); iRow++) {
-				gA.subtractFromElem( iRow, jCol, AresISA.getElem(iRow, jCol) );                       // subtracting each population's P_m(A - mu_m)Sigma^{-1}_A
+				gA.subtractFromElem( iRow, jCol, AresISA.getElem(iRow, jCol) );                       // subtracting each group's P_m(A - mu_m)Sigma^{-1}_A
 			}
 		}
 		// sum the A residuals into gM rows
@@ -872,7 +901,7 @@ void MumiLoc::gradient(const vector<double> &theta, vector<double> &grad) const{
 	// Phi partial derivatives
 	for (size_t m = 0; m < Ngrp_; m++) {
 		for (size_t iRow = 0; iRow < gPhi.getNrows(); iRow++) {
-			// gPhi already has the weighted kernel product sums (with population sums subtracted) stored from before; t_A element missing because we have one Sigma_A
+			// gPhi already has the weighted kernel product sums (with group sums subtracted) stored from before; t_A element missing because we have one Sigma_A
 			double phi     = -0.5 * gPhi.getElem(iRow, m);
 			double wtDGsum = 0.0;
 			for (size_t mp = 0; mp < Ngrp_; mp++) {
@@ -1042,7 +1071,7 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 	for (size_t k = fTaInd_; k < fTgInd_; k++) {
 		Ta.push_back( exp(viSig[k]) );
 	}
-	for (size_t m = 0; m < Phi_.getNcols(); m++) {                                 // m is the population index as in the model description document
+	for (size_t m = 0; m < Phi_.getNcols(); m++) {                                 // m is the group index as in the model description document
 		vector<double> locAtr(A_.getNrows(), 0.0);
 		for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A_.getNrows(); iRow++) {
@@ -1054,7 +1083,7 @@ double MumiISig::logPost(const vector<double> &viSig) const{
 		for (size_t jCol = 0; jCol < A_.getNcols(); jCol++) {
 			for (size_t iRow = 0; iRow < A_.getNrows(); iRow++) {
 				double rsd    = mResid.getElem(iRow, jCol);
-				locAtr[iRow] += Ta[jCol] * rsd * rsd;                                  // (A-mu_m)L_A T_A L_A^T(A - mu_p)^T
+				locAtr[iRow] += Ta[jCol] * rsd * rsd;                                  // (A-mu_m)L_A T_A L_A^T(A - mu_g)^T
 			}
 		}
 		for (size_t j = 0; j < A_.getNrows(); j++) {
@@ -1207,7 +1236,7 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 				mResid.setElem(iRow, jCol, diff); // sqrt(P[.p])(A - M[p.])
 			}
 		}
-		mResid.syrk('l', 1.0, 1.0, mRtR); // adding to the mRtR that's from other populations
+		mResid.syrk('l', 1.0, 1.0, mRtR); // adding to the mRtR that's from other groups
 	}
 	La_.symm('l', 'l', 1.0, mRtR, 0.0, mRtRLT); // R^TRL_A; R = A - Z_pM_p
 	for (size_t k = 0; k < A_.getNcols(); k++) {
@@ -1255,11 +1284,11 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	for (size_t k = 0; k < A_.getNcols(); k++) {
 		grad[fTaInd_ + k] = 0.5 * (NAnd_ - mRtRLT.getElem(k, k) - nxnd_ * Tx[k] / weights[k]);
 	}
-	// The T_P gradient
+	// The T_G gradient
 	// Start with calculating the residual, replacing the old one
 	vResid.clear();
 	for (size_t jCol = 0; jCol < Mp_.getNcols(); jCol++) {
-		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) { // even if the population is empty; prior still has an effect
+		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) { // even if the group is empty; prior still has an effect
 			vResid.push_back( Mp_.getElem(iRow, jCol) - mu_.getElem(0, jCol) );
 		}
 	}
@@ -1441,7 +1470,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		}
 	}
 	A_.colMeans(popInd, Mp_);
-	// use k-means for population assignment and starting values of logit(p_jp)
+	// use k-means for group assignment and starting values of logit(p_jp)
 	//Index popInd(Ngrp);
 	//vector<double> vtM(Mpdim, 0.0);
 	//MatrixView tmpM(&vtM, 0, Ngrp, d);
@@ -1674,7 +1703,7 @@ void WrapMMM::imputeMissing_(){
 			MatrixView SigAP(&vSigAP, 0, missRow.second.size(), dP);
 			// generate mean present and absent vectors
 			vector<double> muA;     // mu_a (means corresponding to the missing data)
-			vector<double> diffMuP; // a - mu_p (difference vector corresponding to the present values)
+			vector<double> diffMuP; // a - mu_g (difference vector corresponding to the present values)
 			missIDcol = 0;
 			for (size_t k = 0; k < Y_.getNcols(); k++) {
 				if ( ( missIDcol < missRow.second.size() ) && (k == missRow.second[missIDcol]) ) {
@@ -1741,7 +1770,7 @@ void WrapMMM::expandLa_(){
 }
 
 void WrapMMM::sortPops_(){
-	vector<size_t> firstIdx;                                       // vector with indices of the first high-p elements per population
+	vector<size_t> firstIdx;                                       // vector with indices of the first high-p elements per group
 	for (size_t m = 0; m < lnP_.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < lnP_.getNrows(); iRow++) {
 			if (lnP_.getElem(iRow, m) >= -0.05129329){ // ln(0.95)
@@ -1750,9 +1779,9 @@ void WrapMMM::sortPops_(){
 			}
 		}
 	}
-	if ( firstIdx.size() < lnP_.getNcols() ){                      // some populations may have no high-probability individuals
+	if ( firstIdx.size() < lnP_.getNcols() ){                      // some groups may have no high-probability individuals
 		while ( firstIdx.size() != lnP_.getNcols() ){
-			firstIdx.push_back( lnP_.getNrows() );                 // add one past the last index, to guarantee that these populations will be put last
+			firstIdx.push_back( lnP_.getNrows() );                 // add one past the last index, to guarantee that these groups will be put last
 		}
 	}
 	vector<size_t> popIdx;
@@ -1818,7 +1847,7 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 		throw string("ERROR: Matrix of observations must have the same number of columns as the matrix of means in WrapMMM::kMeans_()");
 	}
 	if ( M.getNrows() != x2m.groupNumber() ) {
-		throw string("ERROR: observation to cluster index must be the same number of groups as the number of populations in WrapMMM::kMeans_()");
+		throw string("ERROR: observation to cluster index must be the same number of groups as the number of groups in WrapMMM::kMeans_()");
 	}
 #endif
 	// initialize M with a random pick of X rows (the MacQueen 1967 method)
