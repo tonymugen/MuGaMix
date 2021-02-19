@@ -181,11 +181,11 @@ namespace BayesicSpace {
 		 * \param[in] xVec pointer to vectorized covariate predictor matrix
 		 * \param[in] hierInd pointer to vector of hierarchical indexes
 		 * \param[in] tau fixed prior for the unmodeled ("fixed") effects and overall mean (intercept)
-		 * \param[in] nPops number of groups
+		 * \param[in] nGrps number of groups
 		 * \param[in] tauPrPhi \f$ \tau_{\phi} \f$ group assignment probability prior precision
 		 * \param[in] alphaPr prior on \f$ \alpha \f$ on group assignment probabilities
 		 */
-		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nPops, const double &tauPrPhi, const double &alphaPr);
+		MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, const vector<Index> *hierInd, const double &tau, const size_t &nGrps, const double &tauPrPhi, const double &alphaPr);
 		/** \brief Destructor */
 		~MumiLoc(){hierInd_ = nullptr; iSigTheta_ = nullptr; };
 
@@ -294,10 +294,10 @@ namespace BayesicSpace {
 		 * \param[in] hierInd pointer to a vector with hierarchical indexes
 		 * \param[in] nu0 prior degrees of freedom \f$\nu_0\f$
 		 * \param[in] invAsq prior precision \f$a^{-2}\f$
-		 * \param[in] nPops number of groups
+		 * \param[in] nGrps number of groups
 		 *
 		 */
-		MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<Index> *hierInd, const double &nu0, const double &invAsq, const size_t &nPops);
+		MumiISig(const vector<double> *yVec, const vector<double> *vTheta, const vector<Index> *hierInd, const double &nu0, const double &invAsq, const size_t &nGrps);
 
 		/** \brief Destructor */
 		~MumiISig(){hierInd_ = nullptr; };
@@ -565,7 +565,7 @@ namespace BayesicSpace {
 		 * Groups are sorted according to the index of the first individual that belongs to a group with high probability.
 		 * This scheme is also known as left-ordering.
 		 */
-		void sortPops_();
+		void sortGrps_();
 		/** \brief Calibrate rows of `Phi_`
 		 *
 		 * Looks for rows of `Phi_` with all elements negative and below a threshold (currently - 5.0, determined empirically) and adds a constant to increase numerical stability.
