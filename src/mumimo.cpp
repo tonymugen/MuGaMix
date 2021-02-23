@@ -60,16 +60,22 @@ MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *lnpVec, const s
 	}
 #endif
 	const size_t n = yVec->size() / d;
-	Y_             = MatrixViewConst(yVec, 0, n, d);
-	lnP_           = MatrixViewConst(lnpVec, 0, n, Ngrp);
+#ifndef PKG_DEBUG_OFF
+	if (lnpVec->size() != n * Ngrp){
+		throw string("ERROR: ln(P) dimensions not compatible with the number of groups supplied in the MumiNR constructor");
+	}
+#endif
+	Y_   = MatrixViewConst(yVec, 0, n, d);
+	lnP_ = MatrixViewConst(lnpVec, 0, n, Ngrp);
 
 	size_t dSq = d * d;
 	size_t dd  = d * (d - 1) / 2;
 	vLa_.resize(dSq * Ngrp, 0.0);
+	La_.resize(Ngrp);
 	size_t startLa = 0;
 	size_t curLaInd = (Ngrp+1) * d;
 	for (auto &la : La_){
-		la = MatrixView(&vLa_, 0, d, d);
+		la = MatrixView(&vLa_, startLa, d, d);
 		startLa += dSq;
 		for (size_t k = 0; k < d; k++) {
 			la.setElem(k, k, 1.0);
@@ -85,8 +91,9 @@ MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *lnpVec, const s
 	TgInd_ = TaInd_.back() + d;
 	NAnd_  = nu0_ + 2.0 * static_cast<double>(d);
 	NGnd_  = static_cast<double>(Ngrp) + nu0_ + 2.0 * static_cast<double>(d);
-	nxnd_  = nu0_ * ( nu0_ + 2.0 * static_cast<double>(d) );
+	nxnd_  = nu0_ * NAnd_;
 }
+
 MumiNR::MumiNR(MumiNR &&in) {
 	if (this != &in) {
 		yVec_   = in.yVec_;
@@ -164,7 +171,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	}
 	// set up the matrix of group kernels
 	vector<double> vKm(N * Ngrp, 0.0);
-	MatrixView Km( &vKm, 0, N, lnP_.getNcols() );
+	MatrixView Km( &vKm, 0, N, Ngrp );
 	for (size_t m = 0; m < Ngrp; m++) {                                        // m is the group index as in the model description document
 		vector<double> vResid(*yVec_);                                         // copy over Y_
 		MatrixView mResid = MatrixView(&vResid, 0, N, d);                      // mResid now has the Y values
@@ -177,18 +184,18 @@ double MumiNR::logPost(const vector<double> &theta) const{
 		for (size_t jCol = 0; jCol < d; jCol++) {
 			for (size_t iRow = 0; iRow < N; iRow++) {
 				double rsd = mResid.getElem(iRow, jCol);
-				Km.addToElem(iRow, m,  Ta[m][jCol] * rsd * rsd);               // (Y-mu_m)L_A T_A L_A^T(Y - mu_g)^T
+				Km.addToElem(iRow, m, Ta[m][jCol] * rsd * rsd);               // (Y-mu_m)L_A T_A L_A^T(Y - mu_g)^T
 			}
 		}
 	}
 
-	for (size_t iRow = 0; iRow < N; iRow++) {                                  // ln(p) - 0.5*lambda_m 0.5*Km for the first group
-		double diff = lnP_.getElem(iRow, 0) - 0.5 * ( SAlDet[0] + Km.getElem(iRow, 0) );
+	for (size_t iRow = 0; iRow < N; iRow++) {                                  // ln(p) + 0.5*(lambda_m - Km) + for the first group
+		const double diff = lnP_.getElem(iRow, 0) + 0.5 * ( SAlDet[0] - Km.getElem(iRow, 0) );
 		Km.setElem(iRow, 0, diff);
 	}
 	for (size_t m = 1; m < Ngrp; m++) {                                        // Km[,2...] now the difference with the first group
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			const double diff = lnP_.getElem(iRow, m) - 0.5 * ( SAlDet[m] + Km.getElem(iRow, m) ) - Km.getElem(iRow, 0);
+			const double diff = lnP_.getElem(iRow, m) + 0.5 * ( SAlDet[m] - Km.getElem(iRow, m) ) - Km.getElem(iRow, 0);
 			Km.setElem(iRow, m, diff);
 		}
 	}
@@ -213,7 +220,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 				}
 			} else if (bigSum > 0.0) {
 				if (df >= 95) {
-					bigSum += log1p( exp(df-bigSum) );
+					bigSum += log1p( exp(df - bigSum) );
 				}
 				// otherwise do nothing
 			} else {
@@ -237,6 +244,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 			dp += diff * diff;
 		}
 		mTrace += Tg[jCol] * dp;
+		mTrace += dp;
 	}
 	double pTrace = 0.0;
 	for (size_t jCol = 0; jCol < d; jCol++) {
@@ -273,7 +281,7 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	}
 	isPrior *= NAnd_;
 	// now sum to get the log-posterior
-	return 0.5 * (addMMsum - mTrace - pTrace + ldetSumA + ldetSumP - isPrior);
+	return addMMsum - 0.5 * (mTrace + pTrace - ldetSumA - ldetSumP + isPrior);
 }
 void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 	expandISvec_(theta);

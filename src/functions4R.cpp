@@ -27,7 +27,6 @@
  *
  */
 
-#include <bits/stdint-intn.h>
 #include <cstddef>
 #include <vector>
 #include <cmath>
@@ -36,22 +35,21 @@
 #include <limits>
 
 #include <Rcpp.h>
-#include <Rcpp/Named.h>
-#include <Rcpp/exceptions/cpp11/exceptions.h>
 
+#include "Rcpp/exceptions/cpp11/exceptions.h"
 #include "bayesicUtilities/index.hpp"
 #include "mumimo.hpp"
 #include "gmmvb.hpp"
 
 //[[Rcpp::export(name="testLpostNR")]]
-Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &P, const int32_t &ind, const double &limit, const double &incr){
-	BayesicSpace::MumiNR test(&yVec, &P, d, Npop, 1e-8, 2.5, 1e-8);
+Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &lnP, const int32_t &ind, const double &lowerLimit, const double &upperLimit, const double &incr){
 	const size_t i = static_cast<size_t>(ind - 1);
 	double thtVal  = theta[i];
-	double add     = -limit;
+	double add     = lowerLimit;
 	std::vector<double> lPost;
 	try {
-		while ( add <= limit ){
+		BayesicSpace::MumiNR test(&yVec, &lnP, d, Npop, 1e-8, 2.5, 1e-8);
+		while ( add <= upperLimit ){
 			theta[i] = thtVal + add;
 			lPost.push_back( test.logPost(theta) );
 			add += incr;
@@ -73,132 +71,6 @@ Rcpp::List testGradNR(const std::vector<double> &yVec, const int32_t &d, const i
 		while ( add <= limit ){
 			theta[i] = thtVal + add;
 			test.gradient(theta, grad);
-			gradVal.push_back(grad[i]);
-			add += incr;
-		}
-	} catch(std::string problem) {
-		Rcpp::stop(problem);
-	}
-	return Rcpp::List::create(Rcpp::Named("gradVal", gradVal));
-}
-//[[Rcpp::export(name="testLpostLoc")]]
-double testLpostLoc(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const std::vector<double> &theta, const std::vector<double> &iSigTheta){
-	std::vector<size_t> l1;
-	for (auto &lf : lnFac) {
-		if (lf <= 0) {
-			Rcpp::stop("ERROR: all elements of the line factor must be positive");
-		}
-		l1.push_back( static_cast<size_t>(lf-1) );
-	}
-	std::vector<BayesicSpace::Index> idx;
-	idx.push_back( BayesicSpace::Index(l1) );
-	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 0.1, 1.0);
-	return test.logPost(theta);
-}
-//[[Rcpp::export(name="lpTestLI")]]
-Rcpp::List lpTestLI(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
-	std::vector<size_t> l1;
-	for (auto &lf : lnFac) {
-		if (lf <= 0) {
-			Rcpp::stop("ERROR: all elements of the line factor must be positive");
-		}
-		l1.push_back( static_cast<size_t>(lf-1) );
-	}
-	std::vector<BayesicSpace::Index> idx;
-	idx.push_back( BayesicSpace::Index(l1) );
-	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 0.1, 1.0);
-	const size_t i = static_cast<size_t>(ind - 1);
-	double thtVal  = theta[i];
-	double add     = -limit;
-	std::vector<double> lPost;
-	try {
-		while ( add <= limit ){
-			theta[i] = thtVal + add;
-			lPost.push_back( test.logPost(theta) );
-			add += incr;
-		}
-	} catch(std::string problem) {
-		Rcpp::stop(problem);
-	}
-	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
-}
-//[[Rcpp::export(name="gradTestLI")]]
-Rcpp::List gradTestLI(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
-	std::vector<size_t> l1;
-	for (auto &lf : lnFac) {
-		if (lf <= 0) {
-			Rcpp::stop("ERROR: all elements of the line factor must be positive");
-		}
-		l1.push_back( static_cast<size_t>(lf-1) );
-	}
-	std::vector<BayesicSpace::Index> idx;
-	idx.push_back( BayesicSpace::Index(l1) );
-	BayesicSpace::MumiLoc test(&yVec, &iSigTheta, &idx, 1e-8, static_cast<size_t>(Npop), 0.1, 1.0);
-	const size_t i = static_cast<size_t>(ind - 1);
-	double thtVal  = theta[i];
-	double add     = -limit;
-	std::vector<double> gradVal;
-	try {
-		while ( add <= limit ){
-			std::vector<double> grad;
-			theta[i] = thtVal + add;
-			test.gradient(theta, grad);
-			gradVal.push_back(grad[i]);
-			add += incr;
-		}
-	} catch(std::string problem) {
-		Rcpp::stop(problem);
-	}
-	return Rcpp::List::create(Rcpp::Named("gradVal", gradVal));
-}
-//[[Rcpp::export(name="lpTestSI")]]
-Rcpp::List lpTestSI(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const std::vector<double> &theta, std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
-	std::vector<size_t> l1;
-	for (auto &lf : lnFac) {
-		if (lf <= 0) {
-			Rcpp::stop("ERROR: all elements of the line factor must be positive");
-		}
-		l1.push_back( static_cast<size_t>(lf-1) );
-	}
-	std::vector<BayesicSpace::Index> idx;
-	idx.push_back( BayesicSpace::Index(l1) );
-	std::vector<double> lPost;
-	try {
-		BayesicSpace::MumiISig test(&yVec, &theta, &idx, 2.5, 1e-8, static_cast<size_t>(Npop));
-		const size_t i = static_cast<size_t>(ind - 1);
-		double isVal  = iSigTheta[i];
-		double add     = -limit;
-		while ( add <= limit ){
-			iSigTheta[i] = isVal + add;
-			lPost.push_back( test.logPost(iSigTheta) );
-			add += incr;
-		}
-	} catch(std::string problem) {
-		Rcpp::stop(problem);
-	}
-	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
-}
-//[[Rcpp::export(name="gradTestSI")]]
-Rcpp::List gradTestSI(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const std::vector<double> &theta, std::vector<double> &iSigTheta, const int32_t &ind, const double &limit, const double &incr){
-	std::vector<size_t> l1;
-	for (auto &lf : lnFac) {
-		if (lf <= 0) {
-			Rcpp::stop("ERROR: all elements of the line factor must be positive");
-		}
-		l1.push_back( static_cast<size_t>(lf-1) );
-	}
-	std::vector<BayesicSpace::Index> idx;
-	idx.push_back( BayesicSpace::Index(l1) );
-	BayesicSpace::MumiISig test(&yVec, &theta, &idx, 2.5, 1e-8, static_cast<size_t>(Npop));
-	const size_t i = static_cast<size_t>(ind - 1);
-	double isVal  = iSigTheta[i];
-	double add     = -limit;
-	std::vector<double> gradVal;
-	std::vector<double> grad;
-	try {
-		while ( add <= limit ){
-			iSigTheta[i] = isVal + add;
-			test.gradient(iSigTheta, grad);
 			gradVal.push_back(grad[i]);
 			add += incr;
 		}
