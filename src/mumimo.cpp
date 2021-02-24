@@ -153,11 +153,11 @@ double MumiNR::logPost(const vector<double> &theta) const{
 	const size_t d    = Y_.getNcols();
 	const size_t Ngrp = lnP_.getNcols();
 	MatrixViewConst Mp(&theta, 0, Ngrp, d);
-	MatrixViewConst mu(&theta, Ngrp * d, 1, d);                     // overall mean
+	MatrixViewConst mu(&theta, Ngrp * d, 1, d);                                // overall mean
 
 	// calculate T_A
 	vector< vector<double> > Ta(Ngrp);
-	vector<double> SAlDet(Ngrp, 0.0);                               // Sig_A,m log-determinant
+	vector<double> SAlDet(Ngrp, 0.0);                                          // Sig_A,m log-determinant
 	for (size_t m = 0; m < Ngrp; m++) {
 		for (size_t k = TaInd_[m]; k < TaInd_[m] + d; k++) {
 			Ta[m].push_back( exp(theta[k]) );
@@ -371,9 +371,9 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 		}
 		mResidEachGrp[m].trm('l', 'r', true, true, 1.0, La_[m]);                         // mResid now (Y-mu_m)L_A,m T_A,m L_A,m^T
 	}
-	for (size_t m = 0; m < Ngrp; m++) {                                                  // Km now ln(p) - 0.5*lamdba_m - 0.5*Km
+	for (size_t m = 0; m < Ngrp; m++) {                                                  // Km now ln(p) + 0.5*(lamdba_m - Km)
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			const double diff = lnP_.getElem(iRow, m) - 0.5 * ( SAlDet[m] + Km.getElem(iRow, m) );
+			const double diff = lnP_.getElem(iRow, m) + 0.5 * ( SAlDet[m] - Km.getElem(iRow, m) );
 			Km.setElem(iRow, m, diff);
 		}
 	}

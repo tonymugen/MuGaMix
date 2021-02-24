@@ -42,13 +42,13 @@
 #include "gmmvb.hpp"
 
 //[[Rcpp::export(name="testLpostNR")]]
-Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &lnP, const int32_t &ind, const double &lowerLimit, const double &upperLimit, const double &incr){
+Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Ngrp, std::vector<double> &theta, const std::vector<double> &lnP, const int32_t &ind, const double &lowerLimit, const double &upperLimit, const double &incr){
 	const size_t i = static_cast<size_t>(ind - 1);
 	double thtVal  = theta[i];
 	double add     = lowerLimit;
 	std::vector<double> lPost;
 	try {
-		BayesicSpace::MumiNR test(&yVec, &lnP, d, Npop, 1e-8, 2.5, 1e-8);
+		BayesicSpace::MumiNR test(&yVec, &lnP, d, Ngrp, 1e-8, 2.5, 1e-8);
 		while ( add <= upperLimit ){
 			theta[i] = thtVal + add;
 			lPost.push_back( test.logPost(theta) );
@@ -60,15 +60,15 @@ Rcpp::List testLpostNR(const std::vector<double> &yVec, const int32_t &d, const 
 	return Rcpp::List::create(Rcpp::Named("lPost", lPost));
 }
 //[[Rcpp::export(name="testGradNR")]]
-Rcpp::List testGradNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, std::vector<double> &theta, const std::vector<double> &P, const int32_t &ind, const double &limit, const double &incr){
-	BayesicSpace::MumiNR test(&yVec, &P, d, Npop, 1e-8, 2.5, 1e-8);
+Rcpp::List testGradNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Ngrp, std::vector<double> &theta, const std::vector<double> &lnP, const int32_t &ind, const double &lowerLimit, const double &upperLimit, const double &incr){
 	const size_t i = static_cast<size_t>(ind - 1);
 	double thtVal  = theta[i];
-	double add     = -limit;
+	double add     = lowerLimit;
 	std::vector<double> gradVal;
 	std::vector<double> grad;
 	try {
-		while ( add <= limit ){
+		BayesicSpace::MumiNR test(&yVec, &lnP, d, Ngrp, 1e-8, 2.5, 1e-8);
+		while ( add <= upperLimit ){
 			theta[i] = thtVal + add;
 			test.gradient(theta, grad);
 			gradVal.push_back(grad[i]);
@@ -222,7 +222,7 @@ Rcpp::List vbFitMiss(std::vector<double> &yVec, const int32_t &d, const int32_t 
 //'
 //' @param yVec   vectorized data matrix
 //' @param d      number of traits
-//' @param Npop   number of populations
+//' @param Ngrp   number of populations
 //' @param Nadapt number of adaptation (burn-in) steps
 //' @param Nsamp  number of sampling steps
 //' @param Nthin  thinning number
@@ -230,7 +230,7 @@ Rcpp::List vbFitMiss(std::vector<double> &yVec, const int32_t &d, const int32_t 
 //' @keywords internal
 //'
 //[[Rcpp::export(name="runSamplerNR")]]
-Rcpp::List runSamplerNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Npop, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
+Rcpp::List runSamplerNR(const std::vector<double> &yVec, const int32_t &d, const int32_t &Ngrp, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
 	if (d <= 1){
 		Rcpp::stop("ERROR: there must be at least two traits");
 	}
@@ -238,7 +238,7 @@ Rcpp::List runSamplerNR(const std::vector<double> &yVec, const int32_t &d, const
 	if (yVec.size()%d) {
 		Rcpp::stop("ERROR: number of traits implies a non-integer number of individuals in the data vector");
 	}
-	if (Npop <= 1) {
+	if (Ngrp <= 1) {
 		Rcpp::stop("ERROR: there must be at least two populations");
 	}
 	if (Nadapt < 0) {
@@ -256,7 +256,7 @@ Rcpp::List runSamplerNR(const std::vector<double> &yVec, const int32_t &d, const
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
 	const uint32_t Nt = static_cast<uint32_t>(Nthin);
-	const uint32_t Np = static_cast<uint32_t>(Npop);
+	const uint32_t Np = static_cast<uint32_t>(Ngrp);
 
 	try {
 		for (int32_t i = 0; i < Nchains; i++) {
@@ -275,7 +275,7 @@ Rcpp::List runSamplerNR(const std::vector<double> &yVec, const int32_t &d, const
 //'
 //' @param yVec vectorized data matrix
 //' @param lnFac factor relating data points to lines
-//' @param Npop number of populations
+//' @param Ngrp number of populations
 //' @param Nadapt number of adaptation (burn-in) steps
 //' @param Nsamp number of sampling steps
 //' @param Nthin thinning number
@@ -283,11 +283,11 @@ Rcpp::List runSamplerNR(const std::vector<double> &yVec, const int32_t &d, const
 //' @keywords internal
 //'
 //[[Rcpp::export(name="runSampler")]]
-Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Npop, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
+Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const int32_t &Ngrp, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
 	if (yVec.size()%lnFac.size()) {
 		Rcpp::stop("ERROR: line factor length implies a non-integer number of traits in the data vector");
 	}
-	if (Npop <= 1) {
+	if (Ngrp <= 1) {
 		Rcpp::stop("ERROR: there must be at least two populations");
 	}
 	if (Nadapt < 0) {
@@ -312,7 +312,7 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
 	const uint32_t Nt = static_cast<uint32_t>(Nthin);
-	const uint32_t Np = static_cast<uint32_t>(Npop);
+	const uint32_t Np = static_cast<uint32_t>(Ngrp);
 
 	try {
 		for (int32_t i = 0; i < Nchains; i++) {
@@ -334,7 +334,7 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 //' @param yVec vectorized data matrix
 //' @param lnFac factor relating data points to lines
 //' @param missIDs vectorized matrix (same dimensions as data) with 1 where a data point is missing and 0 otherwise
-//' @param Npop number of populations
+//' @param Ngrp number of populations
 //' @param Nadapt number of adaptation (burn-in) steps
 //' @param Nsamp number of sampling steps
 //' @param Nthin thinning number
@@ -342,11 +342,11 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 //' @keywords internal
 //'
 //[[Rcpp::export(name="runSamplerMiss")]]
-Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const std::vector<int32_t> &missIDs, const int32_t &Npop, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
+Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int32_t> &lnFac, const std::vector<int32_t> &missIDs, const int32_t &Ngrp, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin, const int32_t &Nchains){
 	if (yVec.size()%lnFac.size()) {
 		Rcpp::stop("ERROR: line factor length implies a non-integer number of traits in the data vector");
 	}
-	if (Npop <= 1) {
+	if (Ngrp <= 1) {
 		Rcpp::stop("ERROR: there must be at least two populations");
 	}
 	if (Nadapt < 0) {
@@ -373,7 +373,7 @@ Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
 	const uint32_t Nt = static_cast<uint32_t>(Nthin);
-	const uint32_t Np = static_cast<uint32_t>(Npop);
+	const uint32_t Np = static_cast<uint32_t>(Ngrp);
 
 	try {
 		for (int32_t i = 0; i < Nchains; i++) {

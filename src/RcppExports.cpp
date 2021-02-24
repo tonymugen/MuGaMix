@@ -6,39 +6,40 @@
 using namespace Rcpp;
 
 // testLpostNR
-Rcpp::List testLpostNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Npop, std::vector<double>& theta, const std::vector<double>& lnP, const int32_t& ind, const double& lowerLimit, const double& upperLimit, const double& incr);
-RcppExport SEXP _MuGaMix_testLpostNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NpopSEXP, SEXP thetaSEXP, SEXP lnPSEXP, SEXP indSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP incrSEXP) {
+Rcpp::List testLpostNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Ngrp, std::vector<double>& theta, const std::vector<double>& lnP, const int32_t& ind, const double& lowerLimit, const double& upperLimit, const double& incr);
+RcppExport SEXP _MuGaMix_testLpostNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NgrpSEXP, SEXP thetaSEXP, SEXP lnPSEXP, SEXP indSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP incrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Ngrp(NgrpSEXP);
     Rcpp::traits::input_parameter< std::vector<double>& >::type theta(thetaSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type lnP(lnPSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type ind(indSEXP);
     Rcpp::traits::input_parameter< const double& >::type lowerLimit(lowerLimitSEXP);
     Rcpp::traits::input_parameter< const double& >::type upperLimit(upperLimitSEXP);
     Rcpp::traits::input_parameter< const double& >::type incr(incrSEXP);
-    rcpp_result_gen = Rcpp::wrap(testLpostNR(yVec, d, Npop, theta, lnP, ind, lowerLimit, upperLimit, incr));
+    rcpp_result_gen = Rcpp::wrap(testLpostNR(yVec, d, Ngrp, theta, lnP, ind, lowerLimit, upperLimit, incr));
     return rcpp_result_gen;
 END_RCPP
 }
 // testGradNR
-Rcpp::List testGradNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Npop, std::vector<double>& theta, const std::vector<double>& P, const int32_t& ind, const double& limit, const double& incr);
-RcppExport SEXP _MuGaMix_testGradNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NpopSEXP, SEXP thetaSEXP, SEXP PSEXP, SEXP indSEXP, SEXP limitSEXP, SEXP incrSEXP) {
+Rcpp::List testGradNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Ngrp, std::vector<double>& theta, const std::vector<double>& lnP, const int32_t& ind, const double& lowerLimit, const double& upperLimit, const double& incr);
+RcppExport SEXP _MuGaMix_testGradNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NgrpSEXP, SEXP thetaSEXP, SEXP lnPSEXP, SEXP indSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP incrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Ngrp(NgrpSEXP);
     Rcpp::traits::input_parameter< std::vector<double>& >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type P(PSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type lnP(lnPSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type ind(indSEXP);
-    Rcpp::traits::input_parameter< const double& >::type limit(limitSEXP);
+    Rcpp::traits::input_parameter< const double& >::type lowerLimit(lowerLimitSEXP);
+    Rcpp::traits::input_parameter< const double& >::type upperLimit(upperLimitSEXP);
     Rcpp::traits::input_parameter< const double& >::type incr(incrSEXP);
-    rcpp_result_gen = Rcpp::wrap(testGradNR(yVec, d, Npop, theta, P, ind, limit, incr));
+    rcpp_result_gen = Rcpp::wrap(testGradNR(yVec, d, Ngrp, theta, lnP, ind, lowerLimit, upperLimit, incr));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -77,61 +78,61 @@ BEGIN_RCPP
 END_RCPP
 }
 // runSamplerNR
-Rcpp::List runSamplerNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Npop, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin, const int32_t& Nchains);
-RcppExport SEXP _MuGaMix_runSamplerNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NpopSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP, SEXP NchainsSEXP) {
+Rcpp::List runSamplerNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Ngrp, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin, const int32_t& Nchains);
+RcppExport SEXP _MuGaMix_runSamplerNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NgrpSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP, SEXP NchainsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Ngrp(NgrpSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nadapt(NadaptSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nsamp(NsampSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nthin(NthinSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nchains(NchainsSEXP);
-    rcpp_result_gen = Rcpp::wrap(runSamplerNR(yVec, d, Npop, Nadapt, Nsamp, Nthin, Nchains));
+    rcpp_result_gen = Rcpp::wrap(runSamplerNR(yVec, d, Ngrp, Nadapt, Nsamp, Nthin, Nchains));
     return rcpp_result_gen;
 END_RCPP
 }
 // runSampler
-Rcpp::List runSampler(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const int32_t& Npop, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin, const int32_t& Nchains);
-RcppExport SEXP _MuGaMix_runSampler(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP NpopSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP, SEXP NchainsSEXP) {
+Rcpp::List runSampler(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const int32_t& Ngrp, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin, const int32_t& Nchains);
+RcppExport SEXP _MuGaMix_runSampler(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP NgrpSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP, SEXP NchainsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
     Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Ngrp(NgrpSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nadapt(NadaptSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nsamp(NsampSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nthin(NthinSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nchains(NchainsSEXP);
-    rcpp_result_gen = Rcpp::wrap(runSampler(yVec, lnFac, Npop, Nadapt, Nsamp, Nthin, Nchains));
+    rcpp_result_gen = Rcpp::wrap(runSampler(yVec, lnFac, Ngrp, Nadapt, Nsamp, Nthin, Nchains));
     return rcpp_result_gen;
 END_RCPP
 }
 // runSamplerMiss
-Rcpp::List runSamplerMiss(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const std::vector<int32_t>& missIDs, const int32_t& Npop, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin, const int32_t& Nchains);
-RcppExport SEXP _MuGaMix_runSamplerMiss(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP missIDsSEXP, SEXP NpopSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP, SEXP NchainsSEXP) {
+Rcpp::List runSamplerMiss(const std::vector<double>& yVec, const std::vector<int32_t>& lnFac, const std::vector<int32_t>& missIDs, const int32_t& Ngrp, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin, const int32_t& Nchains);
+RcppExport SEXP _MuGaMix_runSamplerMiss(SEXP yVecSEXP, SEXP lnFacSEXP, SEXP missIDsSEXP, SEXP NgrpSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP, SEXP NchainsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
     Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type lnFac(lnFacSEXP);
     Rcpp::traits::input_parameter< const std::vector<int32_t>& >::type missIDs(missIDsSEXP);
-    Rcpp::traits::input_parameter< const int32_t& >::type Npop(NpopSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Ngrp(NgrpSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nadapt(NadaptSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nsamp(NsampSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nthin(NthinSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nchains(NchainsSEXP);
-    rcpp_result_gen = Rcpp::wrap(runSamplerMiss(yVec, lnFac, missIDs, Npop, Nadapt, Nsamp, Nthin, Nchains));
+    rcpp_result_gen = Rcpp::wrap(runSamplerMiss(yVec, lnFac, missIDs, Ngrp, Nadapt, Nsamp, Nthin, Nchains));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
     {"_MuGaMix_testLpostNR", (DL_FUNC) &_MuGaMix_testLpostNR, 9},
-    {"_MuGaMix_testGradNR", (DL_FUNC) &_MuGaMix_testGradNR, 8},
+    {"_MuGaMix_testGradNR", (DL_FUNC) &_MuGaMix_testGradNR, 9},
     {"_MuGaMix_vbFit", (DL_FUNC) &_MuGaMix_vbFit, 7},
     {"_MuGaMix_vbFitMiss", (DL_FUNC) &_MuGaMix_vbFitMiss, 7},
     {"_MuGaMix_runSamplerNR", (DL_FUNC) &_MuGaMix_runSamplerNR, 7},
