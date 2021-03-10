@@ -9,6 +9,10 @@ testGradNR <- function(yVec, d, Ngrp, theta, lnP, ind, lowerLimit, upperLimit, i
     .Call(`_MuGaMix_testGradNR`, yVec, d, Ngrp, theta, lnP, ind, lowerLimit, upperLimit, incr)
 }
 
+testSampler <- function(yVec, d, Ngrp, Nadapt, Nsamp) {
+    .Call(`_MuGaMix_testSampler`, yVec, d, Ngrp, Nadapt, Nsamp)
+}
+
 #' Variational Bayes model fit
 #'
 #' Fits a Gaussian mixture model using variational Bayes. Assumes no missing data.

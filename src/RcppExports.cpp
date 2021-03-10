@@ -43,6 +43,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// testSampler
+Rcpp::List testSampler(const std::vector<double>& yVec, const int32_t& d, const int32_t& Ngrp, const int32_t& Nadapt, const int32_t& Nsamp);
+RcppExport SEXP _MuGaMix_testSampler(SEXP yVecSEXP, SEXP dSEXP, SEXP NgrpSEXP, SEXP NadaptSEXP, SEXP NsampSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type yVec(yVecSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type d(dSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Ngrp(NgrpSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Nadapt(NadaptSEXP);
+    Rcpp::traits::input_parameter< const int32_t& >::type Nsamp(NsampSEXP);
+    rcpp_result_gen = Rcpp::wrap(testSampler(yVec, d, Ngrp, Nadapt, Nsamp));
+    return rcpp_result_gen;
+END_RCPP
+}
 // vbFit
 Rcpp::List vbFit(const std::vector<double>& yVec, const int32_t& d, const int32_t& nGroups, const double& alphaPr, const double& sigSqPr, const double& covRatio, const int32_t nReps);
 RcppExport SEXP _MuGaMix_vbFit(SEXP yVecSEXP, SEXP dSEXP, SEXP nGroupsSEXP, SEXP alphaPrSEXP, SEXP sigSqPrSEXP, SEXP covRatioSEXP, SEXP nRepsSEXP) {
@@ -133,6 +148,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_MuGaMix_testLpostNR", (DL_FUNC) &_MuGaMix_testLpostNR, 9},
     {"_MuGaMix_testGradNR", (DL_FUNC) &_MuGaMix_testGradNR, 9},
+    {"_MuGaMix_testSampler", (DL_FUNC) &_MuGaMix_testSampler, 5},
     {"_MuGaMix_vbFit", (DL_FUNC) &_MuGaMix_vbFit, 7},
     {"_MuGaMix_vbFitMiss", (DL_FUNC) &_MuGaMix_vbFitMiss, 7},
     {"_MuGaMix_runSamplerNR", (DL_FUNC) &_MuGaMix_runSamplerNR, 7},

@@ -50,7 +50,6 @@ namespace BayesicSpace {
 	class MumiLoc;
 	class MumiISig;
 
-	class WrapMMMnr;
 	class WrapMMM;
 
 	/** \brief No-replication multiplicative mixture model parameter component
@@ -94,7 +93,7 @@ namespace BayesicSpace {
 		/** \brief Log-posterior function
 		 *
 		 * Returns the value of the log-posterior given the data provided at construction and the passed-in parameter vector.
-		 * The parameter vector has group means grand means, among-individual inverse covariances, among-individual precisions, and among-group precisions in that order.
+		 * The parameter vector has group means, grand means, among-individual inverse covariances, among-individual precisions, and among-group precisions in that order.
 		 *
 		 * \param[in] theta parameter vector
 		 * \return Value of the log-posterior
@@ -424,7 +423,7 @@ namespace BayesicSpace {
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
+		WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq, vector<double> &testRes);
 		/** \brief Constructor for a one-level hierarchical model
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
@@ -468,10 +467,9 @@ namespace BayesicSpace {
 		 * \param[in] Nsample number of sampling steps
 		 * \param[in] Nthin thinning number
 		 * \param[out] thetaChain MCMC chain of location parameters
-		 * \param[out] isigChain MCMC chain of inverse-covariance parameters
 		 * \param[out] piChain MCMC chain of \f$ p_{ip} \f$
 		 */
-		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain);
+		void runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain);
 		/** \brief Sampler with missing data
 		 *
 		 * Runs the sampler with given parameters, imputes missing data, and outputs chains. Imputed values for the missing data points are in the `impYchain` variable.
@@ -497,44 +495,28 @@ namespace BayesicSpace {
 		 * Points to `vY_`.
 		 */
 		MatrixView Y_;
-		/** \brief Vector of indexes connecting hierarchy levels
-		 *
-		 * First element connects replicates (data) to line means, second connects lines to groups. The second index is updated as part of the mixture model.
-		 *
-		 */
-		vector<Index> hierInd_;
+		/** \brief Index connecting replicates to lines */
+		Index hierInd_;
 		/** \brief Model paramaters */
 		vector<double> vTheta_;
-		/** \brief Inverse-covariances */
-		vector<double> vISig_;
-		/** \brief Transformed group assignment probabilities */
-		vector<double> vPhi_;
 		/** \brief Group assignment log-probabilities */
 		vector<double> vlnP_;
 		/** \brief Matrix view of line (accession) means */
 		MatrixView A_;
 		/** \brief Matrix view of group means */
 		MatrixView Mp_;
-		/** \brief Index of the first probability element */
-		size_t PhiBegInd_;
-		/** \brief Matrix view of logit-group assignment probabilities */
-		MatrixView Phi_;
 		/** \brief Matrix view of group assignment log-probabilies */
 		MatrixView lnP_;
-		/** \brief `Phi_` recalibration trigger value */
-		static const double phiMin_;
-		/** \brief Value to add for calibration */
-		static const double addVal_;
 		/** \brief Index of the first \f$\boldsymbol{T}_E\f$ element */
 		size_t fTeInd_;
-		/** \brief Index of the first \f$\boldsymbol{L}_A\f$ element */
-		size_t fLaInd_;
-		/** \brief Index of the first \f$\boldsymbol{T}_A\f$ element */
-		size_t fTaInd_;
-		/** \brief Expanded vectorized \f$ \boldsymbol{L}_A \f$ matrix */
+		/** \brief Indexes of first \f$\boldsymbol{L}_{A,m}\f$ elements */
+		vector<size_t> fLaInd_;
+		/** \brief Indexes of first \f$\boldsymbol{T}_{A,m}\f$ elements */
+		vector<size_t> fTaInd_;
+		/** \brief Expanded vectorized \f$ \boldsymbol{L}_{A,m} \f$ matrices */
 		vector<double> vLa_;
-		/** \brief Matrix view of the \f$ \boldsymbol{L}_A \f$ matrix */
-		MatrixView La_;
+		/** \brief Matrix views of \f$ \boldsymbol{L}_{A,m} \f$ matrices */
+		vector<MatrixView> La_;
 		/** \brief Vectorized \f$ \boldsymbol{A} - \boldsybol{\mu}_{p\cdot} \f$ residual */
 		vector<double> vAresid_;
 		/** \brief Matrix view of the residual */
@@ -566,18 +548,6 @@ namespace BayesicSpace {
 		 * This scheme is also known as left-ordering.
 		 */
 		void sortGrps_();
-		/** \brief Calibrate rows of `Phi_`
-		 *
-		 * Looks for rows of `Phi_` with all elements negative and below a threshold (currently - 5.0, determined empirically) and adds a constant to increase numerical stability.
-		 * This does not affect group assignment probabilities.
-		 */
-		void calibratePhi_();
-		/** \brief Convert log-probabilities to logit scores
-		 *
-		 * Uses the Betancourt (2012) method of transforming group assignment log-probabilities to hyper-spherical coordinates. I then apply a logit transformation to further map scores to the \f$(-\infty, \infty ) \f$ interval.
-		 *
-		 */
-		void lnp2phi_();
 		/** \brief Expand lower triangle of the \f$ \boldsymbol{L}_A \f$ matrix
 		 *
 		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix and multiplies its columns by the square root of \f$ \boldsymbol{T}_A \f$. The input vector `vISig_` stores only the non-zero elements of these matrices.

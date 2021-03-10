@@ -27,6 +27,7 @@
  *
  */
 
+#include <bits/stdint-intn.h>
 #include <cstddef>
 #include <vector>
 #include <cmath>
@@ -36,7 +37,7 @@
 
 #include <Rcpp.h>
 
-#include "Rcpp/exceptions/cpp11/exceptions.h"
+#include "Rcpp/Named.h"
 #include "bayesicUtilities/index.hpp"
 #include "mumimo.hpp"
 #include "gmmvb.hpp"
@@ -78,6 +79,22 @@ Rcpp::List testGradNR(const std::vector<double> &yVec, const int32_t &d, const i
 		Rcpp::stop(problem);
 	}
 	return Rcpp::List::create(Rcpp::Named("gradVal", gradVal));
+}
+
+//[[Rcpp::export(name="testSampler")]]
+Rcpp::List testSampler(const std::vector<double> &yVec, const int32_t &d, const int32_t &Ngrp, const int32_t &Nadapt, const int32_t &Nsamp){
+	const size_t pd    = static_cast<size_t>(d);
+	const size_t pNgrp = static_cast<size_t>(Ngrp);
+	std::vector<double> theta0;
+	std::vector<double> thetaChain;
+	std::vector<double> pChain;
+	try {
+		BayesicSpace::WrapMMM test(yVec, pd, Ngrp, 1e-3, 1e-5, 2.5, 1e-5, theta0);
+		test.runSampler(Nadapt, Nsamp, 1, thetaChain, pChain);
+	} catch(std::string problem) {
+		Rcpp::stop(problem);
+	}
+	return Rcpp::List::create(Rcpp::Named("theta0", theta0), Rcpp::Named("chain", thetaChain));
 }
 
 //' Variational Bayes model fit
@@ -258,10 +275,11 @@ Rcpp::List runSamplerNR(const std::vector<double> &yVec, const int32_t &d, const
 	const uint32_t Nt = static_cast<uint32_t>(Nthin);
 	const uint32_t Np = static_cast<uint32_t>(Ngrp);
 
+	std::vector<double> test; // TODO: remove after testing is done
 	try {
 		for (int32_t i = 0; i < Nchains; i++) {
-			BayesicSpace::WrapMMM modelObj(yVec, dd, Np, 1.2, 1e-8, 2.5, 1e-6);
-			modelObj.runSampler(Na, Ns, Nt, thetaChain, iSigChain, piChain);
+			BayesicSpace::WrapMMM modelObj(yVec, dd, Np, 1.2, 1e-8, 2.5, 1e-6, test);
+			//modelObj.runSampler(Na, Ns, Nt, thetaChain, iSigChain, piChain);
 		}
 		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("iSigChain", iSigChain));
 	} catch(std::string problem) {
@@ -317,7 +335,7 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 	try {
 		for (int32_t i = 0; i < Nchains; i++) {
 			BayesicSpace::WrapMMM modelObj(yVec, l1, Np, 1e-6, 0.1, 1e-8, 2.5, 1e-6);
-			modelObj.runSampler(Na, Ns, Nt, thetaChain, iSigChain, piChain);
+			//modelObj.runSampler(Na, Ns, Nt, thetaChain, iSigChain, piChain);
 		}
 		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("iSigChain", iSigChain));
 	} catch(std::string problem) {

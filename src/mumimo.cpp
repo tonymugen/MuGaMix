@@ -1287,116 +1287,53 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 }
 
 // WrapMM methods
-const double WrapMMM::phiMin_ = -5.0;
-const double WrapMMM::addVal_ = 3.0;
-
-WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : vY_{vY}, PhiBegInd_{0} {
+WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq, vector<double> &testRes) : vY_{vY} {
 #ifndef PKG_DEBUG_OFF
-	if (vY_.size()%d) {
+	if (vY_.size() % d) {
 		throw string("WrapMMM no-replication constructor ERROR: length of response vector (") + to_string( vY_.size() ) + string(") not divisible by number of traits (") + to_string(d) + string(")");
 	}
 #endif
 	const size_t N = vY_.size() / d;
 	// Calculate starting values for theta
 	Y_ = MatrixView(&vY_, 0, N, d);
-
-	vTheta_.resize( (Ngrp + 1) * d, 0.0 );    // add the inverse-covariance elements later
-	fLaInd_ = vTheta_.size();
-	Mp_     = MatrixView(&vTheta_, 0, Ngrp, d);
+	vTheta_.resize(Ngrp * d + d + Ngrp * d * (d + 1) / 2 + d, 0.0);
+	//vTheta_.resize( (Ngrp + 1) * d, 0.0 );    // add the inverse-covariance elements later
+	//fLaInd_ = vTheta_.size();
+	Mp_ = MatrixView(&vTheta_, 0, Ngrp, d);
+	Mp_.setElem(0, 0, -9.96);
+	Mp_.setElem(1, 0, 0.04);
+	Mp_.setElem(2, 0, 10.2);
+	Mp_.setElem(0, 1, -0.07);
+	Mp_.setElem(1, 1, -10.05);
+	Mp_.setElem(2, 1, 10.04);
+	
 	MatrixView mu(&vTheta_, Ngrp * d, 1, d);
 
-	vector<size_t> ind;
-	for (size_t m = 0; m < Ngrp; m++) {
-		for (size_t iLn = 0; iLn < N / Ngrp; iLn++) {
-			ind.push_back(m);
-		}
-	}
-	Index popInd(ind);
+	vTheta_[(Ngrp + 1) * d]      = -0.6;
+	vTheta_[(Ngrp + 1) * d + 1]  =  0.6;
+	vTheta_[(Ngrp + 1) * d + 2]  = -0.2;
+	vTheta_[(Ngrp + 1) * d + 3]  =  0.307;
+	vTheta_[(Ngrp + 1) * d + 4]  =  0.0;
+	vTheta_[(Ngrp + 1) * d + 5]  =  0.307;
+	vTheta_[(Ngrp + 1) * d + 6]  =  0.0;
+	vTheta_[(Ngrp + 1) * d + 7]  =  0.039;
+	vTheta_[(Ngrp + 1) * d + 8]  =  0.0;
+	vTheta_[(Ngrp + 1) * d + 9]  = -4.6;
+	vTheta_[(Ngrp + 1) * d + 10] = -4.6;
+
 	vlnP_ = vector<double>(N * Ngrp, 0.0);
 	lnP_  = MatrixView(&vlnP_, 0, N, Ngrp);
+	const size_t grpSize = N / Ngrp;
 	for (size_t m = 0; m < Ngrp; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			if (popInd.groupID(iRow) == m){
-				lnP_.setElem( iRow, m, log(0.95) );
+			if ( (iRow >= m * grpSize) && (iRow <= (m + 1) * grpSize) ){
+				lnP_.setElem( iRow, m, log(0.999) );
 			} else {
-				lnP_.setElem( iRow, m, log( 0.05 / static_cast<double>(Ngrp - 1) ) );
+				lnP_.setElem( iRow, m, log( 0.001 / static_cast<double>(Ngrp - 1) ) );
 			}
 		}
 	}
-	/*
-	std::fstream tstP;
-	tstP.open("tstP.tsv", std::ios::trunc|std::ios::out);
-	for (size_t iRow = 0; iRow < N; iRow++) {
-		for (size_t m = 0; m < Ngrp; m++) {
-			tstP << lnP_.getElem(iRow, m) << " ";
-		}
-		tstP << "\n";
-	}
-	tstP << "---------------\n";
-	*/
-	vPhi_ = vector<double>(N * (Ngrp-1), 0.0);
-	Phi_  = MatrixView(&vPhi_, 0, N, Ngrp-1);
-	lnp2phi_();
-	Y_.colMeans(popInd, Mp_);
-	//sortGrps_();
-	//nuc_.phi2lnp(Phi_, lnP_);
-	/*
-	for (size_t iRow = 0; iRow < N; iRow++) {
-		for (size_t m = 0; m < Ngrp; m++) {
-			tstP << lnP_.getElem(iRow, m) << " ";
-		}
-		tstP << "\n";
-	}
-	tstP.close();
-	throw string("stop here");
-	*/
-	vector<double> tmpMu;
-	Mp_.colMeans(tmpMu);
-	for (size_t k = 0; k < d; k++) {
-		mu.setElem(0, k, tmpMu[k]);
-	}
-
-	// Calculate starting precision matrix values; do that before adding noise to theta
-	//
-	const double Ninv = 1.0 / static_cast<double>(N - 1);
-	vector<double> vSig(d * d, 0.0);
-	MatrixView Sig(&vSig, 0, d, d);
-
-	// Y residual
-	vector<double> vZM(N * d, 0.0);
-	MatrixView ZM(&vZM, 0, N, d);
-	Mp_.colExpand(popInd, ZM);
-	for (size_t jCol = 0; jCol < d; jCol++) {
-		for (size_t iRow = 0; iRow < N; iRow++) {
-			double diff = Y_.getElem(iRow, jCol) - ZM.getElem(iRow, jCol);
-			ZM.setElem(iRow, jCol, diff); // ZM now Y - ZM
-		}
-	}
-	ZM.syrk('l', Ninv, 0.0, Sig); // making covariances in one step
-	Sig.pseudoInv();
-	// save the scaled precision matrix lower triangle and log-diagonals to the precision parameter vector
-	vector<double> sqrT;
-	for (size_t k = 0; k < d; k++) {
-		sqrT.push_back( sqrt( Sig.getElem(k, k) ) );
-	}
-	for (size_t jCol = 0; jCol < d-1; jCol++) {
-		for (size_t iRow = jCol+1; iRow < d; iRow++) {
-			vTheta_.push_back( Sig.getElem(iRow, jCol) / (sqrT[iRow] * sqrT[jCol]) );
-		}
-	}
-	for (size_t k = 0; k < d; k++) {
-		vTheta_.push_back( log( Sig.getElem(k, k) ) );
-	}
-	// tau_p
-	double dNp = static_cast<double>(Ngrp - 1);
-	for (size_t jCol = 0; jCol < d; jCol++) {
-		double sSq = 0.0;
-		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) {
-			double diff = Mp_.getElem(iRow, jCol) - mu.getElem(0, jCol);
-			sSq += diff * diff;
-		}
-		vTheta_.push_back( log(dNp / sSq) );
-	}
+	testRes = vTheta_;
 	models_.push_back( new MumiNR(&vY_, &vlnP_, d, Ngrp, tau0, nu0, invAsq) );
 	//models_.push_back( new MumiPNR(&vY_, &vTheta_, d, Ngrp, alphaPr) );
 	//models_.push_back( new MumiLocNR(&vY_, d, &vISig_, tau0, Ngrp, alphaPr) );
@@ -1404,21 +1341,20 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.1) );
 	//samplers_.push_back( new SamplerNUTS(models_[1], &vPhi_) );
-	samplers_.push_back( new SamplerMetro(models_[1], &vPhi_, 0.1) );
+	//samplers_.push_back( new SamplerMetro(models_[1], &vPhi_, 0.1) );
 	//samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_, 0.3) );
 }
 
-WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Ngrp, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY} {
-	hierInd_.push_back( Index(y2line) );
-	const size_t N = hierInd_[0].size();
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Ngrp, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY}, hierInd_{Index(y2line)} {
+	const size_t N = hierInd_.size();
 #ifndef PKG_DEBUG_OFF
 	if (vY.size()%N) {
 		throw string("WrapMMM constructor ERROR: length of response vector not divisible by data point number");
 	}
 #endif
 	const size_t d     = vY.size() / N;
-	const size_t Nln   = hierInd_[0].groupNumber();
+	const size_t Nln   = hierInd_.groupNumber();
 	const size_t Adim  = Nln * d;
 	const size_t Mpdim = Ngrp * d;
 
@@ -1429,8 +1365,6 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	A_  = MatrixView(&vTheta_, 0, Nln, d);
 	Mp_ = MatrixView(&vTheta_, Adim, Ngrp, d);
 	MatrixView mu(&vTheta_, Adim+Mpdim, 1, d);
-	PhiBegInd_ = Adim+Mpdim+d;
-	Phi_       = MatrixView(&vTheta_, PhiBegInd_, Nln, Ngrp);
 
 	Y_.colMeans(hierInd_[0], A_);  //  means to get A starting values
 	vector<double> vSig(d * d, 0.0);
@@ -1446,9 +1380,9 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	for (size_t m = 0; m < Ngrp; m++) {
 		for (size_t iRow = 0; iRow < Nln; iRow++) {
 			if (popInd.groupID(iRow) == m){
-				Phi_.setElem( iRow, m, nuc_.logit(0.99) );
+				lnP_.setElem( iRow, m, log(0.99) );
 			} else {
-				Phi_.setElem( iRow, m, nuc_.logit(0.01) );
+				lnP_.setElem( iRow, m, log(0.01) );
 			}
 		}
 	}
@@ -1495,13 +1429,13 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	//
 	size_t trLen     = d * (d-1) / 2;
 	fTeInd_          = trLen;
-	fLaInd_          = trLen + d;
-	fTaInd_          = fLaInd_ + trLen;
+	//fLaInd_          = trLen + d;
+	//fTaInd_          = fLaInd_ + trLen;
 	const double n   = 1.0 / static_cast<double>(N-1);
 	const double nLN = 1.0 / static_cast<double>(Nln-1);
 	const double nP  = static_cast<double>(Ngrp-1); // not reciprocal on purpose
 	vLa_.resize(d * d, 0.0);
-	La_ = MatrixView(&vLa_, 0, d, d);
+	//La_ = MatrixView(&vLa_, 0, d, d);
 
 	// Y residual
 	vector<double> vZA(N * d, 0.0);
@@ -1521,14 +1455,6 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	for (size_t k = 0; k < d; k++) {
 		sqrT.push_back( sqrt( Sig.getElem(k, k) ) );
 	}
-	for (size_t jCol = 0; jCol < d-1; jCol++) {
-		for (size_t iRow = jCol+1; iRow < d; iRow++) {
-			vISig_.push_back( Sig.getElem(iRow, jCol) / (sqrT[iRow] * sqrT[jCol]) );
-		}
-	}
-	for (size_t k = 0; k < d; k++) {
-		vISig_.push_back( log( Sig.getElem(k, k) ) );
-	}
 	// A precision matrix
 	vZA.resize(Nln * d);
 	MatrixView ZpMp(&vZA, 0, Nln, d);
@@ -1545,23 +1471,6 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	for (size_t k = 0; k < d; k++) {
 		sqrT[k] = sqrt( Sig.getElem(k, k) );
 	}
-	for (size_t jCol = 0; jCol < d-1; jCol++) {
-		for (size_t iRow = jCol+1; iRow < d; iRow++) {
-			vISig_.push_back( Sig.getElem(iRow, jCol) / (sqrT[iRow] * sqrT[jCol]) );
-		}
-	}
-	for (size_t k = 0; k < d; k++) {
-		vISig_.push_back( log( Sig.getElem(k, k) ) );
-	}
-	// tau_p
-	for (size_t jCol = 0; jCol < d; jCol++) {
-		double sSq = 0.0;
-		for (size_t iRow = 0; iRow < Mp_.getNrows(); iRow++) {
-			double diff = Mp_.getElem(iRow, jCol) - mu.getElem(0, jCol);
-			sSq += diff * diff;
-		}
-		vISig_.push_back( log(nP / sSq) );
-	}
 	expandLa_();
 	vAresid_.resize(Adim, 0.0);
 	Aresid_ = MatrixView(&vAresid_, 0, Nln, d);
@@ -1575,11 +1484,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 		s += 0.5 * rng_.rnorm();
 	}
 	*/
-	models_.push_back( new MumiLoc(&vY_, &vISig_, &hierInd_, tau0, Ngrp, alphaPr, tauPrPhi) );
-	models_.push_back( new MumiISig(&vY_, &vTheta_, &hierInd_, nu0, invAsq, Ngrp) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_) );
-	samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
 	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_) );
 }
 
@@ -1608,14 +1514,17 @@ void WrapMMM::imputeMissing_(){
 		// start by making Sigma_e^{-1}
 		vector<double> Te;
 		// convert log-tau to tau
+		/*
 		for (size_t p = fTeInd_; p < fLaInd_; p++) {
 			Te.push_back( exp(vISig_[p]) );
 		}
+		*/
 		vector<double> vSigI(A_.getNcols() * A_.getNcols(), 0.0);
 		MatrixView SigI( &vSigI, 0, A_.getNcols(), A_.getNcols() );
 		// fill out the matrix; the Le lower triangle is the first [0,fTeInd_) elements on vISig_
 		// there may be room for optimization here: we are working by row, while the matrix is stored by column, precluding vectorization
 		// first row and column are trivial because l_11 == 1.0 and all other row elements are 0.0
+		/*  TODO: fix this once the rest of the model is done
 		vSigI[0] = Te[0];
 		for (size_t i = 1; i < SigI.getNcols(); i++) {
 			double prd = Te[0] * vISig_[i-1];
@@ -1643,6 +1552,7 @@ void WrapMMM::imputeMissing_(){
 				SigI.setElem(iRow, jCol, val); // only need the lower triangle for chol()
 			}
 		}
+		*/
 		vector<double> vSig(vSigI.size(), 0.0);
 		MatrixView Sig( &vSig, 0, SigI.getNrows(), SigI.getNcols() );
 		// Invert SigI
@@ -1690,10 +1600,10 @@ void WrapMMM::imputeMissing_(){
 			missIDcol = 0;
 			for (size_t k = 0; k < Y_.getNcols(); k++) {
 				if ( ( missIDcol < missRow.second.size() ) && (k == missRow.second[missIDcol]) ) {
-					muA.push_back( A_.getElem(hierInd_[0].groupID(missRow.first), k) );
+					muA.push_back( A_.getElem(hierInd_.groupID(missRow.first), k) );
 					missIDcol++;
 				} else {
-					diffMuP.push_back( Y_.getElem(missRow.first, k) - A_.getElem(hierInd_[0].groupID(missRow.first), k) );
+					diffMuP.push_back( Y_.getElem(missRow.first, k) - A_.getElem(hierInd_.groupID(missRow.first), k) );
 				}
 			}
 			MatrixView muAmat(&muA, 0, muA.size(), 1);
@@ -1718,40 +1628,6 @@ void WrapMMM::imputeMissing_(){
 	}
 }
 
-void WrapMMM::lnp2phi_(){
-	vector<double> sSq(lnP_.getNrows(), 0.0);
-	for (size_t m = 0; m < lnP_.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < lnP_.getNrows(); iRow++) {
-			sSq[iRow] += exp( lnP_.getElem(iRow, m) );
-		}
-	}
-	for (auto &ss : sSq){
-		ss = sqrt(ss);
-	}
-	for (size_t m = 0; m < Phi_.getNcols(); m++) {
-		for (size_t iRow = 0; iRow < Phi_.getNrows(); iRow++) {
-			double y = exp( 0.5 * lnP_.getElem(iRow, m) );
-			y        = sin( acos(y / sSq[iRow]) );
-			Phi_.setElem( iRow, m, nuc_.logit(y * y) );
-		}
-	}
-}
-
-void WrapMMM::expandLa_(){
-	vector <double> Ta;
-	for (size_t k = fTaInd_; k < fTaInd_ + La_.getNcols(); k++) {
-		Ta.push_back( exp(0.5 * vISig_[k]) );
-	}
-	size_t aInd = fLaInd_;                                             // index of the La lower triangle in the input vector
-	for (size_t jCol = 0; jCol < La_.getNcols(); jCol++) {             // the last column is all 0, except the last element = Ta[d]
-		La_.setElem(jCol, jCol, Ta[jCol]);
-		for (size_t iRow = jCol + 1; iRow < La_.getNcols(); iRow++) {
-			La_.setElem(iRow, jCol, vISig_[aInd] * Ta[jCol]);
-			aInd++;
-		}
-	}
-}
-
 void WrapMMM::sortGrps_(){
 	vector<size_t> firstIdx;                                       // vector with indices of the first high-p elements per group
 	for (size_t m = 0; m < lnP_.getNcols(); m++) {
@@ -1771,7 +1647,10 @@ void WrapMMM::sortGrps_(){
 	//nuc_.insertionSort(firstIdx, popIdx);
 	Mp_.permuteRows(popIdx);
 	lnP_.permuteCols(popIdx);
-	lnp2phi_();
+}
+
+void WrapMMM::expandLa_(){
+
 }
 
 double WrapMMM::rowDistance_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){
@@ -1854,7 +1733,9 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 	}
 }
 
-void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain){
+void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain){
+	thetaChain.clear();
+	piChain.clear();
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		size_t parGrp = 0;
 		for (auto &s : samplers_) {
@@ -1862,7 +1743,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			parGrp++;
 		}
 		//nuc_.phi2lnp(Phi_, lnP_);
-		sortGrps_();
+		//sortGrps_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
 		size_t parGrp = 0;
@@ -1871,8 +1752,12 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			parGrp++;
 		}
 		//nuc_.phi2lnp(Phi_, lnP_);
-		sortGrps_();
+		//sortGrps_();
 		if ( (b%Nthin) == 0) {
+			for (auto &t : vTheta_){
+				thetaChain.push_back(t);
+			}
+			/*
 			for (size_t iTht = 0; iTht < fLaInd_; iTht++) {
 				thetaChain.push_back(vTheta_[iTht]);
 			}
@@ -1882,6 +1767,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			for (size_t iSig = fLaInd_; iSig < vTheta_.size(); iSig++) {
 				isigChain.push_back(vTheta_[iSig]);
 			}
+			*/
 		}
 	}
 }
@@ -1901,6 +1787,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		//sortGrps_();
 		imputeMissing_();
 		if ( (b%Nthin) == 0) {
+			/*
 			for (size_t iTht = 0; iTht < PhiBegInd_; iTht++) {
 				thetaChain.push_back(vTheta_[iTht]);
 			}
@@ -1917,6 +1804,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 					impYchain.push_back( Y_.getElem(m.first, k) );
 				}
 			}
+			*/
 		}
 	}
 }
