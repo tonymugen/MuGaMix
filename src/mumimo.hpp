@@ -540,6 +540,8 @@ namespace BayesicSpace {
 		RanDraw rng_;
 		/** \brief Numerical utility collection */
 		NumerUtil nuc_;
+		/** \brief Gibbs update of \f$ \ln \boldsybol{P}\f$ */
+		void lnPupdate_();
 		/** \brief Impute missing phenotype data */
 		void imputeMissing_();
 		/** \brief Sort the groups

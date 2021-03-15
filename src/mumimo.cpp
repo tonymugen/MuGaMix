@@ -114,7 +114,7 @@ MumiNR::MumiNR(MumiNR &&in) {
 	}
 }
 
-MumiNR& MumiNR::operator=(MumiNR &&in){
+MumiNR& MumiNR::operator=(MumiNR &&in) {
 	if (this != &in) {
 		yVec_   = in.yVec_;
 		Y_      = move(in.Y_);
@@ -540,7 +540,7 @@ MumiLoc::MumiLoc(MumiLoc &&in) {
 	}
 }
 
-MumiLoc& MumiLoc::operator=(MumiLoc &&in){
+MumiLoc& MumiLoc::operator=(MumiLoc &&in) {
 	if (this != &in) {
 		Y_         = move(in.Y_);
 		tau0_      = in.tau0_;
@@ -959,7 +959,7 @@ MumiISig::MumiISig(MumiISig &&in) {
 	}
 }
 
-MumiISig& MumiISig::operator=(MumiISig &&in){
+MumiISig& MumiISig::operator=(MumiISig &&in) {
 	if (this != &in) {
 		hierInd_ = in.hierInd_;
 		nu0_     = in.nu0_;
@@ -1306,7 +1306,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	Mp_.setElem(0, 1, -0.07);
 	Mp_.setElem(1, 1, -10.05);
 	Mp_.setElem(2, 1, 10.04);
-	
+
 	MatrixView mu(&vTheta_, Ngrp * d, 1, d);
 
 	vTheta_[(Ngrp + 1) * d]      = -0.6;
@@ -1335,15 +1335,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	}
 	testRes = vTheta_;
 	models_.push_back( new MumiNR(&vY_, &vlnP_, d, Ngrp, tau0, nu0, invAsq) );
-	//models_.push_back( new MumiPNR(&vY_, &vTheta_, d, Ngrp, alphaPr) );
-	//models_.push_back( new MumiLocNR(&vY_, d, &vISig_, tau0, Ngrp, alphaPr) );
-	//models_.push_back( new MumiISigNR(&vY_, d, &vTheta_, nu0, invAsq, Ngrp) );
-	//samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
-	samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.1) );
-	//samplers_.push_back( new SamplerNUTS(models_[1], &vPhi_) );
-	//samplers_.push_back( new SamplerMetro(models_[1], &vPhi_, 0.1) );
-	//samplers_.push_back( new SamplerNUTS(models_[1], &vISig_) );
-	//samplers_.push_back( new SamplerMetro(models_[1], &vISig_, 0.3) );
+	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
+	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.05) );
 }
 
 WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Ngrp, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY}, hierInd_{Index(y2line)} {
@@ -1500,7 +1493,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const v
 	imputeMissing_();
 }
 
-WrapMMM::~WrapMMM(){
+WrapMMM::~WrapMMM() {
 	for (auto &m : models_) {
 		delete m;
 	}
@@ -1509,7 +1502,11 @@ WrapMMM::~WrapMMM(){
 	}
 }
 
-void WrapMMM::imputeMissing_(){
+void WrapMMM::lnPupdate_() {
+
+}
+
+void WrapMMM::imputeMissing_() {
 	if ( missInd_.size() ) { // impute only of there are missing data
 		// start by making Sigma_e^{-1}
 		vector<double> Te;
@@ -1628,7 +1625,7 @@ void WrapMMM::imputeMissing_(){
 	}
 }
 
-void WrapMMM::sortGrps_(){
+void WrapMMM::sortGrps_() {
 	vector<size_t> firstIdx;                                       // vector with indices of the first high-p elements per group
 	for (size_t m = 0; m < lnP_.getNcols(); m++) {
 		for (size_t iRow = 0; iRow < lnP_.getNrows(); iRow++) {
@@ -1649,11 +1646,11 @@ void WrapMMM::sortGrps_(){
 	lnP_.permuteCols(popIdx);
 }
 
-void WrapMMM::expandLa_(){
+void WrapMMM::expandLa_() {
 
 }
 
-double WrapMMM::rowDistance_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2){
+double WrapMMM::rowDistance_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2) {
 #ifndef PKG_DEBUG_OFF
 	if ( m1.getNcols() != m2.getNcols() ) {
 		throw string("ERROR: m1 and m2 matrices must have the same number of columns in WrapMMM::rowDist_()");
@@ -1673,7 +1670,7 @@ double WrapMMM::rowDistance_(const MatrixView &m1, const size_t &row1, const Mat
 	return sqrt(dist);
 }
 
-void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M){
+void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M) {
 #ifndef PKG_DEBUG_OFF
 	if (M.getNrows() != Kclust) {
 		throw string("ERROR: Matrix of means must have one row per cluster in WrapMMM::kMeans_()");
@@ -1733,7 +1730,7 @@ void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t 
 	}
 }
 
-void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain){
+void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &piChain) {
 	thetaChain.clear();
 	piChain.clear();
 	for (uint32_t a = 0; a < Nadapt; a++) {
@@ -1772,7 +1769,7 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 	}
 }
 
-void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain, vector<double> &impYchain){
+void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const uint32_t &Nthin, vector<double> &thetaChain, vector<double> &isigChain, vector<double> &piChain, vector<double> &impYchain) {
 	for (uint32_t a = 0; a < Nadapt; a++) {
 		for (auto &s : samplers_) {
 			s->adapt();
