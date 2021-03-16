@@ -552,10 +552,10 @@ namespace BayesicSpace {
 		void sortGrps_();
 		/** \brief Expand lower triangle of the \f$ \boldsymbol{L}_A \f$ matrix
 		 *
-		 * Expands the triangular \f$\boldsymbol{L}_A\f$ matrix and multiplies its columns by the square root of \f$ \boldsymbol{T}_A \f$. The input vector `vISig_` stores only the non-zero elements of these matrices.
+		 * Expands the vectorized triangular \f$\boldsymbol{L}_A\f$ matrix. The input vector stores only the non-zero non-diagonal elements of these matrices.
 		 *
 		 */
-		void expandLa_();
+		void expandISvec_();
 		/** \brief Euclidean distance between matrix rows
 		 *
 		 * \param[in] m1 first matrix

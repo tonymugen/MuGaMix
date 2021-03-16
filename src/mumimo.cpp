@@ -146,6 +146,7 @@ void MumiNR::expandISvec_(const vector<double> &theta) const{
 		}
 	}
 }
+
 double MumiNR::logPost(const vector<double> &theta) const{
 	// make L matrices
 	expandISvec_(theta);
@@ -1297,8 +1298,27 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	// Calculate starting values for theta
 	Y_ = MatrixView(&vY_, 0, N, d);
 	vTheta_.resize(Ngrp * d + d + Ngrp * d * (d + 1) / 2 + d, 0.0);
-	//vTheta_.resize( (Ngrp + 1) * d, 0.0 );    // add the inverse-covariance elements later
-	//fLaInd_ = vTheta_.size();
+	size_t dSq = d * d;
+	size_t dd  = d * (d - 1) / 2;
+	vLa_.resize(dSq * Ngrp, 0.0);
+	La_.resize(Ngrp);
+	size_t startLa = 0;
+	size_t curLaInd = (Ngrp+1) * d;
+	for (auto &la : La_){
+		la = MatrixView(&vLa_, startLa, d, d);
+		startLa += dSq;
+		for (size_t k = 0; k < d; k++) {
+			la.setElem(k, k, 1.0);
+		}
+		fLaInd_.push_back(curLaInd);
+		curLaInd += dd;
+	}
+	size_t curTaInd = fLaInd_.back() + dd;
+	for (size_t m = 0; m < Ngrp; m++) {
+		fTaInd_.push_back(curTaInd);
+		curTaInd += d;
+	}
+
 	Mp_ = MatrixView(&vTheta_, 0, Ngrp, d);
 	Mp_.setElem(0, 0, -9.96);
 	Mp_.setElem(1, 0, 0.04);
@@ -1333,7 +1353,8 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 			}
 		}
 	}
-	testRes = vTheta_;
+	expandISvec_();
+	testRes = vLa_;
 	models_.push_back( new MumiNR(&vY_, &vlnP_, d, Ngrp, tau0, nu0, invAsq) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.05) );
@@ -1464,7 +1485,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const u
 	for (size_t k = 0; k < d; k++) {
 		sqrT[k] = sqrt( Sig.getElem(k, k) );
 	}
-	expandLa_();
+	expandISvec_();
 	vAresid_.resize(Adim, 0.0);
 	Aresid_ = MatrixView(&vAresid_, 0, Nln, d);
 	sortGrps_();
@@ -1503,7 +1524,55 @@ WrapMMM::~WrapMMM() {
 }
 
 void WrapMMM::lnPupdate_() {
-
+	// start by summing group assignment probabilities
+	const size_t Ngrp = lnP_.getNcols();
+	const size_t N    = lnP_.getNrows();
+	const size_t d    = Y_.getNcols();
+	vector<double> phi(Ngrp, 0.0);
+	for (size_t m = 0; m < Ngrp; m++) {
+		for (size_t iRow = 0; iRow < N;	iRow++) {
+			phi[m] += exp( lnP_.getElem(iRow, m) );
+		}
+	}
+	// set up the matrix of group kernels
+	vector<double> vKappa(N * Ngrp, 0.0);
+	MatrixView Kappa( &vKappa, 0, N, Ngrp );
+	size_t tInd = fTaInd_[0];
+	vector<double> lambda(Ngrp, 0.0);                                          // Sigma_a determinant (lambda in the model document)
+	for (size_t m = 0; m < Ngrp; m++) {                                        // m is the group index as in the model description document
+		vector<double> vResid(vY_);                                            // copy over Y_
+		MatrixView mResid = MatrixView(&vResid, 0, N, d);                      // mResid now has the Y values
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				mResid.subtractFromElem( iRow, jCol, Mp_.getElem(m, jCol) );   // mResid now Y - mu_m
+			}
+		}
+		mResid.trm('l', 'r', false, true, 1.0, La_[m]);                        // mResid now (Y-mu_m)L_A
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				double rsd = mResid.getElem(iRow, jCol);
+				Kappa.addToElem(iRow, m, exp(vTheta_[tInd]) * rsd * rsd);      // (Y-mu_m)L_A T_A L_A^T(Y - mu_g)^T
+			}
+			lambda[m] += vTheta_[tInd];
+			tInd++;
+		}
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			const double kappaNew = log(phi[m]) + 0.5 * ( lambda[m] - Kappa.getElem(iRow, m) );
+		}
+	}
+	// Now calculate the new lnP_
+	// Start with populating lnP_ with kernel differentials
+	for (size_t m = 0; m < Ngrp; m++) {
+		for (size_t iRow = 0; iRow < N; iRow++) {
+			lnP_.setElem( iRow, m, -Kappa.getElem(iRow, m) );
+			for (size_t mKappa = 0; mKappa < Ngrp; mKappa++) {
+				if (mKappa == m){
+					continue;
+				} else {
+				}
+			}
+		}
+	}
 }
 
 void WrapMMM::imputeMissing_() {
@@ -1646,9 +1715,19 @@ void WrapMMM::sortGrps_() {
 	lnP_.permuteCols(popIdx);
 }
 
-void WrapMMM::expandLa_() {
-
+void WrapMMM::expandISvec_() {
+	const size_t d = Y_.getNcols();
+	size_t aInd = fLaInd_[0];                                      // index of the La lower triangle in the input vector
+	for (size_t m = 0; m < Mp_.getNrows(); m++){
+		for (size_t jCol = 0; jCol < d - 1; jCol++) {              // the last column is all 0, except the last element = 1.0
+			for (size_t iRow = jCol + 1; iRow < d; iRow++) {
+				La_[m].setElem(iRow, jCol, vTheta_[aInd]);
+				aInd++;
+			}
+		}
+	}
 }
+
 
 double WrapMMM::rowDistance_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2) {
 #ifndef PKG_DEBUG_OFF
