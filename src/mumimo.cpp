@@ -385,7 +385,7 @@ void MumiNR::gradient(const vector<double> &theta, vector<double> &grad) const {
 					break;
 				}
 				const double valueToAdd = exp(localExponent);
-				if ( (numeric_limits<double>::max() - denominator) <= valueToAdd) {      // adding the current value will overflow
+				if ( (numeric_limits<double>::max() - denominator) <= valueToAdd ) {      // adding the current value will overflow
 					denominator = nan("");
 					break;
 				}
@@ -1287,8 +1287,11 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 	}
 }
 
-// WrapMM methods
-WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq, vector<double> &testRes) : vY_{vY} {
+// WrapMMM methods
+
+const double WrapMMM::lnMaxDbl_ = log( numeric_limits<double>::max() );
+
+WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq, vector<double> &testRes) : vY_{vY}, alphaPr_{alphaPr} {
 #ifndef PKG_DEBUG_OFF
 	if (vY_.size() % d) {
 		throw string("WrapMMM no-replication constructor ERROR: length of response vector (") + to_string( vY_.size() ) + string(") not divisible by number of traits (") + to_string(d) + string(")");
@@ -1354,13 +1357,14 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 		}
 	}
 	expandISvec_();
-	testRes = vLa_;
+	lnPupdate_();
+	testRes = vlnP_;
 	models_.push_back( new MumiNR(&vY_, &vlnP_, d, Ngrp, tau0, nu0, invAsq) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.05) );
 }
 
-WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Ngrp, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY}, hierInd_{Index(y2line)} {
+WrapMMM::WrapMMM(const vector<double> &vY, const vector<size_t> &y2line, const uint32_t &Ngrp, const double &tauPrPhi, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq): vY_{vY}, alphaPr_{alphaPr}, hierInd_{Index(y2line)} {
 	const size_t N = hierInd_.size();
 #ifndef PKG_DEBUG_OFF
 	if (vY.size()%N) {
@@ -1528,12 +1532,17 @@ void WrapMMM::lnPupdate_() {
 	const size_t Ngrp = lnP_.getNcols();
 	const size_t N    = lnP_.getNrows();
 	const size_t d    = Y_.getNcols();
-	vector<double> phi(Ngrp, 0.0);
+	vector<double> alpha(Ngrp, 0.0);                                           // will become beta distribution concentrations
 	for (size_t m = 0; m < Ngrp; m++) {
 		for (size_t iRow = 0; iRow < N;	iRow++) {
-			phi[m] += exp( lnP_.getElem(iRow, m) );
+			alpha[m] += exp( lnP_.getElem(iRow, m) );
 		}
 	}
+	for (auto &a : alpha){
+		a += alphaPr_;
+	}
+	vector<double> phi(Ngrp, 0.0);
+	rng_.rdirichlet(alpha, phi);
 	// set up the matrix of group kernels
 	vector<double> vKappa(N * Ngrp, 0.0);
 	MatrixView Kappa( &vKappa, 0, N, Ngrp );
@@ -1558,18 +1567,38 @@ void WrapMMM::lnPupdate_() {
 		}
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			const double kappaNew = log(phi[m]) + 0.5 * ( lambda[m] - Kappa.getElem(iRow, m) );
+			Kappa.setElem(iRow, m, kappaNew);
 		}
 	}
 	// Now calculate the new lnP_
-	// Start with populating lnP_ with kernel differentials
 	for (size_t m = 0; m < Ngrp; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
-			lnP_.setElem( iRow, m, -Kappa.getElem(iRow, m) );
+			const double curKappa = Kappa.getElem(iRow, m);
+			bool noOverflow  = true;
+			double sumOfExp  = 0.0;
 			for (size_t mKappa = 0; mKappa < Ngrp; mKappa++) {
 				if (mKappa == m){
 					continue;
 				} else {
+					double diff = Kappa.getElem(iRow, mKappa) - curKappa;
+					if (diff >= lnMaxDbl_){ // exponentiation will overflow; just set the result to -lnMaxDbl_ as an approximation
+						noOverflow = false;
+						lnP_.setElem(iRow, m, -lnMaxDbl_);
+						break;
+					} else {
+						diff = exp(diff);
+						if ( (numeric_limits<double>::max() - sumOfExp) <= diff ){ // adding the next value will overflow the sum
+							noOverflow = false;
+							lnP_.setElem(iRow, m, -lnMaxDbl_);
+							break;
+						} else {
+							sumOfExp += diff;
+						}
+					}
 				}
+			}
+			if (noOverflow){
+				lnP_.setElem(iRow, m, -log1p(sumOfExp));
 			}
 		}
 	}
@@ -1818,6 +1847,8 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			int16_t tr = s->adapt();
 			parGrp++;
 		}
+		expandISvec_();
+		lnPupdate_();
 		//nuc_.phi2lnp(Phi_, lnP_);
 		//sortGrps_();
 	}
@@ -1827,6 +1858,8 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 			int16_t tr = s->update();
 			parGrp++;
 		}
+		expandISvec_();
+		lnPupdate_();
 		//nuc_.phi2lnp(Phi_, lnP_);
 		//sortGrps_();
 		if ( (b%Nthin) == 0) {

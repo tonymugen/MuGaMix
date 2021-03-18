@@ -410,7 +410,7 @@ namespace BayesicSpace {
 	class WrapMMM {
 	public:
 		/** \brief Default constructor */
-		WrapMMM() {};
+		WrapMMM() : alphaPr_{0.0} {};
 		/** \brief Constructor for a model with no replication
 		 *
 		 * Establishes the initial parameter values and the sampler kind.
@@ -501,6 +501,10 @@ namespace BayesicSpace {
 		vector<double> vTheta_;
 		/** \brief Group assignment log-probabilities */
 		vector<double> vlnP_;
+		/** \brief Prior group size */
+		const double alphaPr_;
+		/** \brief Natural log of `DBL_MAX` */
+		static const double lnMaxDbl_;
 		/** \brief Matrix view of line (accession) means */
 		MatrixView A_;
 		/** \brief Matrix view of group means */
