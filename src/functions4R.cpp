@@ -106,7 +106,7 @@ Rcpp::List testSampler(const std::vector<double> &yVec, const int32_t &d, const 
 //' @param nGroups number of groups
 //' @param alphaPr prior group size
 //' @param sigSqPr prior variance
-//' @param covRatio population to error covariance ratio
+//' @param covRatio among- to within-group covariance ratio
 //' @param nReps   number of model fit attempts before picking the best fit
 //' @return list containing group means (\code{groupMeans}), covariances (\code{covariances}), effective group sizes (\code{effNm}), group assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
 //'
@@ -174,7 +174,7 @@ Rcpp::List vbFit(const std::vector<double> &yVec, const int32_t &d, const int32_
 //' @param nGroups  number of groups
 //' @param alphaPr  prior group size
 //' @param sigSqPr  prior variance
-//' @param covRatio population to error covariance ratio
+//' @param covRatio among- to within-group covariance ratio
 //' @param nReps    number of model fit attempts before picking the best fit
 //' @return list containing group means (\code{groupMeans}), covariances (\code{covariances}), effective group sizes (\code{effNm}), group assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
 //'

@@ -35,6 +35,7 @@
 #include <limits> // for numeric_limits
 
 #include "mumimo.hpp"
+#include "gmmvb.hpp"
 #include "bayesicUtilities/index.hpp"
 #include "bayesicUtilities/random.hpp"
 #include "bayesicMatrix/matrixView.hpp"
@@ -1297,16 +1298,17 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 		throw string("WrapMMM no-replication constructor ERROR: length of response vector (") + to_string( vY_.size() ) + string(") not divisible by number of traits (") + to_string(d) + string(")");
 	}
 #endif
-	const size_t N = vY_.size() / d;
-	// Calculate starting values for theta
+	const size_t N        = vY_.size() / d;
+	const size_t grpDim   = Ngrp * d;
+	const size_t dSq      = d * d;
+	const size_t dd       = d * (d - 1) / 2;
+	// Establish indexes and matrix views
 	Y_ = MatrixView(&vY_, 0, N, d);
 	vTheta_.resize(Ngrp * d + d + Ngrp * d * (d + 1) / 2 + d, 0.0);
-	size_t dSq = d * d;
-	size_t dd  = d * (d - 1) / 2;
 	vLa_.resize(dSq * Ngrp, 0.0);
 	La_.resize(Ngrp);
 	size_t startLa = 0;
-	firstLaInd_ = (Ngrp+1) * d;
+	firstLaInd_    = (Ngrp + 1) * d;
 	for (auto &la : La_){
 		la = MatrixView(&vLa_, startLa, d, d);
 		startLa += dSq;
@@ -1316,16 +1318,50 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	}
 	firstTaInd_ = firstLaInd_ + Ngrp * dd;
 
-	Mp_ = MatrixView(&vTheta_, 0, Ngrp, d);
-	Mp_.setElem(0, 0, -9.96);
-	Mp_.setElem(1, 0, 0.04);
-	Mp_.setElem(2, 0, 10.2);
-	Mp_.setElem(0, 1, -0.07);
-	Mp_.setElem(1, 1, -10.05);
-	Mp_.setElem(2, 1, 10.04);
+	// Obtain starting values using variational Bayes
+	const double covRatio = 1.0;
+	const int nReps       = 10;      // try this many VB fits, pick the best among them
+	double dic            = 0.0;
+	const double sig0     = 1.0/tau0;
 
+	vector<double> vGrpMn;
+	vector<double> vSm;
+	vector<double> Nm;
+	vector<double> r;
+	vector<double> lPost;
+	GmmVB vbModel(&vY_, covRatio, sig0, alphaPr_, Ngrp, d, &vGrpMn, &vSm, &r, &Nm);
+	vbModel.fitModel(lPost, dic);
+	for (int iRep = 1; iRep < nReps; iRep++) {
+		vector<double> vGrpMnLoc;
+		vector<double> vSmLoc;
+		vector<double> NmLoc;
+		vector<double> rLoc;
+		vector<double> lPostLoc;
+		double dicLoc = 0.0;
+
+		GmmVB vbModel(&vY_, covRatio, sig0, alphaPr_, Ngrp, d, &vGrpMnLoc, &vSmLoc, &rLoc, &NmLoc);
+		vbModel.fitModel(lPostLoc, dicLoc);
+		if (dicLoc < dic) { // if we found a better DIC
+			vGrpMn = vGrpMnLoc;
+			vSm    = vSmLoc;
+			Nm     = NmLoc;
+			r      = rLoc;
+			dic    = dicLoc;
+		}
+	}
+	// Transfer the fitted location values to vTheta_
+	Mp_ = MatrixView(&vTheta_, 0, Ngrp, d);
+	memcpy( vTheta_.data(), vGrpMn.data(), grpDim * sizeof(double) );
+	vector<double> tmpMu;
+	Mp_.colMeans(tmpMu);
+	memcpy( vTheta_.data() + grpDim, tmpMu.data(), d * sizeof(double) );
 	MatrixView mu(&vTheta_, Ngrp * d, 1, d);
 
+	// Make factorized inverse-covariances out of the fitted covariance values
+	vector<MatrixView> Sig;
+	for (size_t m = 0; m < Ngrp; m++) {
+		Sig.push_back( MatrixView(&vSm, dSq * m, d, d) );
+	}
 	vTheta_[(Ngrp + 1) * d]      = -0.6;
 	vTheta_[(Ngrp + 1) * d + 1]  =  0.6;
 	vTheta_[(Ngrp + 1) * d + 2]  = -0.2;

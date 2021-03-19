@@ -54,20 +54,20 @@ namespace BayesicSpace {
 		GmmVB() : yVec_{nullptr}, N_{nullptr}, lambda0_{0.0}, nu0_{0.0}, sigmaSq0_{0.0}, alpha0_{0.0}, d_{0.0}, nu0p2_{0.0}, nu0p1_{0.0}, dln2_{0.0}, maxIt_{0}, stoppingDiff_{0.0} {};
 		/** \brief Constructor
 		 *
-		 * The vectorized matrices must be in the column major format (as in R and FORTRAN). For larger population numbers, make sure \f$ \nu_0 > d - 2 \f$.
+		 * The vectorized matrices must be in the column major format (as in R and FORTRAN). For larger group numbers, make sure \f$ \nu_0 > d - 2 \f$.
 		 *
 		 * \param[in] yVec pointer to vectorized data matrix
 		 * \param[in] lambda0 prior precision scale factor
 		 * \param[in] sigmaSq0 prior variance
-		 * \param[in] alpha0 prior population size
-		 * \param[in] nPop number of populations
+		 * \param[in] alpha0 prior group size
+		 * \param[in] nGrp number of groups
 		 * \param[in] d number of traits
-		 * \param[in,out] vPopMn pointer to vectorized matrix of population means
-		 * \param[in, out] vSm pointer to vectorized collection of population covariances
-		 * \param[in, out] resp pointer to vectorized matrix responsibilities
-		 * \param[in, out] Nm pointer to vector of effective population sizes
+		 * \param[in,out] vGrpMn pointer to vectorized matrix of group means
+		 * \param[in, out] vSm pointer to vectorized collection of group covariances
+		 * \param[in, out] resp pointer to vectorized matrix of responsibilities
+		 * \param[in, out] Nm pointer to vector of effective group sizes
 		 */
-		GmmVB(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
+		GmmVB(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nGrp, const size_t &d, vector<double> *vGrpMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
 		/** \brief Destructor */
 		~GmmVB(){ yVec_ = nullptr; N_ = nullptr; };
 
@@ -100,7 +100,7 @@ namespace BayesicSpace {
 		const vector<double> *yVec_;
 		/** \brief Matrix view of the data */
 		MatrixViewConst Y_;
-		/** \brief Population means matrix view */
+		/** \brief Grpulation means matrix view */
 		MatrixView M_;
 		/** \brief Vector of weighted covariance matrix views */
 		vector<MatrixView> W_;
@@ -110,7 +110,7 @@ namespace BayesicSpace {
 		vector<double> sumDiGam_;
 		/** \brief Matrix view of responsibilities */
 		MatrixView R_;
-		/** \brief Pointer to vector of effective population sizes */
+		/** \brief Pointer to vector of effective group sizes */
 		vector<double> *N_;
 
 		// constants
@@ -120,7 +120,7 @@ namespace BayesicSpace {
 		const double nu0_;
 		/** \brief Prior variance */
 		const double sigmaSq0_;
-		/** \brief Prior population size */
+		/** \brief Prior group size */
 		const double alpha0_;
 		/** \brief Double version of the trait number */
 		const double d_;
@@ -187,20 +187,20 @@ namespace BayesicSpace {
 		GmmVBmiss() : GmmVB() {};
 		/** \brief Constructor
 		 *
-		 * The vectorized matrices must be in the column major format (as in R and FORTRAN). Missing values must be marked with `nan("")`. For larger population numbers, make sure \f$ \nu_0 > d - 2 \f$.
+		 * The vectorized matrices must be in the column major format (as in R and FORTRAN). Missing values must be marked with `nan("")`. For larger group numbers, make sure \f$ \nu_0 > d - 2 \f$.
 		 *
 		 * \param[in] yVec pointer to vectorized data matrix
 		 * \param[in] lambda0 prior precision scale factor
 		 * \param[in] sigmaSq0 prior variance
-		 * \param[in] alpha0 prior population size
-		 * \param[in] nPop number of populations
+		 * \param[in] alpha0 prior group size
+		 * \param[in] nGrp number of groups
 		 * \param[in] d number of traits
-		 * \param[in,out] vPopMn pointer to vectorized matrix of population means
-		 * \param[in, out] vSm pointer to vectorized collection of population covariances
+		 * \param[in,out] vGrpMn pointer to vectorized matrix of group means
+		 * \param[in, out] vSm pointer to vectorized collection of group covariances
 		 * \param[in, out] resp pointer to vectorized matrix responsibilities
-		 * \param[in, out] Nm pointer to vector of effective population sizes
+		 * \param[in, out] Nm pointer to vector of effective group sizes
 		 */
-		GmmVBmiss(vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
+		GmmVBmiss(vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nGrp, const size_t &d, vector<double> *vGrpMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm);
 		/** \brief Destructor */
 		~GmmVBmiss(){ yVec_ = nullptr; N_ = nullptr; };
 

@@ -48,7 +48,7 @@ using std::move;
 const double GmmVB::lnMaxDbl_ = log( numeric_limits<double>::max() );
 
 // GmmVB methods
-GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : yVec_{yVec}, N_{Nm}, lambda0_{lambda0}, nu0_{static_cast<double>(d)}, sigmaSq0_{sigmaSq0}, alpha0_{alpha0}, d_{static_cast<double>(d)}, nu0p2_{static_cast<double>(d) + 2.0}, nu0p1_{static_cast<double>(d) + 1.0}, dln2_{static_cast<double>(d) * 0.6931471806}, maxIt_{200}, stoppingDiff_{1e-4} {
+GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nGrp, const size_t &d, vector<double> *vGrpMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : yVec_{yVec}, N_{Nm}, lambda0_{lambda0}, nu0_{static_cast<double>(d)}, sigmaSq0_{sigmaSq0}, alpha0_{alpha0}, d_{static_cast<double>(d)}, nu0p2_{static_cast<double>(d) + 2.0}, nu0p1_{static_cast<double>(d) + 1.0}, dln2_{static_cast<double>(d) * 0.6931471806}, maxIt_{200}, stoppingDiff_{1e-4} {
 #ifndef PKG_DEBUG_OFF
 	if (yVec->size()%d) {
 		throw string("ERROR: Y dimensions not compatible with the number of traits supplied in the GmmVB constructor");
@@ -58,35 +58,35 @@ GmmVB::GmmVB(const vector<double> *yVec, const double &lambda0, const double &si
 	const size_t dSq = d * d;
 
 	// Set up correct dimensions
-	const size_t popDim = nPop * d;
-	if (vPopMn->size() != popDim) {
-		vPopMn->clear();
-		vPopMn->resize(popDim, 0.0);
+	const size_t grpDim = nGrp * d;
+	if (vGrpMn->size() != grpDim) {
+		vGrpMn->clear();
+		vGrpMn->resize(grpDim, 0.0);
 	}
-	const size_t sDim = dSq * nPop;
+	const size_t sDim = dSq * nGrp;
 	if (vSm->size() != sDim) {
 		vSm->clear();
 		vSm->resize(sDim, 0.0);
 	}
-	if (Nm->size() != nPop) {
+	if (Nm->size() != nGrp) {
 		Nm->clear();
-		Nm->resize(nPop, 0.0);
+		Nm->resize(nGrp, 0.0);
 	}
-	const size_t rDim = nPop * n;
+	const size_t rDim = nGrp * n;
 	if (resp->size() != rDim) {
 		resp->clear();
 		resp->resize(rDim, 0.0);
 	}
-	lnDet_.resize(nPop, 0.0);
-	sumDiGam_.resize(nPop, 0.0);
+	lnDet_.resize(nGrp, 0.0);
+	sumDiGam_.resize(nGrp, 0.0);
 
 	// Set up the matrix views
 	Y_ = MatrixViewConst(yVec, 0, n, d);
-	R_ = MatrixView(resp, 0, n, nPop);
-	M_ = MatrixView(vPopMn, 0, nPop, d);
+	R_ = MatrixView(resp, 0, n, nGrp);
+	M_ = MatrixView(vGrpMn, 0, nGrp, d);
 
 	size_t sigInd = 0;
-	for (size_t m = 0; m < nPop; m++) {
+	for (size_t m = 0; m < nGrp; m++) {
 		W_.push_back( MatrixView(vSm, sigInd, d, d) );
 		sigInd += dSq;
 	}
@@ -109,12 +109,12 @@ GmmVB::GmmVB(GmmVB &&in) : yVec_{in.yVec_}, N_{in.N_}, lambda0_{in.lambda0_}, nu
 
 void GmmVB::fitModel(vector<double> &logPost, double &dic) {
 	// Initialize values with k-means
-	Index popInd( M_.getNrows() );
+	Index grpInd( M_.getNrows() );
 	const double smallVal = 0.01 / static_cast<double>(M_.getNrows() - 1);
-	kMeans_(Y_, M_.getNrows(), 50, popInd, M_);
+	kMeans_(Y_, M_.getNrows(), 50, grpInd, M_);
 	for (size_t m = 0; m < M_.getNrows(); m++) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
-			if (popInd.groupID(iRow) == m){
+			if (grpInd.groupID(iRow) == m){
 				R_.setElem(iRow, m, 0.99);
 			} else {
 				R_.setElem(iRow, m, smallVal);
@@ -159,20 +159,20 @@ void GmmVB::fitModel(vector<double> &logPost, double &dic) {
 void GmmVB::eStep_(){
 	const size_t d    = Y_.getNcols();
 	const size_t N    = Y_.getNrows();
-	const size_t Npop = M_.getNrows();
+	const size_t Ngrp = M_.getNrows();
 	const size_t Ndim = N * d;
 	// start with parameters not varying across individuals
 	vector<double> startSum;
 	vector<double> nuNm;
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		const double lNm = lambda0_ + (*N_)[m];
 		nuNm.push_back( 0.5 * (nu0p1_ + (*N_)[m]) );
 		startSum.push_back( nuc_.digamma(alpha0_ + (*N_)[m]) + 0.5 * (sumDiGam_[m] + lnDet_[m] - d_ / lNm) );
 	}
 	// calculate crossproducts
-	vector<double> vLnRho(N * Npop, 0.0);
-	MatrixView lnRho(&vLnRho, 0, N, Npop);
-	for (size_t m = 0; m < Npop; m++) {
+	vector<double> vLnRho(N * Ngrp, 0.0);
+	MatrixView lnRho(&vLnRho, 0, N, Ngrp);
+	for (size_t m = 0; m < Ngrp; m++) {
 		vector<double> vArsd(*yVec_);
 		MatrixView Arsd(&vArsd, 0, N, d);
 		for (size_t jCol = 0; jCol < d; jCol++) {
@@ -193,11 +193,11 @@ void GmmVB::eStep_(){
 			lnRho.setElem(iRow, m, lnRhoLoc);
 		}
 	}
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			double invRjm   = 1.0;
 			bool noOverflow = true;
-			for (size_t l = 0; l < Npop; l++) {
+			for (size_t l = 0; l < Ngrp; l++) {
 				if (l == m) {
 					continue;
 				} else {
@@ -224,11 +224,11 @@ void GmmVB::eStep_(){
 }
 
 void GmmVB::mStep_() {
-	const size_t Npop = M_.getNrows();
+	const size_t Ngrp = M_.getNrows();
 	const size_t d    = M_.getNcols();
 	const size_t N    = Y_.getNrows();
 	R_.colSums(*N_);
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		// Calculate weighted data
 		vector<double> vYsc(*yVec_);
 		MatrixView Ysc(&vYsc, 0, N, d);
@@ -286,18 +286,18 @@ void GmmVB::mStep_() {
 double GmmVB::logPost_(){
 	const size_t d    = Y_.getNcols();
 	const size_t N    = Y_.getNrows();
-	const size_t Npop = M_.getNrows();
+	const size_t Ngrp = M_.getNrows();
 	const size_t Ndim = N * d;
 	// start with parameters not varying across individuals
 	vector<double> nuNm;
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		const double lNm = lambda0_ + (*N_)[m];
 		nuNm.push_back(nu0p1_ + (*N_)[m]);
 	}
 	// calculate the K matrix (kappa_jm)
-	vector<double> vK(N * Npop, 0.0);
-	MatrixView K(&vK, 0, N, Npop);
-	for (size_t m = 0; m < Npop; m++) {
+	vector<double> vK(N * Ngrp, 0.0);
+	MatrixView K(&vK, 0, N, Ngrp);
+	for (size_t m = 0; m < Ngrp; m++) {
 		vector<double> vArsd(*yVec_);
 		MatrixView Arsd(&vArsd, 0, N, d);
 		for (size_t jCol = 0; jCol < d; jCol++) {
@@ -316,12 +316,12 @@ double GmmVB::logPost_(){
 	}
 	// add the scalar values
 	vector<double> scSum;
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		scSum.push_back( log(alpha0_ + (*N_)[m]) + 0.5 * (d_ * log(nuNm[m]) + lnDet_[m]) );
 	}
 	vector<size_t> maxInd(N, 0);                                          // index of the largest kernel value
 	vector<double> curMaxVal( N, -numeric_limits<double>::infinity() );   // store the current largest kernel value here
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			const double newVal = scSum[m] - 0.5 * nuNm[m] * K.getElem(iRow, m);
 			if (newVal > curMaxVal[iRow]) {
@@ -333,7 +333,7 @@ double GmmVB::logPost_(){
 	}
 	// Subtract the largest column from the rest and sum the exponents row-wise
 	vector<double> expRowSums(N, 0.0);
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			if (m != maxInd[iRow]) {
 				expRowSums[iRow] += exp(K.getElem(iRow, m) - K.getElem(iRow, maxInd[iRow]));
@@ -377,7 +377,7 @@ void GmmVB::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32
 		throw string("ERROR: Matrix of observations must have the same number of columns as the matrix of means in GmmVB::kMeans_()");
 	}
 	if ( M.getNrows() != x2m.groupNumber() ) {
-		throw string("ERROR: observation to cluster index must be the same number of groups as the number of populations in GmmVB::kMeans_()");
+		throw string("ERROR: observation to cluster index must be the same number of groups as the number of groups in GmmVB::kMeans_()");
 	}
 #endif
 	// initialize M with a random pick of X rows (the MacQueen 1967 method)
@@ -429,7 +429,7 @@ void GmmVB::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const uint32
 }
 
 // GmmVBmiss methods
-GmmVBmiss::GmmVBmiss(vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nPop, const size_t &d, vector<double> *vPopMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : GmmVB(yVec, lambda0, sigmaSq0, alpha0, nPop, d, vPopMn, vSm, resp, Nm) {
+GmmVBmiss::GmmVBmiss(vector<double> *yVec, const double &lambda0, const double &sigmaSq0, const double alpha0, const size_t &nGrp, const size_t &d, vector<double> *vGrpMn, vector<double> *vSm, vector<double> *resp, vector<double> *Nm) : GmmVB(yVec, lambda0, sigmaSq0, alpha0, nGrp, d, vGrpMn, vSm, resp, Nm) {
 	missInd_.resize( Y_.getNcols() );
 	MatrixView Ytmp( yVec, 0, Y_.getNrows(), Y_.getNcols() );  // this is to modify yVec
 	for (size_t jCol = 0; jCol < Y_.getNcols(); jCol++) {
@@ -444,12 +444,12 @@ GmmVBmiss::GmmVBmiss(vector<double> *yVec, const double &lambda0, const double &
 
 void GmmVBmiss::fitModel(vector<double> &logPost, double &dic){
 	// Initialize values with k-means
-	Index popInd( M_.getNrows() );
+	Index grpInd( M_.getNrows() );
 	const double smallVal = 0.01 / static_cast<double>(M_.getNrows() - 1);
-	kMeans_(Y_, M_.getNrows(), 50, popInd, M_);
+	kMeans_(Y_, M_.getNrows(), 50, grpInd, M_);
 	for (size_t m = 0; m < M_.getNrows(); m++) {
 		for (size_t iRow = 0; iRow < Y_.getNrows(); iRow++) {
-			if (popInd.groupID(iRow) == m){
+			if (grpInd.groupID(iRow) == m){
 				R_.setElem(iRow, m, 0.99);
 			} else {
 				R_.setElem(iRow, m, smallVal);
@@ -494,20 +494,20 @@ void GmmVBmiss::fitModel(vector<double> &logPost, double &dic){
 void GmmVBmiss::eStep_(){
 	const size_t d    = Y_.getNcols();
 	const size_t N    = Y_.getNrows();
-	const size_t Npop = M_.getNrows();
+	const size_t Ngrp = M_.getNrows();
 	const size_t Ndim = N * d;
 	// start with parameters not varying across individuals
 	vector<double> startSum;
 	vector<double> nuNm;
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		const double lNm = lambda0_ + (*N_)[m];
 		nuNm.push_back( 0.5 * (nu0p1_ + (*N_)[m]) );
 		startSum.push_back( nuc_.digamma(alpha0_ + (*N_)[m]) + 0.5 * (sumDiGam_[m] + lnDet_[m] - d_ / lNm) );
 	}
 	// calculate crossproducts
-	vector<double> vLnRho(N * Npop, 0.0);
-	MatrixView lnRho(&vLnRho, 0, N, Npop);
-	for (size_t m = 0; m < Npop; m++) {
+	vector<double> vLnRho(N * Ngrp, 0.0);
+	MatrixView lnRho(&vLnRho, 0, N, Ngrp);
+	for (size_t m = 0; m < Ngrp; m++) {
 		vector<double> vArsd(*yVec_);
 		MatrixView Arsd(&vArsd, 0, N, d);
 		for (size_t jCol = 0; jCol < d; jCol++) {
@@ -550,11 +550,11 @@ void GmmVBmiss::eStep_(){
 			lnRho.setElem(iRow, m, lnRhoLoc);
 		}
 	}
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			double invRjm   = 1.0;
 			bool noOverflow = true;
-			for (size_t l = 0; l < Npop; l++) {
+			for (size_t l = 0; l < Ngrp; l++) {
 				if (l == m) {
 					continue;
 				} else {
@@ -581,11 +581,11 @@ void GmmVBmiss::eStep_(){
 }
 
 void GmmVBmiss::mStep_(){
-	const size_t Npop = M_.getNrows();
+	const size_t Ngrp = M_.getNrows();
 	const size_t d    = M_.getNcols();
 	const size_t N    = Y_.getNrows();
 	R_.colSums(*N_);
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		// Calculate weighted data
 		vector<double> vYsc(*yVec_);
 		MatrixView Ysc(&vYsc, 0, N, d);
@@ -657,18 +657,18 @@ void GmmVBmiss::mStep_(){
 double GmmVBmiss::logPost_(){
 	const size_t d    = Y_.getNcols();
 	const size_t N    = Y_.getNrows();
-	const size_t Npop = M_.getNrows();
+	const size_t Ngrp = M_.getNrows();
 	const size_t Ndim = N * d;
 	// start with parameters not varying across individuals
 	vector<double> nuNm;
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		const double lNm = lambda0_ + (*N_)[m];
 		nuNm.push_back(nu0p1_ + (*N_)[m]);
 	}
 	// calculate the K matrix (kappa_jm)
-	vector<double> vK(N * Npop, 0.0);
-	MatrixView K(&vK, 0, N, Npop);
-	for (size_t m = 0; m < Npop; m++) {
+	vector<double> vK(N * Ngrp, 0.0);
+	MatrixView K(&vK, 0, N, Ngrp);
+	for (size_t m = 0; m < Ngrp; m++) {
 		vector<double> vArsd(*yVec_);
 		MatrixView Arsd(&vArsd, 0, N, d);
 		for (size_t jCol = 0; jCol < d; jCol++) {
@@ -709,12 +709,12 @@ double GmmVBmiss::logPost_(){
 	}
 	// add the scalar values
 	vector<double> scSum;
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		scSum.push_back( log(alpha0_ + (*N_)[m]) + 0.5 * (d_ * log(nuNm[m]) + lnDet_[m]) );
 	}
 	vector<size_t> maxInd(N, 0);                                          // index of the largest kernel value
 	vector<double> curMaxVal( N, -numeric_limits<double>::infinity() );   // store the current largest kernel value here
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			const double newVal = scSum[m] - 0.5 * nuNm[m] * K.getElem(iRow, m);
 			if (newVal > curMaxVal[iRow]) {
@@ -726,7 +726,7 @@ double GmmVBmiss::logPost_(){
 	}
 	// Subtract the largest column from the rest and sum the exponents row-wise
 	vector<double> expRowSums(N, 0.0);
-	for (size_t m = 0; m < Npop; m++) {
+	for (size_t m = 0; m < Ngrp; m++) {
 		for (size_t iRow = 0; iRow < N; iRow++) {
 			if (m != maxInd[iRow]) {
 				expRowSums[iRow] += exp(K.getElem(iRow, m) - K.getElem(iRow, maxInd[iRow]));
@@ -770,7 +770,7 @@ void GmmVBmiss::kMeans_(const MatrixViewConst &X, const size_t &Kclust, const ui
 		throw string("ERROR: Matrix of observations must have the same number of columns as the matrix of means in GmmVBmiss::kMeans_()");
 	}
 	if ( M.getNrows() != x2m.groupNumber() ) {
-		throw string("ERROR: observation to cluster index must be the same number of groups as the number of populations in GmmVBmiss::kMeans_()");
+		throw string("ERROR: observation to cluster index must be the same number of groups as the number of groups in GmmVBmiss::kMeans_()");
 	}
 #endif
 	// initialize M with a random pick of X rows (the MacQueen 1967 method)
