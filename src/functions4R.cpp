@@ -94,7 +94,7 @@ Rcpp::List testSampler(const std::vector<double> &yVec, const int32_t &d, const 
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
 	}
-	return Rcpp::List::create(Rcpp::Named("theta0", theta0), Rcpp::Named("chain", thetaChain));
+	return Rcpp::List::create(Rcpp::Named("theta0", theta0), Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("pChain", pChain));
 }
 
 //' Variational Bayes model fit

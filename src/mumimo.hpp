@@ -513,10 +513,10 @@ namespace BayesicSpace {
 		MatrixView lnP_;
 		/** \brief Index of the first \f$\boldsymbol{T}_E\f$ element */
 		size_t fTeInd_;
-		/** \brief Indexes of first \f$\boldsymbol{L}_{A,m}\f$ elements */
-		vector<size_t> fLaInd_;
-		/** \brief Indexes of first \f$\boldsymbol{T}_{A,m}\f$ elements */
-		vector<size_t> fTaInd_;
+		/** \brief Index of the first \f$\boldsymbol{L}_{A,1}\f$ element */
+		size_t firstLaInd_;
+		/** \brief Index of the first \f$\boldsymbol{T}_{A,1}\f$ element */
+		size_t firstTaInd_;
 		/** \brief Expanded vectorized \f$ \boldsymbol{L}_{A,m} \f$ matrices */
 		vector<double> vLa_;
 		/** \brief Matrix views of \f$ \boldsymbol{L}_{A,m} \f$ matrices */

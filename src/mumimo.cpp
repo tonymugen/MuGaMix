@@ -1306,21 +1306,15 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	vLa_.resize(dSq * Ngrp, 0.0);
 	La_.resize(Ngrp);
 	size_t startLa = 0;
-	size_t curLaInd = (Ngrp+1) * d;
+	firstLaInd_ = (Ngrp+1) * d;
 	for (auto &la : La_){
 		la = MatrixView(&vLa_, startLa, d, d);
 		startLa += dSq;
 		for (size_t k = 0; k < d; k++) {
 			la.setElem(k, k, 1.0);
 		}
-		fLaInd_.push_back(curLaInd);
-		curLaInd += dd;
 	}
-	size_t curTaInd = fLaInd_.back() + dd;
-	for (size_t m = 0; m < Ngrp; m++) {
-		fTaInd_.push_back(curTaInd);
-		curTaInd += d;
-	}
+	firstTaInd_ = firstLaInd_ + Ngrp * dd;
 
 	Mp_ = MatrixView(&vTheta_, 0, Ngrp, d);
 	Mp_.setElem(0, 0, -9.96);
@@ -1546,7 +1540,7 @@ void WrapMMM::lnPupdate_() {
 	// set up the matrix of group kernels
 	vector<double> vKappa(N * Ngrp, 0.0);
 	MatrixView Kappa( &vKappa, 0, N, Ngrp );
-	size_t tInd = fTaInd_[0];
+	size_t tInd = firstTaInd_;
 	vector<double> lambda(Ngrp, 0.0);                                          // Sigma_a determinant (lambda in the model document)
 	for (size_t m = 0; m < Ngrp; m++) {                                        // m is the group index as in the model description document
 		vector<double> vResid(vY_);                                            // copy over Y_
@@ -1746,7 +1740,7 @@ void WrapMMM::sortGrps_() {
 
 void WrapMMM::expandISvec_() {
 	const size_t d = Y_.getNcols();
-	size_t aInd = fLaInd_[0];                                      // index of the La lower triangle in the input vector
+	size_t aInd = firstLaInd_;                                     // index of the La lower triangle in the input vector
 	for (size_t m = 0; m < Mp_.getNrows(); m++){
 		for (size_t jCol = 0; jCol < d - 1; jCol++) {              // the last column is all 0, except the last element = 1.0
 			for (size_t iRow = jCol + 1; iRow < d; iRow++) {
@@ -1849,8 +1843,6 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		}
 		expandISvec_();
 		lnPupdate_();
-		//nuc_.phi2lnp(Phi_, lnP_);
-		//sortGrps_();
 	}
 	for (uint32_t b = 0; b < Nsample; b++) {
 		size_t parGrp = 0;
@@ -1860,23 +1852,13 @@ void WrapMMM::runSampler(const uint32_t &Nadapt, const uint32_t &Nsample, const 
 		}
 		expandISvec_();
 		lnPupdate_();
-		//nuc_.phi2lnp(Phi_, lnP_);
-		//sortGrps_();
 		if ( (b%Nthin) == 0) {
 			for (auto &t : vTheta_){
 				thetaChain.push_back(t);
 			}
-			/*
-			for (size_t iTht = 0; iTht < fLaInd_; iTht++) {
-				thetaChain.push_back(vTheta_[iTht]);
-			}
 			for (auto &p : vlnP_){
 				piChain.push_back( exp(p) );
 			}
-			for (size_t iSig = fLaInd_; iSig < vTheta_.size(); iSig++) {
-				isigChain.push_back(vTheta_[iSig]);
-			}
-			*/
 		}
 	}
 }
