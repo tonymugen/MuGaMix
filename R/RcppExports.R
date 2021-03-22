@@ -22,7 +22,7 @@ testSampler <- function(yVec, d, Ngrp, Nadapt, Nsamp) {
 #' @param nGroups number of groups
 #' @param alphaPr prior group size
 #' @param sigSqPr prior variance
-#' @param covRatio population to error covariance ratio
+#' @param covRatio among- to within-group covariance ratio
 #' @param nReps   number of model fit attempts before picking the best fit
 #' @return list containing group means (\code{groupMeans}), covariances (\code{covariances}), effective group sizes (\code{effNm}), group assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
 #'
@@ -41,7 +41,7 @@ vbFit <- function(yVec, d, nGroups, alphaPr, sigSqPr, covRatio, nReps) {
 #' @param nGroups  number of groups
 #' @param alphaPr  prior group size
 #' @param sigSqPr  prior variance
-#' @param covRatio population to error covariance ratio
+#' @param covRatio among- to within-group covariance ratio
 #' @param nReps    number of model fit attempts before picking the best fit
 #' @return list containing group means (\code{groupMeans}), covariances (\code{covariances}), effective group sizes (\code{effNm}), group assignment probabilities (\code{p}), and the deviance information criterion (DIC, \code{DIC}).
 #'

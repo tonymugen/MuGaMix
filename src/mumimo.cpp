@@ -1322,7 +1322,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	const double covRatio = 1.0;
 	const int nReps       = 10;      // try this many VB fits, pick the best among them
 	double dic            = 0.0;
-	const double sig0     = 1.0/tau0;
+	const double sig0     = 1.0;
 
 	vector<double> vGrpMn;
 	vector<double> vSm;
@@ -1333,18 +1333,16 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	vbModel.fitModel(lPost, dic);
 	for (int iRep = 1; iRep < nReps; iRep++) {
 		vector<double> vGrpMnLoc;
+		vector<double> rLoc;
 		vector<double> vSmLoc;
 		vector<double> NmLoc;
-		vector<double> rLoc;
 		vector<double> lPostLoc;
 		double dicLoc = 0.0;
 
 		GmmVB vbModel(&vY_, covRatio, sig0, alphaPr_, Ngrp, d, &vGrpMnLoc, &vSmLoc, &rLoc, &NmLoc);
 		vbModel.fitModel(lPostLoc, dicLoc);
-		if (dicLoc < dic) { // if we found a better DIC
+		if (dicLoc < dic) { // if we found a better DIC, save the important parameters
 			vGrpMn = vGrpMnLoc;
-			vSm    = vSmLoc;
-			Nm     = NmLoc;
 			r      = rLoc;
 			dic    = dicLoc;
 		}
@@ -1356,12 +1354,23 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	Mp_.colMeans(tmpMu);
 	memcpy( vTheta_.data() + grpDim, tmpMu.data(), d * sizeof(double) );
 	MatrixView mu(&vTheta_, Ngrp * d, 1, d);
+	MatrixView P(&r, 0, N, Ngrp);
 
-	// Make factorized inverse-covariances out of the fitted covariance values
-	vector<MatrixView> Sig;
+	// Make factorized inverse-covariances using group means and responsibilities
+	const double nInv = 1.0 / (static_cast<double>(N) - 1.0);
 	for (size_t m = 0; m < Ngrp; m++) {
-		Sig.push_back( MatrixView(&vSm, dSq * m, d, d) );
+		vector<double> vRsd(vY_);
+		MatrixView Rsd(&vRsd, 0, N, d);
+		for (size_t jCol = 0; jCol < d; jCol++) {
+			for (size_t iRow = 0; iRow < N; iRow++) {
+				Rsd.subtractFromElem( iRow, jCol, Mp_.getElem(m, jCol) );
+				Rsd.multiplyElem( iRow, jCol, P.getElem(iRow, m) );
+			}
+		}
+		MatrixView S(&vSm, m * dSq, d, d);                               // re-using the covariance vector from the VB fit
+		Rsd.syrk('l', nInv, 0.0, S);                                     // multiplying by 1/(N-1) gives the covariance in one shot
 	}
+	testRes = vSm;
 	vTheta_[(Ngrp + 1) * d]      = -0.6;
 	vTheta_[(Ngrp + 1) * d + 1]  =  0.6;
 	vTheta_[(Ngrp + 1) * d + 2]  = -0.2;
@@ -1388,7 +1397,6 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	}
 	expandISvec_();
 	lnPupdate_();
-	testRes = vlnP_;
 	models_.push_back( new MumiNR(&vY_, &vlnP_, d, Ngrp, tau0, nu0, invAsq) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.05) );
