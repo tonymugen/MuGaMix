@@ -9,8 +9,8 @@ testGradNR <- function(yVec, d, Ngrp, theta, lnP, ind, lowerLimit, upperLimit, i
     .Call(`_MuGaMix_testGradNR`, yVec, d, Ngrp, theta, lnP, ind, lowerLimit, upperLimit, incr)
 }
 
-testSampler <- function(yVec, d, Ngrp, Nadapt, Nsamp) {
-    .Call(`_MuGaMix_testSampler`, yVec, d, Ngrp, Nadapt, Nsamp)
+testSampler <- function(yVec, d, Ngrp, Nadapt, Nsamp, Nthin) {
+    .Call(`_MuGaMix_testSampler`, yVec, d, Ngrp, Nadapt, Nsamp, Nthin)
 }
 
 #' Variational Bayes model fit

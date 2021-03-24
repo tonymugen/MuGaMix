@@ -82,19 +82,18 @@ Rcpp::List testGradNR(const std::vector<double> &yVec, const int32_t &d, const i
 }
 
 //[[Rcpp::export(name="testSampler")]]
-Rcpp::List testSampler(const std::vector<double> &yVec, const int32_t &d, const int32_t &Ngrp, const int32_t &Nadapt, const int32_t &Nsamp){
+Rcpp::List testSampler(const std::vector<double> &yVec, const int32_t &d, const int32_t &Ngrp, const int32_t &Nadapt, const int32_t &Nsamp, const int32_t &Nthin){
 	const size_t pd    = static_cast<size_t>(d);
 	const size_t pNgrp = static_cast<size_t>(Ngrp);
-	std::vector<double> theta0;
 	std::vector<double> thetaChain;
 	std::vector<double> pChain;
 	try {
-		BayesicSpace::WrapMMM test(yVec, pd, Ngrp, 1e-3, 1e-5, 2.5, 1e-5, theta0);
-		test.runSampler(Nadapt, Nsamp, 1, thetaChain, pChain);
+		BayesicSpace::WrapMMM test(yVec, pd, Ngrp, 1e-3, 1e-5, 2.5, 1e-5);
+		test.runSampler(Nadapt, Nsamp, Nthin, thetaChain, pChain);
 	} catch(std::string problem) {
 		Rcpp::stop(problem);
 	}
-	return Rcpp::List::create(Rcpp::Named("theta0", theta0), Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("pChain", pChain));
+	return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("pChain", pChain));
 }
 
 //' Variational Bayes model fit
@@ -239,7 +238,7 @@ Rcpp::List vbFitMiss(std::vector<double> &yVec, const int32_t &d, const int32_t 
 //'
 //' @param yVec   vectorized data matrix
 //' @param d      number of traits
-//' @param Ngrp   number of populations
+//' @param Ngrp   number of groups
 //' @param Nadapt number of adaptation (burn-in) steps
 //' @param Nsamp  number of sampling steps
 //' @param Nthin  thinning number
@@ -256,7 +255,7 @@ Rcpp::List runSamplerNR(const std::vector<double> &yVec, const int32_t &d, const
 		Rcpp::stop("ERROR: number of traits implies a non-integer number of individuals in the data vector");
 	}
 	if (Ngrp <= 1) {
-		Rcpp::stop("ERROR: there must be at least two populations");
+		Rcpp::stop("ERROR: there must be at least two groups");
 	}
 	if (Nadapt < 0) {
 		Rcpp::stop("ERROR: Number of adaptation (burn-in) steps must be non-negative");
@@ -268,17 +267,16 @@ Rcpp::List runSamplerNR(const std::vector<double> &yVec, const int32_t &d, const
 		Rcpp::stop("ERROR: Number of chains must be positive");
 	}
 	std::vector<double> thetaChain; // location parameter chain
-	std::vector<double> iSigChain; // inverse-covariance chain
-	std::vector<double> piChain;    // population probability chain
+	std::vector<double> iSigChain;  // inverse-covariance chain
+	std::vector<double> piChain;    // group probability chain
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
 	const uint32_t Nt = static_cast<uint32_t>(Nthin);
 	const uint32_t Np = static_cast<uint32_t>(Ngrp);
 
-	std::vector<double> test; // TODO: remove after testing is done
 	try {
 		for (int32_t i = 0; i < Nchains; i++) {
-			BayesicSpace::WrapMMM modelObj(yVec, dd, Np, 1.2, 1e-8, 2.5, 1e-6, test);
+			BayesicSpace::WrapMMM modelObj(yVec, dd, Np, 1.2, 1e-8, 2.5, 1e-6);
 			//modelObj.runSampler(Na, Ns, Nt, thetaChain, iSigChain, piChain);
 		}
 		return Rcpp::List::create(Rcpp::Named("thetaChain", thetaChain), Rcpp::Named("piChain", piChain), Rcpp::Named("iSigChain", iSigChain));
@@ -293,7 +291,7 @@ Rcpp::List runSamplerNR(const std::vector<double> &yVec, const int32_t &d, const
 //'
 //' @param yVec vectorized data matrix
 //' @param lnFac factor relating data points to lines
-//' @param Ngrp number of populations
+//' @param Ngrp number of groups
 //' @param Nadapt number of adaptation (burn-in) steps
 //' @param Nsamp number of sampling steps
 //' @param Nthin thinning number
@@ -306,7 +304,7 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 		Rcpp::stop("ERROR: line factor length implies a non-integer number of traits in the data vector");
 	}
 	if (Ngrp <= 1) {
-		Rcpp::stop("ERROR: there must be at least two populations");
+		Rcpp::stop("ERROR: there must be at least two groups");
 	}
 	if (Nadapt < 0) {
 		Rcpp::stop("ERROR: Number of adaptation (burn-in) steps must be non-negative");
@@ -326,7 +324,7 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 	}
 	std::vector<double> thetaChain; // location parameter chain
 	std::vector<double> iSigChain; // inverse-covariance chain
-	std::vector<double> piChain;    // population probability chain
+	std::vector<double> piChain;    // group probability chain
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);
 	const uint32_t Ns = static_cast<uint32_t>(Nsamp);
 	const uint32_t Nt = static_cast<uint32_t>(Nthin);
@@ -352,7 +350,7 @@ Rcpp::List runSampler(const std::vector<double> &yVec, const std::vector<int32_t
 //' @param yVec vectorized data matrix
 //' @param lnFac factor relating data points to lines
 //' @param missIDs vectorized matrix (same dimensions as data) with 1 where a data point is missing and 0 otherwise
-//' @param Ngrp number of populations
+//' @param Ngrp number of groups
 //' @param Nadapt number of adaptation (burn-in) steps
 //' @param Nsamp number of sampling steps
 //' @param Nthin thinning number
@@ -365,7 +363,7 @@ Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int
 		Rcpp::stop("ERROR: line factor length implies a non-integer number of traits in the data vector");
 	}
 	if (Ngrp <= 1) {
-		Rcpp::stop("ERROR: there must be at least two populations");
+		Rcpp::stop("ERROR: there must be at least two groups");
 	}
 	if (Nadapt < 0) {
 		Rcpp::stop("ERROR: Number of adaptation (burn-in) steps must be non-negative");
@@ -384,8 +382,8 @@ Rcpp::List runSamplerMiss(const std::vector<double> &yVec, const std::vector<int
 		l1.push_back( static_cast<size_t>(lf-1) );
 	}
 	std::vector<double> thetaChain;  // location parameter chain
-	std::vector<double> iSigChain;  // inverse-covariance chain
-	std::vector<double> piChain;     // population probability chain
+	std::vector<double> iSigChain;   // inverse-covariance chain
+	std::vector<double> piChain;     // group probability chain
 	std::vector<double> yImpChain;   // imputed missing data chain
 
 	const uint32_t Na = static_cast<uint32_t>(Nadapt);

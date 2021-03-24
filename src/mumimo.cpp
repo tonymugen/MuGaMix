@@ -29,6 +29,7 @@
 
 #include <cstddef>
 #include <cstring>
+#include <math.h>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -1292,10 +1293,13 @@ void MumiISig::gradient(const vector<double> &viSig, vector<double> &grad) const
 
 const double WrapMMM::lnMaxDbl_ = log( numeric_limits<double>::max() );
 
-WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq, vector<double> &testRes) : vY_{vY}, alphaPr_{alphaPr} {
+WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq) : vY_{vY}, alphaPr_{alphaPr} {
 #ifndef PKG_DEBUG_OFF
 	if (vY_.size() % d) {
 		throw string("WrapMMM no-replication constructor ERROR: length of response vector (") + to_string( vY_.size() ) + string(") not divisible by number of traits (") + to_string(d) + string(")");
+	}
+	if (Ngrp < 2){
+		throw string("WrapMMM no-replication constructor ERROR: number of groups must be no smaller than 2");
 	}
 #endif
 	const size_t N        = vY_.size() / d;
@@ -1304,7 +1308,7 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	const size_t dd       = d * (d - 1) / 2;
 	// Establish indexes and matrix views
 	Y_ = MatrixView(&vY_, 0, N, d);
-	vTheta_.resize(Ngrp * d + d + Ngrp * d * (d + 1) / 2 + d, 0.0);
+	vTheta_.resize(grpDim + d + grpDim * (d + 1) / 2 + d, 0.0);
 	vLa_.resize(dSq * Ngrp, 0.0);
 	La_.resize(Ngrp);
 	size_t startLa = 0;
@@ -1335,14 +1339,15 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 		vector<double> vGrpMnLoc;
 		vector<double> rLoc;
 		vector<double> vSmLoc;
-		vector<double> NmLoc;
-		vector<double> lPostLoc;
 		double dicLoc = 0.0;
 
-		GmmVB vbModel(&vY_, covRatio, sig0, alphaPr_, Ngrp, d, &vGrpMnLoc, &vSmLoc, &rLoc, &NmLoc);
-		vbModel.fitModel(lPostLoc, dicLoc);
+		Nm.clear();
+		lPost.clear();
+		GmmVB vbModel(&vY_, covRatio, sig0, alphaPr_, Ngrp, d, &vGrpMnLoc, &vSmLoc, &rLoc, &Nm);
+		vbModel.fitModel(lPost, dicLoc);
 		if (dicLoc < dic) { // if we found a better DIC, save the important parameters
 			vGrpMn = vGrpMnLoc;
+			vSm    = vSmLoc;
 			r      = rLoc;
 			dic    = dicLoc;
 		}
@@ -1354,49 +1359,51 @@ WrapMMM::WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp
 	Mp_.colMeans(tmpMu);
 	memcpy( vTheta_.data() + grpDim, tmpMu.data(), d * sizeof(double) );
 	MatrixView mu(&vTheta_, Ngrp * d, 1, d);
-	MatrixView P(&r, 0, N, Ngrp);
 
-	// Make factorized inverse-covariances using group means and responsibilities
-	const double nInv = 1.0 / (static_cast<double>(N) - 1.0);
+	// Use the covariances from the VB fit to initialize L_A and T_A
+	size_t taInd = firstTaInd_;
 	for (size_t m = 0; m < Ngrp; m++) {
-		vector<double> vRsd(vY_);
-		MatrixView Rsd(&vRsd, 0, N, d);
-		for (size_t jCol = 0; jCol < d; jCol++) {
-			for (size_t iRow = 0; iRow < N; iRow++) {
-				Rsd.subtractFromElem( iRow, jCol, Mp_.getElem(m, jCol) );
-				Rsd.multiplyElem( iRow, jCol, P.getElem(iRow, m) );
-			}
+		MatrixView iS(&vSm, m * dSq, d, d);
+		try {
+			iS.chol();
+			iS.cholInv();
+		} catch(string problem) {
+			iS.pseudoInv();
 		}
-		MatrixView S(&vSm, m * dSq, d, d);                               // re-using the covariance vector from the VB fit
-		Rsd.syrk('l', nInv, 0.0, S);                                     // multiplying by 1/(N-1) gives the covariance in one shot
+		for (size_t k = 0; k < d; k++) {
+			vTheta_[taInd] = log( iS.getElem(k, k) );
+			taInd++;
+		}
 	}
-	testRes = vSm;
-	vTheta_[(Ngrp + 1) * d]      = -0.6;
-	vTheta_[(Ngrp + 1) * d + 1]  =  0.6;
-	vTheta_[(Ngrp + 1) * d + 2]  = -0.2;
-	vTheta_[(Ngrp + 1) * d + 3]  =  0.307;
-	vTheta_[(Ngrp + 1) * d + 4]  =  0.0;
-	vTheta_[(Ngrp + 1) * d + 5]  =  0.307;
-	vTheta_[(Ngrp + 1) * d + 6]  =  0.0;
-	vTheta_[(Ngrp + 1) * d + 7]  =  0.039;
-	vTheta_[(Ngrp + 1) * d + 8]  =  0.0;
-	vTheta_[(Ngrp + 1) * d + 9]  = -4.6;
-	vTheta_[(Ngrp + 1) * d + 10] = -4.6;
+	// Leave the L_A elements as zero for now; will add Gaussian noise later
+	//
+	// Initialize among-group log-precisions
+	vector<double> tG(d, 0.0);
+	for (size_t jCol = 0; jCol < d; jCol++) {
+		for (size_t iRow = 0; iRow < Ngrp; iRow++) {
+			const double diff = Mp_.getElem(iRow, jCol) - mu.getElem(0, jCol);
+			tG[jCol]         += diff * diff;
+		}
+	}
+	size_t tgInd  = firstLaInd_ + grpDim * (d - 1) / 2;
+	double lnNgrp = log( static_cast<double>(Ngrp - 1) );
+	for (auto &ti : tG){
+		vTheta_[tgInd] = lnNgrp - log(ti);
+	}
 
-	vlnP_ = vector<double>(N * Ngrp, 0.0);
-	lnP_  = MatrixView(&vlnP_, 0, N, Ngrp);
-	const size_t grpSize = N / Ngrp;
-	for (size_t m = 0; m < Ngrp; m++) {
-		for (size_t iRow = 0; iRow < N; iRow++) {
-			if ( (iRow >= m * grpSize) && (iRow <= (m + 1) * grpSize) ){
-				lnP_.setElem( iRow, m, log(0.999) );
-			} else {
-				lnP_.setElem( iRow, m, log( 0.001 / static_cast<double>(Ngrp - 1) ) );
-			}
+	// Add some Gaussian noise to starting values
+	for (auto &tht : vTheta_){
+		tht += 0.1 * rng_.rnorm();
+	}
+	// Finally, transfer responsibilities, log-transforming them
+	for (auto &eachR : r){
+		if ( eachR <= numeric_limits<double>::min() ){
+			vlnP_.push_back(-lnMaxDbl_);
+		} else {
+			vlnP_.push_back( log(eachR) );
 		}
 	}
 	expandISvec_();
-	lnPupdate_();
 	models_.push_back( new MumiNR(&vY_, &vlnP_, d, Ngrp, tau0, nu0, invAsq) );
 	samplers_.push_back( new SamplerNUTS(models_[0], &vTheta_) );
 	//samplers_.push_back( new SamplerMetro(models_[0], &vTheta_, 0.05) );
@@ -1791,87 +1798,6 @@ void WrapMMM::expandISvec_() {
 				La_[m].setElem(iRow, jCol, vTheta_[aInd]);
 				aInd++;
 			}
-		}
-	}
-}
-
-
-double WrapMMM::rowDistance_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2) {
-#ifndef PKG_DEBUG_OFF
-	if ( m1.getNcols() != m2.getNcols() ) {
-		throw string("ERROR: m1 and m2 matrices must have the same number of columns in WrapMMM::rowDist_()");
-	}
-	if ( row1+1 > m1.getNrows() ) {
-		throw string("ERROR: row1  index out of bounds in WrapMMM::rowDist_()");
-	}
-	if ( row2+1 > m2.getNrows() ) {
-		throw string("ERROR: row2  index out of bounds in WrapMMM::rowDist_()");
-	}
-#endif
-	double dist = 0.0;
-	for (size_t jCol = 0; jCol < m1.getNcols(); jCol++) {
-		double diff = m1.getElem(row1, jCol) - m2.getElem(row2, jCol);
-		dist += diff * diff;
-	}
-	return sqrt(dist);
-}
-
-void WrapMMM::kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M) {
-#ifndef PKG_DEBUG_OFF
-	if (M.getNrows() != Kclust) {
-		throw string("ERROR: Matrix of means must have one row per cluster in WrapMMM::kMeans_()");
-	}
-	if ( X.getNcols() != M.getNcols() ) {
-		throw string("ERROR: Matrix of observations must have the same number of columns as the matrix of means in WrapMMM::kMeans_()");
-	}
-	if ( M.getNrows() != x2m.groupNumber() ) {
-		throw string("ERROR: observation to cluster index must be the same number of groups as the number of groups in WrapMMM::kMeans_()");
-	}
-#endif
-	// initialize M with a random pick of X rows (the MacQueen 1967 method)
-	size_t curXind = 0;
-	size_t curMind = 0;
-	double N       = static_cast<double>( X.getNrows() ); // # of remaining rows
-	double n       = static_cast<double>(Kclust);         // # of clusters to be picked
-	while( curMind < M.getNrows() ){
-		curXind += rng_.vitter(n, N);
-		for (size_t jCol = 0; jCol < X.getNcols(); jCol++) {
-			M.setElem( curMind, jCol, X.getElem(curXind, jCol) );
-		}
-		n = n - 1.0;
-		N = N - static_cast<double>(curXind) + 1.0;
-		curMind++;
-	}
-	// Iterate the k-means algorithm
-	vector<size_t> sPrevious;             // previous cluster assignment vector
-	vector<size_t> sNew(X.getNrows(), 0); // new cluster assignment vector
-	for (uint32_t i = 0; i < maxIt; i++) {
-		// save the previous S vector
-		sPrevious = sNew;
-		// assign cluster IDs according to minimal distance
-		for (size_t iRow = 0; iRow < X.getNrows(); iRow++) {
-			sNew[iRow]  = 0;
-			double dist = rowDistance_(X, iRow, M, 0);
-			for (size_t iCl = 1; iCl < M.getNrows(); iCl++) {
-				double curDist = rowDistance_(X, iRow, M, iCl);
-				if (dist > curDist) {
-					sNew[iRow] = iCl;
-					dist       = curDist;
-				}
-			}
-		}
-		x2m.update(sNew);
-		// recalculate cluster means
-		X.colMeans(x2m, M);
-		// calculate the magnitude of cluster assignment change
-		double nDiff = 0.0;
-		for (size_t i = 0; i < sNew.size(); i++) {
-			if (sNew[i] != sPrevious[i] ) {
-				nDiff++;
-			}
-		}
-		if ( ( nDiff / static_cast<double>( X.getNrows() ) ) <= 0.1 ) { // fewer than 10% of assignments changed
-			break;
 		}
 	}
 }

@@ -423,7 +423,7 @@ namespace BayesicSpace {
 		 * \param[in] nu0 prior degrees of freedom for precision matrices
 		 * \param[in] invAsq prior inverse variance for precision matrices
 		 */
-		WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq, vector<double> &testRes);
+		WrapMMM(const vector<double> &vY, const size_t &d, const uint32_t &Ngrp, const double &alphaPr, const double &tau0, const double &nu0, const double &invAsq);
 		/** \brief Constructor for a one-level hierarchical model
 		 *
 		 * Establishes the initial parameter values and the sampler kind. Input to the factor vector must be non-negative. This should be checked in the calling function.
@@ -560,26 +560,6 @@ namespace BayesicSpace {
 		 *
 		 */
 		void expandISvec_();
-		/** \brief Euclidean distance between matrix rows
-		 *
-		 * \param[in] m1 first matrix
-		 * \param[in] row1 index of the first matrix row
-		 * \param[in] m2 second matrix
-		 * \param[in] row2 index of the second matrix row
-		 * \return euclidean distance between the rows
-		 */
-		double rowDistance_(const MatrixView &m1, const size_t &row1, const MatrixView &m2, const size_t &row2);
-		/** \brief K-means clustering
-		 *
-		 * Performs k-means clustering on a matrix of values. Each row of the input matrix is an item with observed values in columns.
-		 *
-		 * \param[in] X matrix of observations to be clustered
-		 * \param[in] Kclust number of clusters
-		 * \param[in] maxIt maximum number of iterations
-		 * \param[out] x2m `Index` relating clusters to values
-		 * \param[out] M matrix of cluster means (clusters in rows)
-		 */
-		void kMeans_(const MatrixView &X, const size_t &Kclust, const uint32_t &maxIt, Index &x2m, MatrixView &M);
 	};
 }
 #endif /* lme_hpp */

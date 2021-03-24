@@ -44,8 +44,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // testSampler
-Rcpp::List testSampler(const std::vector<double>& yVec, const int32_t& d, const int32_t& Ngrp, const int32_t& Nadapt, const int32_t& Nsamp);
-RcppExport SEXP _MuGaMix_testSampler(SEXP yVecSEXP, SEXP dSEXP, SEXP NgrpSEXP, SEXP NadaptSEXP, SEXP NsampSEXP) {
+Rcpp::List testSampler(const std::vector<double>& yVec, const int32_t& d, const int32_t& Ngrp, const int32_t& Nadapt, const int32_t& Nsamp, const int32_t& Nthin);
+RcppExport SEXP _MuGaMix_testSampler(SEXP yVecSEXP, SEXP dSEXP, SEXP NgrpSEXP, SEXP NadaptSEXP, SEXP NsampSEXP, SEXP NthinSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -54,7 +54,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const int32_t& >::type Ngrp(NgrpSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nadapt(NadaptSEXP);
     Rcpp::traits::input_parameter< const int32_t& >::type Nsamp(NsampSEXP);
-    rcpp_result_gen = Rcpp::wrap(testSampler(yVec, d, Ngrp, Nadapt, Nsamp));
+    Rcpp::traits::input_parameter< const int32_t& >::type Nthin(NthinSEXP);
+    rcpp_result_gen = Rcpp::wrap(testSampler(yVec, d, Ngrp, Nadapt, Nsamp, Nthin));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -148,7 +149,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_MuGaMix_testLpostNR", (DL_FUNC) &_MuGaMix_testLpostNR, 9},
     {"_MuGaMix_testGradNR", (DL_FUNC) &_MuGaMix_testGradNR, 9},
-    {"_MuGaMix_testSampler", (DL_FUNC) &_MuGaMix_testSampler, 5},
+    {"_MuGaMix_testSampler", (DL_FUNC) &_MuGaMix_testSampler, 6},
     {"_MuGaMix_vbFit", (DL_FUNC) &_MuGaMix_vbFit, 7},
     {"_MuGaMix_vbFitMiss", (DL_FUNC) &_MuGaMix_vbFitMiss, 7},
     {"_MuGaMix_runSamplerNR", (DL_FUNC) &_MuGaMix_runSamplerNR, 7},
