@@ -27,8 +27,6 @@
  *
  */
 
-#include <bits/stdint-intn.h>
-#include <cstddef>
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -37,7 +35,6 @@
 
 #include <Rcpp.h>
 
-#include "Rcpp/Named.h"
 #include "bayesicUtilities/index.hpp"
 #include "mumimo.hpp"
 #include "gmmvb.hpp"
