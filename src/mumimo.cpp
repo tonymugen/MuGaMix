@@ -53,6 +53,7 @@ using std::string;
 using std::to_string;
 using std::numeric_limits;
 using std::isnan;
+using std::move;
 using namespace BayesicSpace;
 
 // MumiNR methods
