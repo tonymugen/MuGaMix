@@ -38,7 +38,6 @@
 
 using std::vector;
 using std::string;
-using std::move;
 
 namespace BayesicSpace {
 	// Forward declarations
