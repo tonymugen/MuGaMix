@@ -5,6 +5,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // testLpostNR
 Rcpp::List testLpostNR(const std::vector<double>& yVec, const int32_t& d, const int32_t& Ngrp, std::vector<double>& theta, const std::vector<double>& lnP, const int32_t& ind, const double& lowerLimit, const double& upperLimit, const double& incr);
 RcppExport SEXP _MuGaMix_testLpostNR(SEXP yVecSEXP, SEXP dSEXP, SEXP NgrpSEXP, SEXP thetaSEXP, SEXP lnPSEXP, SEXP indSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP incrSEXP) {

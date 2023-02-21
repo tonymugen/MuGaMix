@@ -26,16 +26,15 @@
  * Class definition and interface documentation for variational Bayes inference of Gaussian mixture models.
  *
  */
-#ifndef gmmvb_hpp
-#define gmmvb_hpp
+#pragma once
 
 #include <cstddef>
 #include <vector>
 
 #include "bayesicMatrix/matrixView.hpp"
-#include "bayesicUtilities/utilities.hpp"
-#include "bayesicUtilities/random.hpp"
-#include "bayesicUtilities/index.hpp"
+#include "bayesicUtilities/include/utilities.hpp"
+#include "bayesicUtilities/include/random.hpp"
+#include "bayesicUtilities/include/index.hpp"
 
 using std::vector;
 
@@ -269,4 +268,3 @@ namespace BayesicSpace {
 	};
 }
 
-#endif /* gmmvb_hpp */

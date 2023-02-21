@@ -26,16 +26,15 @@
  * Class definition and interface documentation to generate Markov chains for inference of Gaussian mixture models. Dual-averaging NUTS and Metropolis samplers for parameters groups are included within a Gibbs sampler.
  *
  */
-#ifndef lme_hpp
-#define lme_hpp
+#pragma once
 
 #include <vector>
 #include <cmath>
 #include <map>
 
-#include "bayesicUtilities/index.hpp"
-#include "bayesicUtilities/random.hpp"
-#include "bayesicUtilities/utilities.hpp"
+#include "bayesicUtilities/include/index.hpp"
+#include "bayesicUtilities/include/random.hpp"
+#include "bayesicUtilities/include/utilities.hpp"
 #include "bayesicMatrix/matrixView.hpp"
 #include "bayesicSamplers/model.hpp"
 #include "bayesicSamplers/sampler.hpp"
@@ -562,5 +561,4 @@ namespace BayesicSpace {
 		void expandISvec_();
 	};
 }
-#endif /* lme_hpp */
 

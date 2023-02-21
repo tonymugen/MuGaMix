@@ -57,7 +57,7 @@ vbFitMiss <- function(yVec, d, nGroups, alphaPr, sigSqPr, covRatio, nReps) {
 #'
 #' @param yVec   vectorized data matrix
 #' @param d      number of traits
-#' @param Ngrp   number of populations
+#' @param Ngrp   number of groups
 #' @param Nadapt number of adaptation (burn-in) steps
 #' @param Nsamp  number of sampling steps
 #' @param Nthin  thinning number
@@ -74,7 +74,7 @@ runSamplerNR <- function(yVec, d, Ngrp, Nadapt, Nsamp, Nthin, Nchains) {
 #'
 #' @param yVec vectorized data matrix
 #' @param lnFac factor relating data points to lines
-#' @param Ngrp number of populations
+#' @param Ngrp number of groups
 #' @param Nadapt number of adaptation (burn-in) steps
 #' @param Nsamp number of sampling steps
 #' @param Nthin thinning number
@@ -93,7 +93,7 @@ runSampler <- function(yVec, lnFac, Ngrp, Nadapt, Nsamp, Nthin, Nchains) {
 #' @param yVec vectorized data matrix
 #' @param lnFac factor relating data points to lines
 #' @param missIDs vectorized matrix (same dimensions as data) with 1 where a data point is missing and 0 otherwise
-#' @param Ngrp number of populations
+#' @param Ngrp number of groups
 #' @param Nadapt number of adaptation (burn-in) steps
 #' @param Nsamp number of sampling steps
 #' @param Nthin thinning number

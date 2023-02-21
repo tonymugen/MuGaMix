@@ -37,8 +37,8 @@
 
 #include "mumimo.hpp"
 #include "gmmvb.hpp"
-#include "bayesicUtilities/index.hpp"
-#include "bayesicUtilities/random.hpp"
+#include "bayesicUtilities/include/index.hpp"
+#include "bayesicUtilities/include/random.hpp"
 #include "bayesicMatrix/matrixView.hpp"
 #include "bayesicSamplers/danuts.hpp"
 #include "bayesicSamplers/metropolis.hpp"
@@ -48,7 +48,6 @@ using std::string;
 using std::to_string;
 using std::numeric_limits;
 using std::isnan;
-using std::move;
 using namespace BayesicSpace;
 
 // MumiNR methods
@@ -99,15 +98,15 @@ MumiNR::MumiNR(const vector<double> *yVec, const vector<double> *lnpVec, const s
 MumiNR::MumiNR(MumiNR &&in) {
 	if (this != &in) {
 		yVec_   = in.yVec_;
-		Y_      = move(in.Y_);
-		lnP_    = move(in.lnP_);
+		Y_      = std::move(in.Y_);
+		lnP_    = std::move(in.lnP_);
 		tau0_   = in.tau0_;
 		nu0_    = in.nu0_;
 		invAsq_ = in.invAsq_;
-		La_     = move(in.La_);
-		vLa_    = move(in.vLa_);
-		LaInd_  = move(in.LaInd_);
-		TaInd_  = move(in.TaInd_);
+		La_     = std::move(in.La_);
+		vLa_    = std::move(in.vLa_);
+		LaInd_  = std::move(in.LaInd_);
+		TaInd_  = std::move(in.TaInd_);
 		TgInd_  = in.TgInd_;
 		NAnd_   = in.NAnd_;
 		NGnd_   = in.NGnd_;
@@ -119,15 +118,15 @@ MumiNR::MumiNR(MumiNR &&in) {
 MumiNR& MumiNR::operator=(MumiNR &&in) {
 	if (this != &in) {
 		yVec_   = in.yVec_;
-		Y_      = move(in.Y_);
-		lnP_    = move(in.lnP_);
+		Y_      = std::move(in.Y_);
+		lnP_    = std::move(in.lnP_);
 		tau0_   = in.tau0_;
 		nu0_    = in.nu0_;
 		invAsq_ = in.invAsq_;
-		La_     = move(in.La_);
-		vLa_    = move(in.vLa_);
-		LaInd_  = move(in.LaInd_);
-		TaInd_  = move(in.TaInd_);
+		La_     = std::move(in.La_);
+		vLa_    = std::move(in.vLa_);
+		LaInd_  = std::move(in.LaInd_);
+		TaInd_  = std::move(in.TaInd_);
 		TgInd_  = in.TgInd_;
 		NAnd_   = in.NAnd_;
 		NGnd_   = in.NGnd_;
@@ -525,12 +524,12 @@ MumiLoc::MumiLoc(const vector<double> *yVec, const vector<double> *iSigVec, cons
 
 MumiLoc::MumiLoc(MumiLoc &&in) {
 	if (this != &in) {
-		Y_         = move(in.Y_);
+		Y_         = std::move(in.Y_);
 		tau0_      = in.tau0_;
 		hierInd_   = in.hierInd_;
-		Le_        = move(in.Le_);
-		La_        = move(in.La_);
-		vLx_       = move(in.vLx_);
+		Le_        = std::move(in.Le_);
+		La_        = std::move(in.La_);
+		vLx_       = std::move(in.vLx_);
 		fTeInd_    = in.fTeInd_;
 		fLaInd_    = in.fLaInd_;
 		fTaInd_    = in.fTaInd_;
@@ -545,12 +544,12 @@ MumiLoc::MumiLoc(MumiLoc &&in) {
 
 MumiLoc& MumiLoc::operator=(MumiLoc &&in) {
 	if (this != &in) {
-		Y_         = move(in.Y_);
+		Y_         = std::move(in.Y_);
 		tau0_      = in.tau0_;
 		hierInd_   = in.hierInd_;
-		Le_        = move(in.Le_);
-		La_        = move(in.La_);
-		vLx_       = move(in.vLx_);
+		Le_        = std::move(in.Le_);
+		La_        = std::move(in.La_);
+		vLx_       = std::move(in.vLx_);
 		fTeInd_    = in.fTeInd_;
 		fLaInd_    = in.fLaInd_;
 		fTaInd_    = in.fTaInd_;
@@ -941,13 +940,13 @@ MumiISig::MumiISig(MumiISig &&in) {
 		hierInd_ = in.hierInd_;
 		nu0_     = in.nu0_;
 		invAsq_  = in.invAsq_;
-		Y_       = move(in.Y_);
-		A_       = move(in.A_);
-		B_       = move(in.B_);
-		Mp_      = move(in.Mp_);
-		mu_      = move(in.mu_);
-		Phi_     = move(in.Phi_);
-		vLx_     = move(in.vLx_);
+		Y_       = std::move(in.Y_);
+		A_       = std::move(in.A_);
+		B_       = std::move(in.B_);
+		Mp_      = std::move(in.Mp_);
+		mu_      = std::move(in.mu_);
+		Phi_     = std::move(in.Phi_);
+		vLx_     = std::move(in.vLx_);
 		Le_      = MatrixView( &vLx_, 0, Y_.getNcols(), Y_.getNcols() );
 		La_      = MatrixView( &vLx_, Y_.getNcols() * Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
 		fTeInd_  = in.fTeInd_;
@@ -967,13 +966,13 @@ MumiISig& MumiISig::operator=(MumiISig &&in) {
 		hierInd_ = in.hierInd_;
 		nu0_     = in.nu0_;
 		invAsq_  = in.invAsq_;
-		Y_       = move(in.Y_);
-		A_       = move(in.A_);
-		B_       = move(in.B_);
-		Mp_      = move(in.Mp_);
-		mu_      = move(in.mu_);
-		Phi_     = move(in.Phi_);
-		vLx_     = move(in.vLx_);
+		Y_       = std::move(in.Y_);
+		A_       = std::move(in.A_);
+		B_       = std::move(in.B_);
+		Mp_      = std::move(in.Mp_);
+		mu_      = std::move(in.mu_);
+		Phi_     = std::move(in.Phi_);
+		vLx_     = std::move(in.vLx_);
 		Le_      = MatrixView( &vLx_, 0, Y_.getNcols(), Y_.getNcols() );
 		La_      = MatrixView( &vLx_, Y_.getNcols() * Y_.getNcols(), Y_.getNcols(), Y_.getNcols() );
 		fTeInd_  = in.fTeInd_;
@@ -1586,8 +1585,7 @@ void WrapMMM::lnPupdate_() {
 	for (auto &a : alpha){
 		a += alphaPr_;
 	}
-	vector<double> phi(Ngrp, 0.0);
-	rng_.rdirichlet(alpha, phi);
+	vector<double> phi{rng_.rdirichlet(alpha)};
 	// set up the matrix of group kernels
 	vector<double> vKappa(N * Ngrp, 0.0);
 	MatrixView Kappa( &vKappa, 0, N, Ngrp );
